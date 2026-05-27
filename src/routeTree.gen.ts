@@ -14,7 +14,12 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_authenticated/onboarding/specialty'
+import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
+import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
 
 const SplashRoute = SplashRouteImport.update({
   id: '/splash',
@@ -41,11 +46,38 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOnboardingSpecialtyRoute =
+  AuthenticatedOnboardingSpecialtyRouteImport.update({
+    id: '/onboarding/specialty',
+    path: '/onboarding/specialty',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOnboardingRoleRoute =
+  AuthenticatedOnboardingRoleRouteImport.update({
+    id: '/onboarding/role',
+    path: '/onboarding/role',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedOnboardingClientRoute =
+  AuthenticatedOnboardingClientRouteImport.update({
+    id: '/onboarding/client',
+    path: '/onboarding/client',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +86,10 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
+  '/app': typeof AuthenticatedAppRoute
+  '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
+  '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
+  '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,15 +98,24 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
+  '/app': typeof AuthenticatedAppRoute
+  '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
+  '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
+  '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
+  '/_authenticated/app': typeof AuthenticatedAppRoute
+  '/_authenticated/onboarding/client': typeof AuthenticatedOnboardingClientRoute
+  '/_authenticated/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
+  '/_authenticated/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +126,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
+    | '/app'
+    | '/onboarding/client'
+    | '/onboarding/role'
+    | '/onboarding/specialty'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,18 +138,28 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
+    | '/app'
+    | '/onboarding/client'
+    | '/onboarding/role'
+    | '/onboarding/specialty'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
     | '/signup'
     | '/splash'
+    | '/_authenticated/app'
+    | '/_authenticated/onboarding/client'
+    | '/_authenticated/onboarding/role'
+    | '/_authenticated/onboarding/specialty'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -145,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -152,11 +218,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/app': {
+      id: '/_authenticated/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AuthenticatedAppRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding/specialty': {
+      id: '/_authenticated/onboarding/specialty'
+      path: '/onboarding/specialty'
+      fullPath: '/onboarding/specialty'
+      preLoaderRoute: typeof AuthenticatedOnboardingSpecialtyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding/role': {
+      id: '/_authenticated/onboarding/role'
+      path: '/onboarding/role'
+      fullPath: '/onboarding/role'
+      preLoaderRoute: typeof AuthenticatedOnboardingRoleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding/client': {
+      id: '/_authenticated/onboarding/client'
+      path: '/onboarding/client'
+      fullPath: '/onboarding/client'
+      preLoaderRoute: typeof AuthenticatedOnboardingClientRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedAppRoute: typeof AuthenticatedAppRoute
+  AuthenticatedOnboardingClientRoute: typeof AuthenticatedOnboardingClientRoute
+  AuthenticatedOnboardingRoleRoute: typeof AuthenticatedOnboardingRoleRoute
+  AuthenticatedOnboardingSpecialtyRoute: typeof AuthenticatedOnboardingSpecialtyRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAppRoute: AuthenticatedAppRoute,
+  AuthenticatedOnboardingClientRoute: AuthenticatedOnboardingClientRoute,
+  AuthenticatedOnboardingRoleRoute: AuthenticatedOnboardingRoleRoute,
+  AuthenticatedOnboardingSpecialtyRoute: AuthenticatedOnboardingSpecialtyRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
