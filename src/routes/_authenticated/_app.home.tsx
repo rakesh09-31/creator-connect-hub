@@ -50,36 +50,53 @@ function HomePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      {/* Role banner */}
-      <div className={`rounded-2xl p-5 text-white shadow-lg ${isCreator
-        ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600"
-        : "bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600"}`}>
-        <div className="flex items-center justify-between">
+      {/* Hero banner */}
+      <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-2xl ${isCreator
+        ? "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500"
+        : "bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-pink-500"}`}>
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/20 rounded-full blur-2xl" />
+        <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-yellow-300/30 rounded-full blur-2xl" />
+        <div className="relative flex items-center justify-between">
           <div>
-            <p className="text-sm opacity-90">Welcome back,</p>
-            <h2 className="text-2xl font-bold">{profile?.full_name || profile?.username}</h2>
+            <p className="text-sm opacity-90 font-medium">✨ Welcome back,</p>
+            <h2 className="text-3xl font-black tracking-tight drop-shadow">{profile?.full_name || profile?.username}</h2>
+            <p className="text-sm opacity-90 mt-1">{isCreator ? "Share your craft with the world" : "Find your perfect creator"}</p>
           </div>
           <Link
             to={isCreator ? "/create" : "/jobs"}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-xl px-4 py-2 font-semibold flex items-center gap-2"
+            className="bg-white text-gray-900 hover:scale-105 transition-transform rounded-2xl px-5 py-3 font-bold flex items-center gap-2 shadow-lg"
           >
-            {isCreator ? <><Plus className="w-4 h-4" /> Post</> : <><Briefcase className="w-4 h-4" /> Post Project</>}
+            {isCreator ? <><Plus className="w-5 h-5" /> Post</> : <><Briefcase className="w-5 h-5" /> Hire</>}
           </Link>
         </div>
       </div>
 
       {/* Stories strip */}
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1.5">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 p-0.5">
-              <div className="w-full h-full rounded-full bg-white p-0.5">
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-200 to-gray-300" />
+        {["Trending", "Design", "Music", "Video", "Photo", "Dance", "Code", "Art"].map((label, i) => {
+          const grads = [
+            "from-pink-500 to-orange-400",
+            "from-violet-500 to-fuchsia-500",
+            "from-cyan-500 to-blue-500",
+            "from-emerald-500 to-teal-500",
+            "from-amber-400 to-rose-500",
+            "from-indigo-500 to-purple-500",
+            "from-lime-400 to-emerald-500",
+            "from-rose-500 to-red-500",
+          ];
+          return (
+            <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1.5">
+              <div className={`w-16 h-16 rounded-full bg-gradient-to-tr ${grads[i]} p-0.5 hover:scale-110 transition-transform`}>
+                <div className="w-full h-full rounded-full bg-white p-0.5">
+                  <div className={`w-full h-full rounded-full bg-gradient-to-br ${grads[i]} flex items-center justify-center text-white font-bold text-lg`}>
+                    {label[0]}
+                  </div>
+                </div>
               </div>
+              <span className="text-xs text-gray-700 max-w-[64px] truncate font-medium">{label}</span>
             </div>
-            <span className="text-xs text-gray-700 max-w-[64px] truncate">user{i + 1}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Feed */}
