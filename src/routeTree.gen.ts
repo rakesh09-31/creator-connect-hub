@@ -16,7 +16,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_authenticated/onboarding/specialty'
 import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
 import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
@@ -55,11 +54,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedOnboardingSpecialtyRoute =
   AuthenticatedOnboardingSpecialtyRouteImport.update({
     id: '/onboarding/specialty',
@@ -86,7 +80,6 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
-  '/app': typeof AuthenticatedAppRoute
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
@@ -98,7 +91,6 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
-  '/app': typeof AuthenticatedAppRoute
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
@@ -112,7 +104,6 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
-  '/_authenticated/app': typeof AuthenticatedAppRoute
   '/_authenticated/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/_authenticated/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/_authenticated/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
@@ -126,7 +117,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
-    | '/app'
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
@@ -138,7 +128,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
-    | '/app'
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
@@ -151,7 +140,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
-    | '/_authenticated/app'
     | '/_authenticated/onboarding/client'
     | '/_authenticated/onboarding/role'
     | '/_authenticated/onboarding/specialty'
@@ -218,13 +206,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/app': {
-      id: '/_authenticated/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AuthenticatedAppRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/onboarding/specialty': {
       id: '/_authenticated/onboarding/specialty'
       path: '/onboarding/specialty'
@@ -250,14 +231,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAppRoute: typeof AuthenticatedAppRoute
   AuthenticatedOnboardingClientRoute: typeof AuthenticatedOnboardingClientRoute
   AuthenticatedOnboardingRoleRoute: typeof AuthenticatedOnboardingRoleRoute
   AuthenticatedOnboardingSpecialtyRoute: typeof AuthenticatedOnboardingSpecialtyRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAppRoute: AuthenticatedAppRoute,
   AuthenticatedOnboardingClientRoute: AuthenticatedOnboardingClientRoute,
   AuthenticatedOnboardingRoleRoute: AuthenticatedOnboardingRoleRoute,
   AuthenticatedOnboardingSpecialtyRoute: AuthenticatedOnboardingSpecialtyRoute,
