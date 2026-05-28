@@ -16,10 +16,18 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/_app'
 import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_authenticated/onboarding/specialty'
 import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
 import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
+import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app.profile'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app.notifications'
+import { Route as AuthenticatedAppMessagesRouteImport } from './routes/_authenticated/_app.messages'
+import { Route as AuthenticatedAppJobsRouteImport } from './routes/_authenticated/_app.jobs'
+import { Route as AuthenticatedAppHomeRouteImport } from './routes/_authenticated/_app.home'
+import { Route as AuthenticatedAppExploreRouteImport } from './routes/_authenticated/_app.explore'
+import { Route as AuthenticatedAppCreateRouteImport } from './routes/_authenticated/_app.create'
+import { Route as AuthenticatedAppUserUsernameRouteImport } from './routes/_authenticated/_app.user.$username'
 
 const SplashRoute = SplashRouteImport.update({
   id: '/splash',
@@ -56,8 +64,7 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
-  id: '/app',
-  path: '/app',
+  id: '/_app',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedOnboardingSpecialtyRoute =
@@ -78,6 +85,49 @@ const AuthenticatedOnboardingClientRoute =
     path: '/onboarding/client',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppMessagesRoute =
+  AuthenticatedAppMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppJobsRoute = AuthenticatedAppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppHomeRoute = AuthenticatedAppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppExploreRoute = AuthenticatedAppExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppCreateRoute = AuthenticatedAppCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppUserUsernameRoute =
+  AuthenticatedAppUserUsernameRouteImport.update({
+    id: '/user/$username',
+    path: '/user/$username',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -86,10 +136,17 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
-  '/app': typeof AuthenticatedAppRoute
+  '/create': typeof AuthenticatedAppCreateRoute
+  '/explore': typeof AuthenticatedAppExploreRoute
+  '/home': typeof AuthenticatedAppHomeRoute
+  '/jobs': typeof AuthenticatedAppJobsRoute
+  '/messages': typeof AuthenticatedAppMessagesRoute
+  '/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/profile': typeof AuthenticatedAppProfileRoute
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -98,10 +155,17 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
-  '/app': typeof AuthenticatedAppRoute
+  '/create': typeof AuthenticatedAppCreateRoute
+  '/explore': typeof AuthenticatedAppExploreRoute
+  '/home': typeof AuthenticatedAppHomeRoute
+  '/jobs': typeof AuthenticatedAppJobsRoute
+  '/messages': typeof AuthenticatedAppMessagesRoute
+  '/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/profile': typeof AuthenticatedAppProfileRoute
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -112,10 +176,18 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/splash': typeof SplashRoute
-  '/_authenticated/app': typeof AuthenticatedAppRoute
+  '/_authenticated/_app': typeof AuthenticatedAppRouteWithChildren
+  '/_authenticated/_app/create': typeof AuthenticatedAppCreateRoute
+  '/_authenticated/_app/explore': typeof AuthenticatedAppExploreRoute
+  '/_authenticated/_app/home': typeof AuthenticatedAppHomeRoute
+  '/_authenticated/_app/jobs': typeof AuthenticatedAppJobsRoute
+  '/_authenticated/_app/messages': typeof AuthenticatedAppMessagesRoute
+  '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/_authenticated/_app/profile': typeof AuthenticatedAppProfileRoute
   '/_authenticated/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/_authenticated/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/_authenticated/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/_authenticated/_app/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -126,10 +198,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
-    | '/app'
+    | '/create'
+    | '/explore'
+    | '/home'
+    | '/jobs'
+    | '/messages'
+    | '/notifications'
+    | '/profile'
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
+    | '/user/$username'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -138,10 +217,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
-    | '/app'
+    | '/create'
+    | '/explore'
+    | '/home'
+    | '/jobs'
+    | '/messages'
+    | '/notifications'
+    | '/profile'
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
+    | '/user/$username'
   id:
     | '__root__'
     | '/'
@@ -151,10 +237,18 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/splash'
-    | '/_authenticated/app'
+    | '/_authenticated/_app'
+    | '/_authenticated/_app/create'
+    | '/_authenticated/_app/explore'
+    | '/_authenticated/_app/home'
+    | '/_authenticated/_app/jobs'
+    | '/_authenticated/_app/messages'
+    | '/_authenticated/_app/notifications'
+    | '/_authenticated/_app/profile'
     | '/_authenticated/onboarding/client'
     | '/_authenticated/onboarding/role'
     | '/_authenticated/onboarding/specialty'
+    | '/_authenticated/_app/user/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -218,10 +312,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/app': {
-      id: '/_authenticated/app'
-      path: '/app'
-      fullPath: '/app'
+    '/_authenticated/_app': {
+      id: '/_authenticated/_app'
+      path: ''
+      fullPath: '/'
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
@@ -246,18 +340,99 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOnboardingClientRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/_app/profile': {
+      id: '/_authenticated/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedAppProfileRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/notifications': {
+      id: '/_authenticated/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/messages': {
+      id: '/_authenticated/_app/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof AuthenticatedAppMessagesRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/jobs': {
+      id: '/_authenticated/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AuthenticatedAppJobsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/home': {
+      id: '/_authenticated/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedAppHomeRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/explore': {
+      id: '/_authenticated/_app/explore'
+      path: '/explore'
+      fullPath: '/explore'
+      preLoaderRoute: typeof AuthenticatedAppExploreRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/create': {
+      id: '/_authenticated/_app/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof AuthenticatedAppCreateRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/user/$username': {
+      id: '/_authenticated/_app/user/$username'
+      path: '/user/$username'
+      fullPath: '/user/$username'
+      preLoaderRoute: typeof AuthenticatedAppUserUsernameRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
   }
 }
 
+interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppCreateRoute: typeof AuthenticatedAppCreateRoute
+  AuthenticatedAppExploreRoute: typeof AuthenticatedAppExploreRoute
+  AuthenticatedAppHomeRoute: typeof AuthenticatedAppHomeRoute
+  AuthenticatedAppJobsRoute: typeof AuthenticatedAppJobsRoute
+  AuthenticatedAppMessagesRoute: typeof AuthenticatedAppMessagesRoute
+  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
+  AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRoute
+  AuthenticatedAppUserUsernameRoute: typeof AuthenticatedAppUserUsernameRoute
+}
+
+const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppCreateRoute: AuthenticatedAppCreateRoute,
+  AuthenticatedAppExploreRoute: AuthenticatedAppExploreRoute,
+  AuthenticatedAppHomeRoute: AuthenticatedAppHomeRoute,
+  AuthenticatedAppJobsRoute: AuthenticatedAppJobsRoute,
+  AuthenticatedAppMessagesRoute: AuthenticatedAppMessagesRoute,
+  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
+  AuthenticatedAppProfileRoute: AuthenticatedAppProfileRoute,
+  AuthenticatedAppUserUsernameRoute: AuthenticatedAppUserUsernameRoute,
+}
+
+const AuthenticatedAppRouteWithChildren =
+  AuthenticatedAppRoute._addFileChildren(AuthenticatedAppRouteChildren)
+
 interface AuthenticatedRouteChildren {
-  AuthenticatedAppRoute: typeof AuthenticatedAppRoute
+  AuthenticatedAppRoute: typeof AuthenticatedAppRouteWithChildren
   AuthenticatedOnboardingClientRoute: typeof AuthenticatedOnboardingClientRoute
   AuthenticatedOnboardingRoleRoute: typeof AuthenticatedOnboardingRoleRoute
   AuthenticatedOnboardingSpecialtyRoute: typeof AuthenticatedOnboardingSpecialtyRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAppRoute: AuthenticatedAppRoute,
+  AuthenticatedAppRoute: AuthenticatedAppRouteWithChildren,
   AuthenticatedOnboardingClientRoute: AuthenticatedOnboardingClientRoute,
   AuthenticatedOnboardingRoleRoute: AuthenticatedOnboardingRoleRoute,
   AuthenticatedOnboardingSpecialtyRoute: AuthenticatedOnboardingSpecialtyRoute,
@@ -279,13 +454,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

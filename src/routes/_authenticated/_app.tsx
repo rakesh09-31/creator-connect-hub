@@ -3,7 +3,7 @@ import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tansta
 import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, Heart, MessageCircle, Briefcase, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/_authenticated/app")({
+export const Route = createFileRoute("/_authenticated/_app")({
   component: AppShell,
 });
 
@@ -21,13 +21,13 @@ function AppShell() {
   const role = profile?.role ?? "creator";
   const isCreator = role === "creator";
   const theme = isCreator
-    ? { active: "text-emerald-600", badge: "bg-emerald-600", logo: "from-emerald-600 via-teal-600 to-cyan-600", bg: "bg-emerald-50/40" }
-    : { active: "text-indigo-600", badge: "bg-indigo-600", logo: "from-indigo-600 via-purple-600 to-pink-500", bg: "bg-indigo-50/40" };
+    ? { active: "text-emerald-600", logo: "from-emerald-600 via-teal-600 to-cyan-600", bg: "bg-emerald-50/40" }
+    : { active: "text-indigo-600", logo: "from-indigo-600 via-purple-600 to-pink-500", bg: "bg-indigo-50/40" };
 
   const isActive = (p: string) => location.pathname === p || (p !== "/home" && location.pathname.startsWith(p));
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans ${theme.bg}`}>
+    <div className={`min-h-screen flex flex-col font-sans ${theme.bg}`} data-role={role}>
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/home" className={`text-2xl font-black tracking-tight bg-gradient-to-r ${theme.logo} bg-clip-text text-transparent`}>
