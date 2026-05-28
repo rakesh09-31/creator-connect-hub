@@ -21,13 +21,17 @@ function AppShell() {
   const role = profile?.role ?? "creator";
   const isCreator = role === "creator";
   const theme = isCreator
-    ? { active: "text-emerald-600", logo: "from-emerald-600 via-teal-600 to-cyan-600", bg: "bg-emerald-50/40" }
-    : { active: "text-indigo-600", logo: "from-indigo-600 via-purple-600 to-pink-500", bg: "bg-indigo-50/40" };
+    ? { active: "text-emerald-600", logo: "from-emerald-500 via-teal-500 to-cyan-500" }
+    : { active: "text-fuchsia-600", logo: "from-indigo-500 via-fuchsia-500 to-pink-500" };
 
   const isActive = (p: string) => location.pathname === p || (p !== "/home" && location.pathname.startsWith(p));
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans ${theme.bg}`} data-role={role}>
+    <div className="min-h-screen flex flex-col font-sans relative" data-role={role}>
+      <div className="fixed inset-0 -z-10 bg-gradient-to-br from-rose-50 via-violet-50 to-cyan-50" />
+      <div className="fixed -top-32 -left-32 w-96 h-96 bg-fuchsia-300/40 rounded-full blur-3xl -z-10 animate-pulse" />
+      <div className="fixed top-1/3 -right-32 w-[28rem] h-[28rem] bg-cyan-300/40 rounded-full blur-3xl -z-10 animate-pulse" style={{ animationDelay: "1s" }} />
+      <div className="fixed -bottom-32 left-1/4 w-[26rem] h-[26rem] bg-amber-200/50 rounded-full blur-3xl -z-10 animate-pulse" style={{ animationDelay: "2s" }} />
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/home" className={`text-2xl font-black tracking-tight bg-gradient-to-r ${theme.logo} bg-clip-text text-transparent`}>
