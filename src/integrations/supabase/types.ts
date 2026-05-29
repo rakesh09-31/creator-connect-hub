@@ -35,6 +35,114 @@ export type Database = {
         }
         Relationships: []
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      job_applications: {
+        Row: {
+          applicant_id: string | null
+          created_at: string
+          id: string
+          job_id: string
+          message: string | null
+          portfolio_url: string | null
+          squad_id: string | null
+          status: string
+        }
+        Insert: {
+          applicant_id?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          message?: string | null
+          portfolio_url?: string | null
+          squad_id?: string | null
+          status?: string
+        }
+        Update: {
+          applicant_id?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          message?: string | null
+          portfolio_url?: string | null
+          squad_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_squad_id_fkey"
+            columns: ["squad_id"]
+            isOneToOne: false
+            referencedRelation: "squads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          budget: string | null
+          category: string | null
+          client_id: string
+          created_at: string
+          description: string
+          id: string
+          location: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          budget?: string | null
+          category?: string | null
+          client_id: string
+          created_at?: string
+          description: string
+          id?: string
+          location?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          budget?: string | null
+          category?: string | null
+          client_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           author_id: string
@@ -104,6 +212,71 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username?: string
+        }
+        Relationships: []
+      }
+      squad_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: string
+          squad_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string
+          squad_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string
+          squad_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "squad_members_squad_id_fkey"
+            columns: ["squad_id"]
+            isOneToOne: false
+            referencedRelation: "squads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      squads: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          specialty: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          specialty?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          specialty?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
