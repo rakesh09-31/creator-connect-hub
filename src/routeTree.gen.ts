@@ -20,6 +20,7 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/_a
 import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_authenticated/onboarding/specialty'
 import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
 import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
+import { Route as AuthenticatedAppSquadsRouteImport } from './routes/_authenticated/_app.squads'
 import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app.profile'
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app.notifications'
 import { Route as AuthenticatedAppMessagesRouteImport } from './routes/_authenticated/_app.messages'
@@ -28,6 +29,7 @@ import { Route as AuthenticatedAppHomeRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppExploreRouteImport } from './routes/_authenticated/_app.explore'
 import { Route as AuthenticatedAppCreateRouteImport } from './routes/_authenticated/_app.create'
 import { Route as AuthenticatedAppUserUsernameRouteImport } from './routes/_authenticated/_app.user.$username'
+import { Route as AuthenticatedAppSquadsSquadIdRouteImport } from './routes/_authenticated/_app.squads.$squadId'
 
 const SplashRoute = SplashRouteImport.update({
   id: '/splash',
@@ -85,6 +87,11 @@ const AuthenticatedOnboardingClientRoute =
     path: '/onboarding/client',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAppSquadsRoute = AuthenticatedAppSquadsRouteImport.update({
+  id: '/squads',
+  path: '/squads',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -128,6 +135,12 @@ const AuthenticatedAppUserUsernameRoute =
     path: '/user/$username',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppSquadsSquadIdRoute =
+  AuthenticatedAppSquadsSquadIdRouteImport.update({
+    id: '/$squadId',
+    path: '/$squadId',
+    getParentRoute: () => AuthenticatedAppSquadsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -143,9 +156,11 @@ export interface FileRoutesByFullPath {
   '/messages': typeof AuthenticatedAppMessagesRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/profile': typeof AuthenticatedAppProfileRoute
+  '/squads': typeof AuthenticatedAppSquadsRouteWithChildren
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/squads/$squadId': typeof AuthenticatedAppSquadsSquadIdRoute
   '/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
 export interface FileRoutesByTo {
@@ -162,9 +177,11 @@ export interface FileRoutesByTo {
   '/messages': typeof AuthenticatedAppMessagesRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/profile': typeof AuthenticatedAppProfileRoute
+  '/squads': typeof AuthenticatedAppSquadsRouteWithChildren
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/squads/$squadId': typeof AuthenticatedAppSquadsSquadIdRoute
   '/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
 export interface FileRoutesById {
@@ -184,9 +201,11 @@ export interface FileRoutesById {
   '/_authenticated/_app/messages': typeof AuthenticatedAppMessagesRoute
   '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/_app/profile': typeof AuthenticatedAppProfileRoute
+  '/_authenticated/_app/squads': typeof AuthenticatedAppSquadsRouteWithChildren
   '/_authenticated/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/_authenticated/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/_authenticated/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/_authenticated/_app/squads/$squadId': typeof AuthenticatedAppSquadsSquadIdRoute
   '/_authenticated/_app/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
 export interface FileRouteTypes {
@@ -205,9 +224,11 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/squads'
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
+    | '/squads/$squadId'
     | '/user/$username'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -224,9 +245,11 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/squads'
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
+    | '/squads/$squadId'
     | '/user/$username'
   id:
     | '__root__'
@@ -245,9 +268,11 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/messages'
     | '/_authenticated/_app/notifications'
     | '/_authenticated/_app/profile'
+    | '/_authenticated/_app/squads'
     | '/_authenticated/onboarding/client'
     | '/_authenticated/onboarding/role'
     | '/_authenticated/onboarding/specialty'
+    | '/_authenticated/_app/squads/$squadId'
     | '/_authenticated/_app/user/$username'
   fileRoutesById: FileRoutesById
 }
@@ -340,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOnboardingClientRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/_app/squads': {
+      id: '/_authenticated/_app/squads'
+      path: '/squads'
+      fullPath: '/squads'
+      preLoaderRoute: typeof AuthenticatedAppSquadsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/_app/profile': {
       id: '/_authenticated/_app/profile'
       path: '/profile'
@@ -396,8 +428,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppUserUsernameRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/_app/squads/$squadId': {
+      id: '/_authenticated/_app/squads/$squadId'
+      path: '/$squadId'
+      fullPath: '/squads/$squadId'
+      preLoaderRoute: typeof AuthenticatedAppSquadsSquadIdRouteImport
+      parentRoute: typeof AuthenticatedAppSquadsRoute
+    }
   }
 }
+
+interface AuthenticatedAppSquadsRouteChildren {
+  AuthenticatedAppSquadsSquadIdRoute: typeof AuthenticatedAppSquadsSquadIdRoute
+}
+
+const AuthenticatedAppSquadsRouteChildren: AuthenticatedAppSquadsRouteChildren =
+  {
+    AuthenticatedAppSquadsSquadIdRoute: AuthenticatedAppSquadsSquadIdRoute,
+  }
+
+const AuthenticatedAppSquadsRouteWithChildren =
+  AuthenticatedAppSquadsRoute._addFileChildren(
+    AuthenticatedAppSquadsRouteChildren,
+  )
 
 interface AuthenticatedAppRouteChildren {
   AuthenticatedAppCreateRoute: typeof AuthenticatedAppCreateRoute
@@ -407,6 +460,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppMessagesRoute: typeof AuthenticatedAppMessagesRoute
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRoute
+  AuthenticatedAppSquadsRoute: typeof AuthenticatedAppSquadsRouteWithChildren
   AuthenticatedAppUserUsernameRoute: typeof AuthenticatedAppUserUsernameRoute
 }
 
@@ -418,6 +472,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppMessagesRoute: AuthenticatedAppMessagesRoute,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppProfileRoute: AuthenticatedAppProfileRoute,
+  AuthenticatedAppSquadsRoute: AuthenticatedAppSquadsRouteWithChildren,
   AuthenticatedAppUserUsernameRoute: AuthenticatedAppUserUsernameRoute,
 }
 
