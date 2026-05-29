@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Image as ImageIcon, Video, Briefcase, Send } from "lucide-react";
+import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { uploadMedia } from "@/lib/uploadMedia";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   head: () => ({ meta: [{ title: "Create — Omnicraft" }] }),
@@ -15,27 +16,55 @@ function CreatePage() {
   const navigate = useNavigate();
   const [type, setType] = useState<"photo" | "video" | "project">("photo");
   const [caption, setCaption] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+
+  const acceptForType = type === "video" ? "video/*" : type === "photo" ? "image/*" : "image/*,video/*";
+
+  const handleFile = (f: File | null) => {
+    if (!f) return;
+    setFile(f);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(f));
+  };
+
+  const clearFile = () => {
+    setFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    if (!caption.trim() && !mediaUrl.trim()) {
-      toast.error("Add a caption or media URL");
+    if (!file && !caption.trim()) {
+      toast.error("Add a file or caption");
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("posts").insert({
-      author_id: user.id,
-      post_type: type,
-      caption: caption.trim() || null,
-      media_url: mediaUrl.trim() || null,
-    });
-    setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Posted!");
-    navigate({ to: "/home" });
+    try {
+      let mediaUrl: string | null = null;
+      if (file) {
+        toast.message("Uploading...");
+        mediaUrl = await uploadMedia(file, user.id);
+      }
+      const { error } = await supabase.from("posts").insert({
+        author_id: user.id,
+        post_type: type,
+        caption: caption.trim() || null,
+        media_url: mediaUrl,
+      });
+      if (error) throw error;
+      toast.success("Posted!");
+      navigate({ to: "/home" });
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to publish");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const types = [
@@ -43,6 +72,8 @@ function CreatePage() {
     { id: "video" as const, label: "Video", icon: Video },
     { id: "project" as const, label: "Project", icon: Briefcase },
   ];
+
+  const isVideoPreview = file?.type.startsWith("video/");
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -55,7 +86,7 @@ function CreatePage() {
           return (
             <button
               key={t.id}
-              onClick={() => setType(t.id)}
+              onClick={() => { setType(t.id); clearFile(); }}
               className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition ${
                 active ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               }`}
@@ -69,20 +100,59 @@ function CreatePage() {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Media URL (image or video)</label>
-          <input
-            type="url"
-            value={mediaUrl}
-            onChange={(e) => setMediaUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500"
-          />
-          {mediaUrl && (
-            <div className="mt-3 aspect-square rounded-xl overflow-hidden bg-gray-100">
-              <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Media</label>
+
+          {!file ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                className="p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-500 hover:bg-indigo-50 flex flex-col items-center gap-2 transition"
+              >
+                <Upload className="w-7 h-7 text-indigo-600" />
+                <span className="font-semibold text-sm">From files</span>
+                <span className="text-xs text-gray-500">Pick {type === "video" ? "a video" : type === "photo" ? "an image" : "any file"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => cameraInput.current?.click()}
+                className="p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-pink-500 hover:bg-pink-50 flex flex-col items-center gap-2 transition"
+              >
+                <Camera className="w-7 h-7 text-pink-600" />
+                <span className="font-semibold text-sm">Live capture</span>
+                <span className="text-xs text-gray-500">Use your camera now</span>
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <button type="button" onClick={clearFile} className="absolute top-2 right-2 z-10 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80">
+                <X className="w-4 h-4" />
+              </button>
+              <div className="aspect-square rounded-xl overflow-hidden bg-black flex items-center justify-center">
+                {isVideoPreview
+                  ? <video src={previewUrl} className="w-full h-full object-contain" controls playsInline />
+                  : <img src={previewUrl} alt="" className="w-full h-full object-cover" />}
+              </div>
             </div>
           )}
+
+          <input
+            ref={fileInput}
+            type="file"
+            accept={acceptForType}
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+          />
+          <input
+            ref={cameraInput}
+            type="file"
+            accept={type === "video" ? "video/*" : "image/*"}
+            capture="environment"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+          />
         </div>
+
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Caption</label>
           <textarea
@@ -93,6 +163,7 @@ function CreatePage() {
             className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 resize-none"
           />
         </div>
+
         <button
           type="submit"
           disabled={submitting}

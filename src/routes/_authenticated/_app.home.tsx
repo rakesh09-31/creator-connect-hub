@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Briefcase, Plus } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Briefcase, Plus, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -9,48 +9,61 @@ export const Route = createFileRoute("/_authenticated/_app/home")({
   component: HomePage,
 });
 
+type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
 type Post = {
-  id: string;
-  caption: string | null;
-  media_url: string | null;
-  post_type: string;
-  created_at: string;
-  author_id: string;
-  author?: { username: string; full_name: string | null; avatar_url: string | null; role: string | null };
+  id: string; caption: string | null; media_url: string | null; post_type: string;
+  created_at: string; author_id: string; author?: Profile;
 };
 
 function HomePage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [following, setFollowing] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) return;
     (async () => {
-      const { data } = await supabase
-        .from("posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(30);
-      const list = (data ?? []) as Post[];
-      const ids = Array.from(new Set(list.map((p) => p.author_id)));
-      if (ids.length) {
+      // who I follow
+      const { data: f } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
+      const followIds = (f ?? []).map((x: any) => x.following_id);
+
+      let followProfiles: Profile[] = [];
+      if (followIds.length) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("id, username, full_name, avatar_url, role")
-          .in("id", ids);
-        const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
+          .in("id", followIds);
+        followProfiles = (profs ?? []) as Profile[];
+      }
+      setFollowing(followProfiles);
+
+      // feed: posts from followed + self
+      const feedIds = [...followIds, user.id];
+      const { data: postRows } = await supabase
+        .from("posts").select("*")
+        .in("author_id", feedIds)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      const list = (postRows ?? []) as Post[];
+      const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
+      if (allAuthorIds.length) {
+        const { data: ap } = await supabase
+          .from("profiles").select("id, username, full_name, avatar_url, role")
+          .in("id", allAuthorIds);
+        const map = new Map((ap ?? []).map((p: any) => [p.id, p]));
         list.forEach((p) => (p.author = map.get(p.author_id)));
       }
       setPosts(list);
       setLoading(false);
     })();
-  }, []);
+  }, [user]);
 
   const isCreator = profile?.role === "creator";
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      {/* Hero banner */}
+      {/* Hero with name */}
       <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-2xl ${isCreator
         ? "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500"
         : "bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-pink-500"}`}>
@@ -62,41 +75,39 @@ function HomePage() {
             <h2 className="text-3xl font-black tracking-tight drop-shadow">{profile?.full_name || profile?.username}</h2>
             <p className="text-sm opacity-90 mt-1">{isCreator ? "Share your craft with the world" : "Find your perfect creator"}</p>
           </div>
-          <Link
-            to={isCreator ? "/create" : "/jobs"}
-            className="bg-white text-gray-900 hover:scale-105 transition-transform rounded-2xl px-5 py-3 font-bold flex items-center gap-2 shadow-lg"
-          >
+          <Link to={isCreator ? "/create" : "/jobs"} className="bg-white text-gray-900 hover:scale-105 transition-transform rounded-2xl px-5 py-3 font-bold flex items-center gap-2 shadow-lg">
             {isCreator ? <><Plus className="w-5 h-5" /> Post</> : <><Briefcase className="w-5 h-5" /> Hire</>}
           </Link>
         </div>
       </div>
 
-      {/* Stories strip */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {["Trending", "Design", "Music", "Video", "Photo", "Dance", "Code", "Art"].map((label, i) => {
-          const grads = [
-            "from-pink-500 to-orange-400",
-            "from-violet-500 to-fuchsia-500",
-            "from-cyan-500 to-blue-500",
-            "from-emerald-500 to-teal-500",
-            "from-amber-400 to-rose-500",
-            "from-indigo-500 to-purple-500",
-            "from-lime-400 to-emerald-500",
-            "from-rose-500 to-red-500",
-          ];
-          return (
-            <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1.5">
-              <div className={`w-16 h-16 rounded-full bg-gradient-to-tr ${grads[i]} p-0.5 hover:scale-110 transition-transform`}>
-                <div className="w-full h-full rounded-full bg-white p-0.5">
-                  <div className={`w-full h-full rounded-full bg-gradient-to-br ${grads[i]} flex items-center justify-center text-white font-bold text-lg`}>
-                    {label[0]}
-                  </div>
-                </div>
+      {/* Stories: me + people I follow */}
+      <div className="bg-white/80 backdrop-blur rounded-2xl p-4 border border-white shadow-sm">
+        <div className="flex gap-4 overflow-x-auto pb-1">
+          <StoryItem
+            label="Your story"
+            username={profile?.username ?? ""}
+            avatarUrl={profile?.avatar_url ?? null}
+            you
+            linkTo="/create"
+          />
+          {following.map((p) => (
+            <StoryItem
+              key={p.id}
+              label={p.full_name || p.username}
+              username={p.username}
+              avatarUrl={p.avatar_url}
+            />
+          ))}
+          {following.length === 0 && (
+            <Link to="/explore" className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
+              <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
+                <UserPlus className="w-6 h-6" />
               </div>
-              <span className="text-xs text-gray-700 max-w-[64px] truncate font-medium">{label}</span>
-            </div>
-          );
-        })}
+              <span className="text-xs text-gray-600 font-medium">Find people</span>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Feed */}
@@ -105,12 +116,12 @@ function HomePage() {
       ) : posts.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-            <Plus className="w-8 h-8 text-white" />
+            <UserPlus className="w-8 h-8 text-white" />
           </div>
-          <h3 className="text-xl font-bold mb-2">No posts yet</h3>
-          <p className="text-gray-600 mb-4">Be the first to share something amazing.</p>
-          <Link to="/create" className="inline-block px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold">
-            Create your first post
+          <h3 className="text-xl font-bold mb-2">Your feed is empty</h3>
+          <p className="text-gray-600 mb-4">Follow creators and clients to see their posts here.</p>
+          <Link to="/explore" className="inline-block px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold">
+            Discover people
           </Link>
         </div>
       ) : (
@@ -120,10 +131,40 @@ function HomePage() {
   );
 }
 
+function StoryItem({ label, username, avatarUrl, you, linkTo }: {
+  label: string; username: string; avatarUrl: string | null; you?: boolean; linkTo?: string;
+}) {
+  const initial = (username || "?").slice(0, 1).toUpperCase();
+  const inner = (
+    <div className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
+      <div className={`relative w-16 h-16 rounded-full p-0.5 ${you ? "bg-gradient-to-tr from-gray-300 to-gray-400" : "bg-gradient-to-tr from-fuchsia-500 via-pink-500 to-orange-400"}`}>
+        <div className="w-full h-full rounded-full bg-white p-0.5">
+          {avatarUrl ? (
+            <img src={avatarUrl} className="w-full h-full rounded-full object-cover" />
+          ) : (
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold">
+              {initial}
+            </div>
+          )}
+        </div>
+        {you && (
+          <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center">
+            <Plus className="w-3 h-3 text-white" />
+          </div>
+        )}
+      </div>
+      <span className="text-xs text-gray-800 max-w-[80px] truncate font-medium">{label}</span>
+    </div>
+  );
+  if (linkTo) return <Link to={linkTo}>{inner}</Link>;
+  return <Link to="/user/$username" params={{ username }}>{inner}</Link>;
+}
+
 function PostCard({ post }: { post: Post }) {
   const [liked, setLiked] = useState(false);
   const author = post.author;
   const initial = (author?.username || "?").slice(0, 1).toUpperCase();
+  const isVideo = post.post_type === "video" || post.post_type === "reel";
   return (
     <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <header className="flex items-center justify-between p-4">
@@ -140,8 +181,12 @@ function PostCard({ post }: { post: Post }) {
       </header>
 
       {post.media_url && (
-        <div className="aspect-square bg-gray-100">
-          <img src={post.media_url} alt="" className="w-full h-full object-cover" />
+        <div className="bg-black">
+          {isVideo ? (
+            <video src={post.media_url} className="w-full max-h-[600px] object-contain" controls playsInline />
+          ) : (
+            <img src={post.media_url} alt="" className="w-full max-h-[600px] object-cover" />
+          )}
         </div>
       )}
 
