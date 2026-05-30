@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      creator_requests: {
+        Row: {
+          budget: string | null
+          client_id: string
+          created_at: string
+          creator_id: string
+          id: string
+          message: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          budget?: string | null
+          client_id: string
+          created_at?: string
+          creator_id: string
+          id?: string
+          message?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          budget?: string | null
+          client_id?: string
+          created_at?: string
+          creator_id?: string
+          id?: string
+          message?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       creator_specialties: {
         Row: {
           created_at: string
