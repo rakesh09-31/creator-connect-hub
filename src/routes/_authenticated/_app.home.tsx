@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Briefcase, Plus, UserPlus } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -24,7 +24,6 @@ function HomePage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      // who I follow
       const { data: f } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
       const followIds = (f ?? []).map((x: any) => x.following_id);
 
@@ -38,7 +37,6 @@ function HomePage() {
       }
       setFollowing(followProfiles);
 
-      // feed: posts from followed + self
       const feedIds = [...followIds, user.id];
       const { data: postRows } = await supabase
         .from("posts").select("*")
@@ -63,26 +61,37 @@ function HomePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      {/* Hero with name */}
-      <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-2xl ${isCreator
-        ? "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500"
-        : "bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-pink-500"}`}>
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/20 rounded-full blur-2xl" />
-        <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-yellow-300/30 rounded-full blur-2xl" />
-        <div className="relative flex items-center justify-between">
-          <div>
-            <p className="text-sm opacity-90 font-medium">✨ Welcome back,</p>
-            <h2 className="text-3xl font-black tracking-tight drop-shadow">{profile?.full_name || profile?.username}</h2>
-            <p className="text-sm opacity-90 mt-1">{isCreator ? "Share your craft with the world" : "Find your perfect creator"}</p>
+      {/* Refined welcome */}
+      <section className="bg-surface border border-border rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              {isCreator ? "Creator workspace" : "Client workspace"}
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight mt-1 truncate">
+              Welcome back, {profile?.full_name || profile?.username}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isCreator ? "Share your latest work and discover new briefs." : "Find specialists and post your next project."}
+            </p>
           </div>
-          <Link to={isCreator ? "/create" : "/jobs"} className="bg-white text-gray-900 hover:scale-105 transition-transform rounded-2xl px-5 py-3 font-bold flex items-center gap-2 shadow-lg">
-            {isCreator ? <><Plus className="w-5 h-5" /> Post</> : <><Briefcase className="w-5 h-5" /> Hire</>}
+          <Link
+            to={isCreator ? "/create" : "/jobs"}
+            className="shrink-0 inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg px-4 py-2.5 text-sm font-semibold transition"
+          >
+            {isCreator ? <><Plus className="w-4 h-4" /> New post</> : <><Briefcase className="w-4 h-4" /> Post a brief</>}
           </Link>
         </div>
-      </div>
+      </section>
 
-      {/* Stories: me + people I follow */}
-      <div className="bg-white/80 backdrop-blur rounded-2xl p-4 border border-white shadow-sm">
+      {/* Stories strip */}
+      <section className="bg-surface border border-border rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your network</h2>
+          <Link to="/explore" className="text-xs font-semibold text-brand inline-flex items-center gap-0.5 hover:underline">
+            Discover <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
         <div className="flex gap-4 overflow-x-auto pb-1">
           <StoryItem
             label="Your story"
@@ -101,27 +110,27 @@ function HomePage() {
           ))}
           {following.length === 0 && (
             <Link to="/explore" className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
-              <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
-                <UserPlus className="w-6 h-6" />
+              <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
+                <UserPlus className="w-5 h-5" />
               </div>
-              <span className="text-xs text-gray-600 font-medium">Find people</span>
+              <span className="text-[11px] text-muted-foreground font-medium">Find people</span>
             </Link>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Feed */}
       {loading ? (
-        <div className="text-center text-gray-500 py-12">Loading feed...</div>
+        <div className="text-center text-muted-foreground py-12 text-sm">Loading your feed…</div>
       ) : posts.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
-            <UserPlus className="w-8 h-8 text-white" />
+        <div className="bg-surface rounded-2xl p-12 text-center border border-border shadow-sm">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-brand-soft flex items-center justify-center">
+            <UserPlus className="w-6 h-6 text-brand" />
           </div>
-          <h3 className="text-xl font-bold mb-2">Your feed is empty</h3>
-          <p className="text-gray-600 mb-4">Follow creators and clients to see their posts here.</p>
-          <Link to="/explore" className="inline-block px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold">
-            Discover people
+          <h3 className="text-lg font-semibold mb-1">Your feed is quiet</h3>
+          <p className="text-sm text-muted-foreground mb-4">Follow creators and clients to see their latest work here.</p>
+          <Link to="/explore" className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">
+            Discover people <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       ) : (
@@ -137,23 +146,23 @@ function StoryItem({ label, username, avatarUrl, you, linkTo }: {
   const initial = (username || "?").slice(0, 1).toUpperCase();
   const inner = (
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
-      <div className={`relative w-16 h-16 rounded-full p-0.5 ${you ? "bg-gradient-to-tr from-gray-300 to-gray-400" : "bg-gradient-to-tr from-fuchsia-500 via-pink-500 to-orange-400"}`}>
-        <div className="w-full h-full rounded-full bg-white p-0.5">
+      <div className={`relative w-14 h-14 rounded-full p-[2px] ${you ? "bg-muted" : "bg-gradient-to-tr from-brand to-primary"}`}>
+        <div className="w-full h-full rounded-full bg-surface p-[2px]">
           {avatarUrl ? (
             <img src={avatarUrl} className="w-full h-full rounded-full object-cover" />
           ) : (
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold">
+            <div className="w-full h-full rounded-full bg-muted flex items-center justify-center text-foreground text-sm font-semibold">
               {initial}
             </div>
           )}
         </div>
         {you && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center">
-            <Plus className="w-3 h-3 text-white" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand border-2 border-surface flex items-center justify-center">
+            <Plus className="w-2.5 h-2.5 text-brand-foreground" />
           </div>
         )}
       </div>
-      <span className="text-xs text-gray-800 max-w-[80px] truncate font-medium">{label}</span>
+      <span className="text-[11px] text-foreground/80 max-w-[80px] truncate font-medium">{label}</span>
     </div>
   );
   if (linkTo) return <Link to={linkTo}>{inner}</Link>;
@@ -166,18 +175,20 @@ function PostCard({ post }: { post: Post }) {
   const initial = (author?.username || "?").slice(0, 1).toUpperCase();
   const isVideo = post.post_type === "video" || post.post_type === "reel";
   return (
-    <article className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <article className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
       <header className="flex items-center justify-between p-4">
-        <Link to="/user/$username" params={{ username: author?.username ?? "" }} className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold">
-            {author?.avatar_url ? <img src={author.avatar_url} className="w-full h-full rounded-full object-cover" /> : initial}
+        <Link to="/user/$username" params={{ username: author?.username ?? "" }} className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-foreground font-semibold text-sm shrink-0 overflow-hidden">
+            {author?.avatar_url ? <img src={author.avatar_url} className="w-full h-full object-cover" /> : initial}
           </div>
-          <div>
-            <p className="font-semibold text-sm">{author?.full_name || author?.username || "User"}</p>
-            <p className="text-xs text-gray-500 capitalize">{author?.role ?? "creator"}</p>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm truncate">{author?.full_name || author?.username || "User"}</p>
+            <p className="text-[11px] text-muted-foreground capitalize">@{author?.username} · {author?.role ?? "creator"}</p>
           </div>
         </Link>
-        <button className="p-1.5 hover:bg-gray-100 rounded-full"><MoreHorizontal className="w-5 h-5 text-gray-600" /></button>
+        <button className="p-1.5 hover:bg-muted rounded-md text-muted-foreground">
+          <MoreHorizontal className="w-5 h-5" />
+        </button>
       </header>
 
       {post.media_url && (
@@ -192,22 +203,24 @@ function PostCard({ post }: { post: Post }) {
 
       <div className="px-4 py-3">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setLiked(!liked)}>
-              <Heart className={`w-6 h-6 ${liked ? "fill-red-500 text-red-500" : "text-gray-700"}`} />
+          <div className="flex items-center gap-4">
+            <button onClick={() => setLiked(!liked)} className="text-foreground">
+              <Heart className={`w-[22px] h-[22px] ${liked ? "fill-destructive text-destructive" : ""}`} />
             </button>
-            <button><MessageCircle className="w-6 h-6 text-gray-700" /></button>
-            <button><Share2 className="w-6 h-6 text-gray-700" /></button>
+            <button className="text-foreground"><MessageCircle className="w-[22px] h-[22px]" /></button>
+            <button className="text-foreground"><Share2 className="w-[22px] h-[22px]" /></button>
           </div>
-          <button><Bookmark className="w-6 h-6 text-gray-700" /></button>
+          <button className="text-foreground"><Bookmark className="w-[22px] h-[22px]" /></button>
         </div>
         {post.caption && (
-          <p className="text-sm">
-            <span className="font-semibold mr-2">{author?.username}</span>
+          <p className="text-sm leading-relaxed">
+            <span className="font-semibold mr-1.5">{author?.username}</span>
             {post.caption}
           </p>
         )}
-        <p className="text-xs text-gray-400 mt-2 uppercase">{new Date(post.created_at).toLocaleDateString()}</p>
+        <p className="text-[11px] text-muted-foreground mt-2 uppercase tracking-wider">
+          {new Date(post.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </p>
       </div>
     </article>
   );
