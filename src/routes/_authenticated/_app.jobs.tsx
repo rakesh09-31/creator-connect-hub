@@ -47,26 +47,27 @@ function JobsPage() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Open Projects</h1>
-          <p className="text-sm text-gray-600 mt-1">{isClient ? "Manage your project posts" : "Find work that fits your craft"}</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Opportunities</p>
+          <h1 className="text-2xl font-semibold tracking-tight mt-1">{isClient ? "Your project posts" : "Open briefs"}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{isClient ? "Manage briefs and review applicants." : "Apply individually or as a squad."}</p>
         </div>
         {isClient && (
-          <button onClick={() => setShowPost(true)} className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-xl font-semibold text-sm flex items-center gap-1">
-            <Plus className="w-4 h-4" /> Post Project
+          <button onClick={() => setShowPost(true)} className="bg-primary text-primary-foreground hover:opacity-90 px-4 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-1.5 transition">
+            <Plus className="w-4 h-4" /> Post brief
           </button>
         )}
       </div>
 
       {loading ? (
-        <div className="text-center text-gray-500 py-12">Loading...</div>
+        <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
       ) : jobs.length === 0 ? (
-        <div className="bg-white/80 backdrop-blur rounded-2xl p-12 text-center border border-white shadow">
-          <Briefcase className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-600">No jobs posted yet</p>
-          {isClient && <button onClick={() => setShowPost(true)} className="mt-4 px-5 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm">Post the first one</button>}
+        <div className="bg-surface rounded-2xl p-12 text-center border border-border">
+          <Briefcase className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">No briefs posted yet</p>
+          {isClient && <button onClick={() => setShowPost(true)} className="mt-4 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm">Post the first one</button>}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {jobs.map((j) => (
             <JobCard key={j.id} job={j} canApply={!isClient && j.client_id !== user?.id} onApply={() => setApplyJob(j)} />
           ))}
@@ -81,27 +82,27 @@ function JobsPage() {
 
 function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onApply: () => void }) {
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition">
+    <div className="bg-surface rounded-xl p-5 border border-border hover:border-brand/40 hover:shadow-sm transition">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4 flex-1">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-            <Briefcase className="w-6 h-6 text-white" />
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-lg bg-brand-soft flex items-center justify-center flex-shrink-0">
+            <Briefcase className="w-5 h-5 text-brand" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-lg">{job.title}</h3>
-            <p className="text-sm text-gray-600">by @{job.client?.username ?? "client"}</p>
-            <p className="text-sm text-gray-700 mt-2 line-clamp-2">{job.description}</p>
-            <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
+            <h3 className="font-semibold text-base tracking-tight">{job.title}</h3>
+            <p className="text-xs text-muted-foreground">@{job.client?.username ?? "client"}</p>
+            <p className="text-sm text-foreground/80 mt-2 line-clamp-2 leading-relaxed">{job.description}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-[11px] text-muted-foreground">
               {job.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location}</span>}
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(job.created_at).toLocaleDateString()}</span>
-              {job.category && <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-semibold">{job.category}</span>}
+              {job.category && <span className="px-2 py-0.5 bg-muted rounded-full font-semibold text-foreground/70">{job.category}</span>}
             </div>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          {job.budget && <div className="text-lg font-bold text-emerald-600">{job.budget}</div>}
+          {job.budget && <div className="text-sm font-semibold text-brand">{job.budget}</div>}
           {canApply && (
-            <button onClick={onApply} className="mt-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold">Apply</button>
+            <button onClick={onApply} className="mt-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold hover:opacity-90 transition">Apply</button>
           )}
         </div>
       </div>
