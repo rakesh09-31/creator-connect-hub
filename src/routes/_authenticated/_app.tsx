@@ -64,7 +64,7 @@ function AppShell() {
           <NavLink to="/explore" icon={<Search className="w-5 h-5" />} label="Explore" active={isActive("/explore")} />
           <NavLink to="/create" icon={<PlusSquare className="w-5 h-5" />} label="Create" active={isActive("/create")} />
           <NavLink to="/jobs" icon={<Briefcase className="w-5 h-5" />} label="Jobs" active={isActive("/jobs")} />
-          <NavLink to="/squads" icon={<Users className="w-5 h-5" />} label="Squads" active={isActive("/squads")} />
+
           <NavLink to="/profile" icon={<UserIcon className="w-5 h-5" />} label="Profile" active={isActive("/profile")} />
         </div>
       </nav>
