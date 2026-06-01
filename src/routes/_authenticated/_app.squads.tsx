@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Users, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,10 +13,16 @@ export const Route = createFileRoute("/_authenticated/_app/squads")({
 type Squad = { id: string; name: string; description: string | null; specialty: string | null; owner_id: string };
 
 function SquadsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [mySquads, setMySquads] = useState<Squad[]>([]);
   const [allSquads, setAllSquads] = useState<Squad[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+
+  // Squads are creator-only. Clients hire creators or squads via Jobs.
+  if (profile && profile.role !== "creator") {
+    return <Navigate to="/jobs" replace />;
+  }
+
 
   const load = async () => {
     if (!user) return;
