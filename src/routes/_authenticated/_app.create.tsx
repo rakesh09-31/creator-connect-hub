@@ -44,6 +44,13 @@ function CreatePage() {
       toast.error("Add a file or caption");
       return;
     }
+    // Content safety guard — block harmful, adult, or child-unsafe content.
+    const banned = /\b(nude|nudity|nsfw|porn|sex|sexual|xxx|erotic|onlyfans|escort|drug|cocaine|heroin|meth|weapon|gun|kill|suicide|self[- ]harm|terror|hate|racist|slur|abuse|child|minor|underage|loli|cp)\b/i;
+    if (caption && banned.test(caption)) {
+      toast.error("This post looks unsafe and can't be published. Share work related to your craft.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       let mediaUrl: string | null = null;
