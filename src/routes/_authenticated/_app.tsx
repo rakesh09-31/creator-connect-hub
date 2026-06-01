@@ -24,14 +24,14 @@ function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground" data-role={role}>
-      <header className="bg-surface/90 backdrop-blur-md border-b border-border sticky top-0 z-50">
+      <header className="bg-surface/85 backdrop-blur-xl border-b border-border/60 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-          <Link to="/home" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm tracking-tight">O</span>
+          <Link to="/home" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-brand group-hover:scale-105 transition">
+              <span className="text-white font-bold text-base tracking-tight">O</span>
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">Omnicraft</span>
-            <span className="hidden sm:inline ml-1 text-[10px] uppercase tracking-widest text-muted-foreground border border-border rounded px-1.5 py-0.5">
+            <span className="text-xl font-bold tracking-tight text-gradient-brand">Omnicraft</span>
+            <span className="hidden sm:inline ml-1 text-[10px] uppercase tracking-widest font-semibold text-white bg-gradient-brand rounded-full px-2 py-0.5">
               {role === "creator" ? "Creator" : "Client"}
             </span>
           </Link>

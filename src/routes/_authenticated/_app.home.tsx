@@ -61,23 +61,25 @@ function HomePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      {/* Refined welcome */}
-      <section className="bg-surface border border-border rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
+      {/* Vibrant welcome */}
+      <section className="relative overflow-hidden rounded-3xl p-6 shadow-brand bg-gradient-brand text-white">
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            <p className="text-[11px] uppercase tracking-widest text-white/80 font-semibold">
               {isCreator ? "Creator workspace" : "Client workspace"}
             </p>
-            <h1 className="text-2xl font-semibold tracking-tight mt-1 truncate">
-              Welcome back, {profile?.full_name || profile?.username}
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1 truncate">
+              Welcome back, {profile?.full_name || profile?.username} ✨
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-white/85 mt-1">
               {isCreator ? "Share your latest work and discover new briefs." : "Find specialists and post your next project."}
             </p>
           </div>
           <Link
             to={isCreator ? "/create" : "/jobs"}
-            className="shrink-0 inline-flex items-center gap-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-lg px-4 py-2.5 text-sm font-semibold transition"
+            className="shrink-0 inline-flex items-center gap-1.5 bg-white text-primary hover:bg-white/90 rounded-xl px-4 py-2.5 text-sm font-bold transition shadow-lg"
           >
             {isCreator ? <><Plus className="w-4 h-4" /> New post</> : <><Briefcase className="w-4 h-4" /> Post a brief</>}
           </Link>
