@@ -28,24 +28,15 @@ function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailOrUsername || !password) {
-      toast.error("Enter your email/username and password");
+      toast.error("Enter your email and password");
       return;
     }
     setSubmitting(true);
     try {
-      let email = emailOrUsername.trim();
-      // If user typed a username (no @), look up their email
+      const email = emailOrUsername.trim();
       if (!email.includes("@")) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("username", email)
-          .maybeSingle();
-        if (!data?.email) {
-          toast.error("No account with that username");
-          return;
-        }
-        email = data.email;
+        toast.error("Please sign in with your email address");
+        return;
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {

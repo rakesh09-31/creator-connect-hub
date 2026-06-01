@@ -39,16 +39,8 @@ function SignupPage() {
     }
     setSubmitting(true);
     try {
-      // Check username availability
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", parsed.data.username)
-        .maybeSingle();
-      if (existing) {
-        toast.error("That username is already taken");
-        return;
-      }
+      // Username uniqueness is enforced server-side by the new-user trigger
+      // (it appends a numeric suffix if the username is taken).
       const { error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
