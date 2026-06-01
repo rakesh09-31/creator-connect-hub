@@ -203,17 +203,39 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_contacts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           bio: string | null
           client_field: string | null
           created_at: string
-          email: string | null
           full_name: string | null
           id: string
           onboarded: boolean
-          phone: string | null
           role: Database["public"]["Enums"]["app_role"] | null
           updated_at: string
           username: string
@@ -223,11 +245,9 @@ export type Database = {
           bio?: string | null
           client_field?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id: string
           onboarded?: boolean
-          phone?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username: string
@@ -237,11 +257,9 @@ export type Database = {
           bio?: string | null
           client_field?: string | null
           created_at?: string
-          email?: string | null
           full_name?: string | null
           id?: string
           onboarded?: boolean
-          phone?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username?: string
