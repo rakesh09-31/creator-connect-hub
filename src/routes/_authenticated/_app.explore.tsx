@@ -20,27 +20,32 @@ type Reel = {
 
 function ExplorePage() {
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState<"reels" | "people">("reels");
+  const [tab, setTab] = useState<"reels" | "feed" | "people">("reels");
   const [people, setPeople] = useState<Profile[]>([]);
   const [reels, setReels] = useState<Reel[]>([]);
+  const [feed, setFeed] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: posts } = await supabase
-        .from("posts").select("*")
-        .order("created_at", { ascending: false }).limit(60);
-      const list = (posts ?? []) as Reel[];
-      const ids = Array.from(new Set(list.map((p) => p.author_id)));
+      const [{ data: reelRows }, { data: feedRows }] = await Promise.all([
+        supabase.from("posts").select("*").in("post_type", ["video", "reel"]).order("created_at", { ascending: false }).limit(60),
+        supabase.from("posts").select("*").eq("post_type", "photo").order("created_at", { ascending: false }).limit(60),
+      ]);
+      const reelList = (reelRows ?? []) as Reel[];
+      const feedList = (feedRows ?? []) as Reel[];
+      const ids = Array.from(new Set([...reelList, ...feedList].map((p) => p.author_id)));
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles").select("id, username, full_name, avatar_url, bio, role")
           .in("id", ids);
         const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
-        list.forEach((p) => (p.author = map.get(p.author_id)));
+        reelList.forEach((p) => (p.author = map.get(p.author_id)));
+        feedList.forEach((p) => (p.author = map.get(p.author_id)));
       }
-      setReels(list);
+      setReels(reelList);
+      setFeed(feedList);
       setLoading(false);
     })();
   }, []);
@@ -60,23 +65,26 @@ function ExplorePage() {
     })();
   }, [q]);
 
-  const filteredReels = useMemo(() => {
+  const filterPosts = (list: Reel[]) => {
     const term = q.trim().toLowerCase();
-    if (!term) return reels;
-    return reels.filter(
+    if (!term) return list;
+    return list.filter(
       (r) =>
         r.caption?.toLowerCase().includes(term) ||
         r.author?.username?.toLowerCase().includes(term) ||
         r.author?.full_name?.toLowerCase().includes(term),
     );
-  }, [reels, q]);
+  };
+
+  const filteredReels = useMemo(() => filterPosts(reels), [reels, q]);
+  const filteredFeed = useMemo(() => filterPosts(feed), [feed, q]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       <header>
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Explore</p>
-        <h1 className="text-2xl font-semibold tracking-tight mt-1">Reels & people</h1>
-        <p className="text-sm text-muted-foreground mt-1">Search the network or browse what creators and clients are publishing.</p>
+        <h1 className="text-2xl font-semibold tracking-tight mt-1">Reels, feed & people</h1>
+        <p className="text-sm text-muted-foreground mt-1">Search across the network — reels, photo posts, and creators.</p>
       </header>
 
       <div className="relative">
@@ -84,19 +92,20 @@ function ExplorePage() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search creators, clients, reels…"
+          placeholder="Search reels, posts, creators, clients…"
           className="w-full pl-11 pr-4 h-12 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring text-sm"
         />
       </div>
 
       <div className="flex gap-1 border-b border-border">
         <TabBtn active={tab === "reels"} onClick={() => setTab("reels")}>Reels</TabBtn>
+        <TabBtn active={tab === "feed"} onClick={() => setTab("feed")}>Feed</TabBtn>
         <TabBtn active={tab === "people"} onClick={() => setTab("people")}>People</TabBtn>
       </div>
 
-      {tab === "reels"
-        ? <ReelsGrid reels={filteredReels} loading={loading} />
-        : <PeopleGrid people={people} />}
+      {tab === "reels" && <ReelsGrid reels={filteredReels} loading={loading} />}
+      {tab === "feed" && <FeedGrid posts={filteredFeed} loading={loading} />}
+      {tab === "people" && <PeopleGrid people={people} />}
     </div>
   );
 }
