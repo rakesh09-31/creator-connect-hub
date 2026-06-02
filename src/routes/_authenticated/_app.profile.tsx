@@ -13,12 +13,13 @@ export const Route = createFileRoute("/_authenticated/_app/profile")({
 type Squad = { id: string; name: string; description: string | null; specialty: string | null; avatar_url: string | null };
 
 function ProfilePage() {
-  const { profile, user } = useAuth();
+  const { profile, user, refresh } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [tab, setTab] = useState<"posts" | "squads" | "saved">("posts");
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
