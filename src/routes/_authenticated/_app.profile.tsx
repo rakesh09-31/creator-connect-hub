@@ -134,19 +134,17 @@ function ProfilePage() {
         )
       )}
 
-      {tab === "squads" && (
+      {tab === "squads" && isCreator && (
         <div className="mt-4 space-y-2">
-          {isCreator && (
-            <Link to="/squads" className="flex items-center justify-between p-4 rounded-xl bg-surface border border-dashed border-border hover:border-brand/50 transition">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-brand-soft text-brand flex items-center justify-center"><Plus className="w-4 h-4" /></div>
-                <div>
-                  <p className="font-semibold text-sm">Create or join a squad</p>
-                  <p className="text-xs text-muted-foreground">Team up to apply for bigger projects</p>
-                </div>
+          <Link to="/squads" className="flex items-center justify-between p-4 rounded-xl bg-surface border border-dashed border-border hover:border-brand/50 transition">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-brand-soft text-brand flex items-center justify-center"><Plus className="w-4 h-4" /></div>
+              <div>
+                <p className="font-semibold text-sm">Create or join a squad</p>
+                <p className="text-xs text-muted-foreground">Team up to apply for bigger projects</p>
               </div>
-            </Link>
-          )}
+            </div>
+          </Link>
           {squads.length === 0 ? (
             <div className="text-center text-muted-foreground py-10 text-sm">You're not in any squads yet</div>
           ) : (
@@ -166,7 +164,73 @@ function ProfilePage() {
       )}
 
       {tab === "saved" && <div className="text-center text-muted-foreground py-16 text-sm">Nothing saved yet</div>}
+
+      {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
     </div>
+  );
+}
+
+function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { profile, user } = useAuth();
+  const [form, setForm] = useState({
+    full_name: profile?.full_name ?? "",
+    bio: profile?.bio ?? "",
+    portfolio_url: profile?.portfolio_url ?? "",
+    avatar_url: profile?.avatar_url ?? "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setBusy(true);
+    const { error } = await supabase.from("profiles").update({
+      full_name: form.full_name.trim() || null,
+      bio: form.bio.trim() || null,
+      portfolio_url: form.portfolio_url.trim() || null,
+      avatar_url: form.avatar_url.trim() || null,
+    }).eq("id", user.id);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Profile updated");
+    onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Edit profile</h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={submit} className="space-y-3">
+          <Field label="Full name">
+            <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+          </Field>
+          <Field label="Bio">
+            <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={3} className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm resize-none" />
+          </Field>
+          <Field label="Portfolio URL">
+            <input value={form.portfolio_url} onChange={(e) => setForm({ ...form, portfolio_url: e.target.value })} placeholder="https://…" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+          </Field>
+          <Field label="Avatar URL">
+            <input value={form.avatar_url} onChange={(e) => setForm({ ...form, avatar_url: e.target.value })} placeholder="https://…" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+          </Field>
+          <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
+            {busy ? "Saving…" : "Save changes"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block text-xs font-semibold text-muted-foreground mb-1">{label}</span>
+      {children}
+    </label>
   );
 }
 
