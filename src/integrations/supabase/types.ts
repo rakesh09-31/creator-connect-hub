@@ -236,6 +236,7 @@ export type Database = {
           full_name: string | null
           id: string
           onboarded: boolean
+          portfolio_url: string | null
           role: Database["public"]["Enums"]["app_role"] | null
           updated_at: string
           username: string
@@ -248,6 +249,7 @@ export type Database = {
           full_name?: string | null
           id: string
           onboarded?: boolean
+          portfolio_url?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username: string
@@ -260,6 +262,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           onboarded?: boolean
+          portfolio_url?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username?: string
