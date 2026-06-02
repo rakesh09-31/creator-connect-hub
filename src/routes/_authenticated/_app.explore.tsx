@@ -189,6 +189,40 @@ function ReelsGrid({ reels, loading }: { reels: Reel[]; loading: boolean }) {
   );
 }
 
+function FeedGrid({ posts, loading }: { posts: Reel[]; loading: boolean }) {
+  if (loading) return <div className="text-center text-muted-foreground py-16 text-sm">Loading…</div>;
+  if (posts.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground py-16 bg-surface border border-border rounded-2xl text-sm">
+        No posts yet
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {posts.map((p) => (
+        <Link
+          key={p.id}
+          to="/user/$username"
+          params={{ username: p.author?.username ?? "" }}
+          className="group relative aspect-square rounded-xl overflow-hidden bg-muted border border-border hover:border-brand/40 transition"
+        >
+          {p.media_url ? (
+            <img src={p.media_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-primary to-brand flex items-center justify-center p-4">
+              <p className="text-primary-foreground text-sm text-center line-clamp-5">{p.caption}</p>
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/70 to-transparent text-white">
+            <p className="text-xs font-semibold truncate">@{p.author?.username ?? "user"}</p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 function PeopleGrid({ people }: { people: Profile[] }) {
   if (people.length === 0) {
     return (
