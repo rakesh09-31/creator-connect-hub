@@ -57,8 +57,8 @@ function ProfilePage() {
                 <h1 className="text-xl font-semibold tracking-tight truncate">{profile.full_name || profile.username}</h1>
                 <p className="text-sm text-muted-foreground">@{profile.username}</p>
               </div>
-              <button className="p-2 hover:bg-muted rounded-md text-muted-foreground transition" aria-label="Settings">
-                <Settings className="w-5 h-5" />
+              <button onClick={() => setEditOpen(true)} className="p-2 hover:bg-muted rounded-md text-muted-foreground transition" aria-label="Edit profile">
+                <Pencil className="w-4 h-4" />
               </button>
             </div>
             <div className="mt-2 flex items-center gap-2">
@@ -69,12 +69,22 @@ function ProfilePage() {
               </span>
             </div>
             {profile.bio && <p className="mt-3 text-sm text-foreground/80 leading-relaxed">{profile.bio}</p>}
+            {profile.portfolio_url && (
+              <a
+                href={profile.portfolio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+              >
+                <ExternalLink className="w-3 h-3" /> Portfolio
+              </a>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mt-6 pt-5 border-t border-border">
+        <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-6 pt-5 border-t border-border`}>
           <Stat label="Posts" value={posts.length} />
-          <Stat label="Squads" value={squads.length} />
+          {isCreator && <Stat label="Squads" value={squads.length} />}
           <Stat label="Followers" value={counts.followers} />
           <Stat label="Following" value={counts.following} />
         </div>
@@ -94,7 +104,9 @@ function ProfilePage() {
       <div className="mt-6 border-b border-border">
         <div className="flex">
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
-          <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
+          {isCreator && (
+            <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
+          )}
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
         </div>
       </div>
