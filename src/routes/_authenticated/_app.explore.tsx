@@ -143,8 +143,8 @@ function ReelsGrid({ reels, loading }: { reels: Reel[]; loading: boolean }) {
         return (
           <Link
             key={r.id}
-            to="/user/$username"
-            params={{ username: r.author?.username ?? "" }}
+            to="/reels"
+            search={{ start: r.id }}
             className="group relative aspect-[9/16] rounded-xl overflow-hidden bg-muted border border-border hover:border-brand/40 transition"
           >
             {r.media_url ? (
