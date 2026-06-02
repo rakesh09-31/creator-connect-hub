@@ -11,6 +11,7 @@ export type Profile = {
   role: "creator" | "client" | "admin" | null;
   client_field: string | null;
   onboarded: boolean;
+  portfolio_url: string | null;
 };
 
 type AuthState = {
