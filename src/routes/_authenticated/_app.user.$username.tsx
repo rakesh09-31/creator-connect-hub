@@ -76,6 +76,11 @@ function UserProfilePage() {
             <p className="text-white/80">@{profile.username}</p>
             <p className="mt-2 text-sm capitalize bg-white/20 inline-block px-3 py-1 rounded-full">{profile.role ?? "creator"}</p>
             {profile.bio && <p className="mt-3 text-sm text-white/90">{profile.bio}</p>}
+            {profile.portfolio_url && (
+              <a href={profile.portfolio_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-white/95 bg-white/15 px-2.5 py-1 rounded-full hover:bg-white/25">
+                Portfolio ↗
+              </a>
+            )}
             <p className="mt-2 text-xs text-white/80">{followCount} followers</p>
             {!isSelf && (
               <button onClick={toggleFollow} className={`mt-4 px-5 py-2 rounded-xl font-semibold text-sm ${following ? "bg-white/20 text-white" : "bg-white text-gray-900"}`}>

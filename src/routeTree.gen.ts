@@ -21,6 +21,7 @@ import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_
 import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
 import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
 import { Route as AuthenticatedAppSquadsRouteImport } from './routes/_authenticated/_app.squads'
+import { Route as AuthenticatedAppReelsRouteImport } from './routes/_authenticated/_app.reels'
 import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app.profile'
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app.notifications'
 import { Route as AuthenticatedAppMessagesRouteImport } from './routes/_authenticated/_app.messages'
@@ -92,6 +93,11 @@ const AuthenticatedAppSquadsRoute = AuthenticatedAppSquadsRouteImport.update({
   path: '/squads',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppReelsRoute = AuthenticatedAppReelsRouteImport.update({
+  id: '/reels',
+  path: '/reels',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof AuthenticatedAppMessagesRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/profile': typeof AuthenticatedAppProfileRoute
+  '/reels': typeof AuthenticatedAppReelsRoute
   '/squads': typeof AuthenticatedAppSquadsRouteWithChildren
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/messages': typeof AuthenticatedAppMessagesRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/profile': typeof AuthenticatedAppProfileRoute
+  '/reels': typeof AuthenticatedAppReelsRoute
   '/squads': typeof AuthenticatedAppSquadsRouteWithChildren
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/messages': typeof AuthenticatedAppMessagesRoute
   '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/_app/profile': typeof AuthenticatedAppProfileRoute
+  '/_authenticated/_app/reels': typeof AuthenticatedAppReelsRoute
   '/_authenticated/_app/squads': typeof AuthenticatedAppSquadsRouteWithChildren
   '/_authenticated/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/_authenticated/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/reels'
     | '/squads'
     | '/onboarding/client'
     | '/onboarding/role'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/notifications'
     | '/profile'
+    | '/reels'
     | '/squads'
     | '/onboarding/client'
     | '/onboarding/role'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/messages'
     | '/_authenticated/_app/notifications'
     | '/_authenticated/_app/profile'
+    | '/_authenticated/_app/reels'
     | '/_authenticated/_app/squads'
     | '/_authenticated/onboarding/client'
     | '/_authenticated/onboarding/role'
@@ -372,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSquadsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/_app/reels': {
+      id: '/_authenticated/_app/reels'
+      path: '/reels'
+      fullPath: '/reels'
+      preLoaderRoute: typeof AuthenticatedAppReelsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/_app/profile': {
       id: '/_authenticated/_app/profile'
       path: '/profile'
@@ -460,6 +479,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppMessagesRoute: typeof AuthenticatedAppMessagesRoute
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRoute
+  AuthenticatedAppReelsRoute: typeof AuthenticatedAppReelsRoute
   AuthenticatedAppSquadsRoute: typeof AuthenticatedAppSquadsRouteWithChildren
   AuthenticatedAppUserUsernameRoute: typeof AuthenticatedAppUserUsernameRoute
 }
@@ -472,6 +492,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppMessagesRoute: AuthenticatedAppMessagesRoute,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppProfileRoute: AuthenticatedAppProfileRoute,
+  AuthenticatedAppReelsRoute: AuthenticatedAppReelsRoute,
   AuthenticatedAppSquadsRoute: AuthenticatedAppSquadsRouteWithChildren,
   AuthenticatedAppUserUsernameRoute: AuthenticatedAppUserUsernameRoute,
 }
