@@ -333,39 +333,79 @@ function CreatorsPanel() {
           No creators or squads match your filters
         </div>
       ) : (
-        <div className="space-y-2">
-          {visible.map((c) => (
-            <div key={c.id} className="bg-surface rounded-xl p-4 border border-border hover:border-brand/40 hover:shadow-sm transition flex items-start gap-3">
-              <Link to="/user/$username" params={{ username: c.username }} className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center font-semibold">
-                {c.avatar_url ? <img src={c.avatar_url} className="w-full h-full object-cover" /> : c.username.slice(0, 1).toUpperCase()}
-              </Link>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Link to="/user/$username" params={{ username: c.username }} className="font-semibold text-sm truncate hover:text-brand">
-                    {c.full_name || c.username}
+        <div className="space-y-5">
+          {visibleSquads.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Squads ({visibleSquads.length})</h3>
+              <div className="space-y-2">
+                {visibleSquads.map((s) => (
+                  <Link
+                    key={s.id}
+                    to="/squads/$squadId"
+                    params={{ squadId: s.id }}
+                    className="flex items-start gap-3 p-4 bg-surface rounded-xl border border-border hover:border-brand/40 hover:shadow-sm transition"
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-brand text-primary-foreground flex items-center justify-center font-semibold flex-shrink-0">
+                      {s.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm truncate">{s.name}</p>
+                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-soft text-brand">Squad</span>
+                      </div>
+                      {s.owner_username && (
+                        <p className="text-[11px] text-muted-foreground">led by @{s.owner_username}</p>
+                      )}
+                      {s.description && <p className="text-xs text-foreground/70 mt-1 line-clamp-2">{s.description}</p>}
+                      {s.specialty && (
+                        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground/70 font-semibold mt-1.5">{s.specialty}</span>
+                      )}
+                    </div>
                   </Link>
-                  <span className="text-xs text-muted-foreground">@{c.username}</span>
-                </div>
-                {c.bio && <p className="text-xs text-foreground/70 mt-0.5 line-clamp-2">{c.bio}</p>}
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {c.specialties.slice(0, 4).map((s) => (
-                    <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-brand-soft text-brand font-semibold">{s}</span>
-                  ))}
-                </div>
-                {c.portfolio_url && (
-                  <a href={c.portfolio_url} target="_blank" rel="noreferrer" className="text-[11px] text-brand inline-flex items-center gap-1 mt-1.5 hover:underline">
-                    <ExternalLink className="w-3 h-3" /> Portfolio
-                  </a>
-                )}
+                ))}
               </div>
-              <button
-                onClick={() => setReqTarget(c)}
-                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold flex items-center gap-1 hover:opacity-90"
-              >
-                <MessageCircle className="w-3 h-3" /> Hire
-              </button>
             </div>
-          ))}
+          )}
+
+          {visible.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Creators ({visible.length})</h3>
+              <div className="space-y-2">
+                {visible.map((c) => (
+                  <div key={c.id} className="bg-surface rounded-xl p-4 border border-border hover:border-brand/40 hover:shadow-sm transition flex items-start gap-3">
+                    <Link to="/user/$username" params={{ username: c.username }} className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center font-semibold">
+                      {c.avatar_url ? <img src={c.avatar_url} className="w-full h-full object-cover" /> : c.username.slice(0, 1).toUpperCase()}
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link to="/user/$username" params={{ username: c.username }} className="font-semibold text-sm truncate hover:text-brand">
+                          {c.full_name || c.username}
+                        </Link>
+                        <span className="text-xs text-muted-foreground">@{c.username}</span>
+                      </div>
+                      {c.bio && <p className="text-xs text-foreground/70 mt-0.5 line-clamp-2">{c.bio}</p>}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {c.specialties.slice(0, 4).map((s) => (
+                          <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-brand-soft text-brand font-semibold">{s}</span>
+                        ))}
+                      </div>
+                      {c.portfolio_url && (
+                        <a href={c.portfolio_url} target="_blank" rel="noreferrer" className="text-[11px] text-brand inline-flex items-center gap-1 mt-1.5 hover:underline">
+                          <ExternalLink className="w-3 h-3" /> Portfolio
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setReqTarget(c)}
+                      className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold flex items-center gap-1 hover:opacity-90"
+                    >
+                      <MessageCircle className="w-3 h-3" /> Hire
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
