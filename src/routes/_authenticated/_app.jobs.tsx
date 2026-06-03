@@ -214,9 +214,15 @@ function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onAp
 
 /* ---------------------- Find Creators panel (clients only) ---------------------- */
 
+type SquadWithOwner = {
+  id: string; name: string; description: string | null; specialty: string | null;
+  avatar_url: string | null; owner_id: string; owner_username?: string; owner_full_name?: string | null;
+};
+
 function CreatorsPanel() {
   const { profile } = useAuth();
   const [creators, setCreators] = useState<CreatorProfile[]>([]);
+  const [squads, setSquads] = useState<SquadWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(profile?.client_field ?? "");
@@ -225,11 +231,17 @@ function CreatorsPanel() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, avatar_url, bio, portfolio_url, role")
-        .eq("role", "creator")
-        .limit(200);
+      const [{ data: profs }, { data: sqs }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, bio, portfolio_url, role")
+          .eq("role", "creator")
+          .limit(200),
+        supabase
+          .from("squads")
+          .select("id, name, description, specialty, avatar_url, owner_id")
+          .limit(100),
+      ]);
       const list = (profs ?? []) as any[];
       const ids = list.map((p) => p.id);
       let specMap = new Map<string, string[]>();
@@ -249,7 +261,14 @@ function CreatorsPanel() {
         avatar_url: p.avatar_url, bio: p.bio, portfolio_url: p.portfolio_url,
         specialties: specMap.get(p.id) ?? [],
       }));
+      const profMap = new Map(list.map((p: any) => [p.id, p]));
+      const sqList: SquadWithOwner[] = ((sqs ?? []) as any[]).map((s) => ({
+        ...s,
+        owner_username: profMap.get(s.owner_id)?.username,
+        owner_full_name: profMap.get(s.owner_id)?.full_name,
+      }));
       setCreators(enriched);
+      setSquads(sqList);
       setLoading(false);
     })();
   }, []);
