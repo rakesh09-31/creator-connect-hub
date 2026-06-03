@@ -166,6 +166,8 @@ function ProfilePage() {
         </div>
       )}
 
+      {tab === "projects" && !isCreator && <ClientProjectsPanel />}
+
       {tab === "saved" && <div className="text-center text-muted-foreground py-16 text-sm">Nothing saved yet</div>}
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
