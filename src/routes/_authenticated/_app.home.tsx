@@ -43,7 +43,38 @@ function HomePage() {
         .in("author_id", feedIds)
         .order("created_at", { ascending: false })
         .limit(30);
-      const list = (postRows ?? []) as Post[];
+      let list = (postRows ?? []) as Post[];
+
+      // Fallback: when the user follows no one yet, show role-relevant discovery
+      // posts so the home feed is never empty for a brand-new account.
+      if (list.length < 3) {
+        const { data: me } = await supabase
+          .from("profiles").select("role, client_field")
+          .eq("id", user.id).maybeSingle();
+
+        let creatorIds: string[] = [];
+        if ((me as any)?.role === "client" && (me as any)?.client_field) {
+          const { data: specs } = await supabase
+            .from("creator_specialties").select("user_id")
+            .ilike("specialty", `%${(me as any).client_field}%`).limit(40);
+          creatorIds = Array.from(new Set((specs ?? []).map((s: any) => s.user_id)));
+        }
+        if (creatorIds.length === 0) {
+          const { data: creators } = await supabase
+            .from("profiles").select("id").eq("role", "creator").limit(40);
+          creatorIds = (creators ?? []).map((c: any) => c.id);
+        }
+        if (creatorIds.length) {
+          const { data: discover } = await supabase
+            .from("posts").select("*")
+            .in("author_id", creatorIds)
+            .order("created_at", { ascending: false })
+            .limit(20);
+          const existing = new Set(list.map((p) => p.id));
+          (discover ?? []).forEach((d: any) => { if (!existing.has(d.id)) list.push(d as Post); });
+        }
+      }
+
       const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
       if (allAuthorIds.length) {
         const { data: ap } = await supabase
