@@ -82,6 +82,7 @@ function BriefsPanel() {
   const [loading, setLoading] = useState(true);
   const [showPost, setShowPost] = useState(false);
   const [applyJob, setApplyJob] = useState<Job | null>(null);
+  const [searchQ, setSearchQ] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -112,15 +113,35 @@ function BriefsPanel() {
 
   // For creators, only show jobs whose category or title/description matches one of their specialties.
   const visibleJobs = useMemo(() => {
-    if (isClient || mySpecialties.length === 0) return jobs;
-    return jobs.filter((j) => {
-      const haystack = `${j.category ?? ""} ${j.title} ${j.description}`.toLowerCase();
-      return mySpecialties.some((s) => haystack.includes(s));
+    let base = jobs;
+    if (!isClient && mySpecialties.length > 0) {
+      base = base.filter((j) => {
+        const hay = `${j.category ?? ""} ${j.title} ${j.description}`.toLowerCase();
+        return mySpecialties.some((s) => hay.includes(s));
+      });
+    }
+    const term = searchQ.trim().toLowerCase();
+    if (!term) return base;
+    return base.filter((j) => {
+      const hay = `${j.title} ${j.description} ${j.category ?? ""} ${j.location ?? ""}`.toLowerCase();
+      return hay.includes(term);
     });
-  }, [jobs, isClient, mySpecialties]);
+  }, [jobs, isClient, mySpecialties, searchQ]);
 
   return (
     <div>
+      {!isClient && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Search jobs by title, category, location…"
+            className="w-full pl-10 pr-3 h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
+          />
+        </div>
+      )}
+
       {isClient && (
         <div className="flex justify-end mb-4">
           <button onClick={() => setShowPost(true)} className="bg-primary text-primary-foreground hover:opacity-90 px-4 py-2.5 rounded-lg font-semibold text-sm flex items-center gap-1.5 transition">
@@ -193,9 +214,15 @@ function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onAp
 
 /* ---------------------- Find Creators panel (clients only) ---------------------- */
 
+type SquadWithOwner = {
+  id: string; name: string; description: string | null; specialty: string | null;
+  avatar_url: string | null; owner_id: string; owner_username?: string; owner_full_name?: string | null;
+};
+
 function CreatorsPanel() {
   const { profile } = useAuth();
   const [creators, setCreators] = useState<CreatorProfile[]>([]);
+  const [squads, setSquads] = useState<SquadWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(profile?.client_field ?? "");
@@ -204,11 +231,17 @@ function CreatorsPanel() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, avatar_url, bio, portfolio_url, role")
-        .eq("role", "creator")
-        .limit(200);
+      const [{ data: profs }, { data: sqs }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, bio, portfolio_url, role")
+          .eq("role", "creator")
+          .limit(200),
+        supabase
+          .from("squads")
+          .select("id, name, description, specialty, avatar_url, owner_id")
+          .limit(100),
+      ]);
       const list = (profs ?? []) as any[];
       const ids = list.map((p) => p.id);
       let specMap = new Map<string, string[]>();
@@ -228,7 +261,14 @@ function CreatorsPanel() {
         avatar_url: p.avatar_url, bio: p.bio, portfolio_url: p.portfolio_url,
         specialties: specMap.get(p.id) ?? [],
       }));
+      const profMap = new Map(list.map((p: any) => [p.id, p]));
+      const sqList: SquadWithOwner[] = ((sqs ?? []) as any[]).map((s) => ({
+        ...s,
+        owner_username: profMap.get(s.owner_id)?.username,
+        owner_full_name: profMap.get(s.owner_id)?.full_name,
+      }));
       setCreators(enriched);
+      setSquads(sqList);
       setLoading(false);
     })();
   }, []);
@@ -253,6 +293,20 @@ function CreatorsPanel() {
     });
   }, [creators, q, specialtyFilter]);
 
+  const visibleSquads = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return squads.filter((s) => {
+      if (specialtyFilter && !(s.specialty ?? "").toLowerCase().includes(specialtyFilter.toLowerCase())) return false;
+      if (!term) return true;
+      return (
+        s.name.toLowerCase().includes(term) ||
+        (s.description ?? "").toLowerCase().includes(term) ||
+        (s.specialty ?? "").toLowerCase().includes(term) ||
+        (s.owner_username ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [squads, q, specialtyFilter]);
+
   return (
     <div>
       <div className="relative mb-3">
@@ -260,7 +314,7 @@ function CreatorsPanel() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search creators by name, bio, or specialty…"
+          placeholder="Search creators or squads by name, bio, or specialty…"
           className="w-full pl-10 pr-3 h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
         />
       </div>
@@ -273,45 +327,85 @@ function CreatorsPanel() {
       </div>
 
       {loading ? (
-        <div className="text-center text-muted-foreground py-12 text-sm">Loading creators…</div>
-      ) : visible.length === 0 ? (
+        <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
+      ) : visible.length === 0 && visibleSquads.length === 0 ? (
         <div className="bg-surface rounded-2xl p-12 text-center border border-border text-sm text-muted-foreground">
-          No creators match your filters
+          No creators or squads match your filters
         </div>
       ) : (
-        <div className="space-y-2">
-          {visible.map((c) => (
-            <div key={c.id} className="bg-surface rounded-xl p-4 border border-border hover:border-brand/40 hover:shadow-sm transition flex items-start gap-3">
-              <Link to="/user/$username" params={{ username: c.username }} className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center font-semibold">
-                {c.avatar_url ? <img src={c.avatar_url} className="w-full h-full object-cover" /> : c.username.slice(0, 1).toUpperCase()}
-              </Link>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Link to="/user/$username" params={{ username: c.username }} className="font-semibold text-sm truncate hover:text-brand">
-                    {c.full_name || c.username}
+        <div className="space-y-5">
+          {visibleSquads.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Squads ({visibleSquads.length})</h3>
+              <div className="space-y-2">
+                {visibleSquads.map((s) => (
+                  <Link
+                    key={s.id}
+                    to="/squads/$squadId"
+                    params={{ squadId: s.id }}
+                    className="flex items-start gap-3 p-4 bg-surface rounded-xl border border-border hover:border-brand/40 hover:shadow-sm transition"
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-brand text-primary-foreground flex items-center justify-center font-semibold flex-shrink-0">
+                      {s.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm truncate">{s.name}</p>
+                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-soft text-brand">Squad</span>
+                      </div>
+                      {s.owner_username && (
+                        <p className="text-[11px] text-muted-foreground">led by @{s.owner_username}</p>
+                      )}
+                      {s.description && <p className="text-xs text-foreground/70 mt-1 line-clamp-2">{s.description}</p>}
+                      {s.specialty && (
+                        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground/70 font-semibold mt-1.5">{s.specialty}</span>
+                      )}
+                    </div>
                   </Link>
-                  <span className="text-xs text-muted-foreground">@{c.username}</span>
-                </div>
-                {c.bio && <p className="text-xs text-foreground/70 mt-0.5 line-clamp-2">{c.bio}</p>}
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {c.specialties.slice(0, 4).map((s) => (
-                    <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-brand-soft text-brand font-semibold">{s}</span>
-                  ))}
-                </div>
-                {c.portfolio_url && (
-                  <a href={c.portfolio_url} target="_blank" rel="noreferrer" className="text-[11px] text-brand inline-flex items-center gap-1 mt-1.5 hover:underline">
-                    <ExternalLink className="w-3 h-3" /> Portfolio
-                  </a>
-                )}
+                ))}
               </div>
-              <button
-                onClick={() => setReqTarget(c)}
-                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold flex items-center gap-1 hover:opacity-90"
-              >
-                <MessageCircle className="w-3 h-3" /> Hire
-              </button>
             </div>
-          ))}
+          )}
+
+          {visible.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Creators ({visible.length})</h3>
+              <div className="space-y-2">
+                {visible.map((c) => (
+                  <div key={c.id} className="bg-surface rounded-xl p-4 border border-border hover:border-brand/40 hover:shadow-sm transition flex items-start gap-3">
+                    <Link to="/user/$username" params={{ username: c.username }} className="w-12 h-12 rounded-full bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center font-semibold">
+                      {c.avatar_url ? <img src={c.avatar_url} className="w-full h-full object-cover" /> : c.username.slice(0, 1).toUpperCase()}
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link to="/user/$username" params={{ username: c.username }} className="font-semibold text-sm truncate hover:text-brand">
+                          {c.full_name || c.username}
+                        </Link>
+                        <span className="text-xs text-muted-foreground">@{c.username}</span>
+                      </div>
+                      {c.bio && <p className="text-xs text-foreground/70 mt-0.5 line-clamp-2">{c.bio}</p>}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {c.specialties.slice(0, 4).map((s) => (
+                          <span key={s} className="text-[10px] px-1.5 py-0.5 rounded bg-brand-soft text-brand font-semibold">{s}</span>
+                        ))}
+                      </div>
+                      {c.portfolio_url && (
+                        <a href={c.portfolio_url} target="_blank" rel="noreferrer" className="text-[11px] text-brand inline-flex items-center gap-1 mt-1.5 hover:underline">
+                          <ExternalLink className="w-3 h-3" /> Portfolio
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setReqTarget(c)}
+                      className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold flex items-center gap-1 hover:opacity-90"
+                    >
+                      <MessageCircle className="w-3 h-3" /> Hire
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

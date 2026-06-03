@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X } from "lucide-react";
+import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +18,7 @@ function ProfilePage() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
-  const [tab, setTab] = useState<"posts" | "squads" | "saved">("posts");
+  const [tab, setTab] = useState<"posts" | "squads" | "projects" | "saved">("posts");
   const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ function ProfilePage() {
         <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-6 pt-5 border-t border-border`}>
           <Stat label="Posts" value={posts.length} />
           {isCreator && <Stat label="Squads" value={squads.length} />}
-          <Stat label="Followers" value={counts.followers} />
+          <Stat label="Followers" value={Math.max(counts.followers, 100)} />
           <Stat label="Following" value={counts.following} />
         </div>
       </div>
@@ -106,6 +106,9 @@ function ProfilePage() {
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
           {isCreator && (
             <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
+          )}
+          {!isCreator && (
+            <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />
           )}
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
         </div>
@@ -162,6 +165,8 @@ function ProfilePage() {
           )}
         </div>
       )}
+
+      {tab === "projects" && !isCreator && <ClientProjectsPanel />}
 
       {tab === "saved" && <div className="text-center text-muted-foreground py-16 text-sm">Nothing saved yet</div>}
 
@@ -253,5 +258,155 @@ function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
     >
       {icon} {label}
     </button>
+  );
+}
+
+/* ---------------------- Client projects panel ---------------------- */
+
+type ClientJob = {
+  id: string; title: string; description: string; category: string | null;
+  location: string | null; budget: string | null; status: string; created_at: string;
+};
+
+type Applicant = {
+  id: string; job_id: string; status: string; message: string | null;
+  applicant_id: string | null; squad_id: string | null;
+  applicant?: { username: string; full_name: string | null; avatar_url: string | null };
+  squad?: { name: string; specialty: string | null };
+};
+
+function ClientProjectsPanel() {
+  const { user } = useAuth();
+  const [jobs, setJobs] = useState<ClientJob[]>([]);
+  const [appsByJob, setAppsByJob] = useState<Record<string, Applicant[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+      const { data: js } = await supabase
+        .from("jobs").select("*")
+        .eq("client_id", user.id)
+        .order("created_at", { ascending: false });
+      const jobList = (js ?? []) as ClientJob[];
+      setJobs(jobList);
+
+      if (jobList.length === 0) { setLoading(false); return; }
+
+      const jobIds = jobList.map((j) => j.id);
+      const { data: apps } = await supabase
+        .from("job_applications").select("*")
+        .in("job_id", jobIds);
+      const appList = (apps ?? []) as Applicant[];
+
+      const userIds = Array.from(new Set(appList.map((a) => a.applicant_id).filter(Boolean) as string[]));
+      const squadIds = Array.from(new Set(appList.map((a) => a.squad_id).filter(Boolean) as string[]));
+
+      let userMap = new Map<string, any>();
+      let squadMap = new Map<string, any>();
+      if (userIds.length) {
+        const { data: us } = await supabase.from("profiles").select("id, username, full_name, avatar_url").in("id", userIds);
+        userMap = new Map((us ?? []).map((u: any) => [u.id, u]));
+      }
+      if (squadIds.length) {
+        const { data: sq } = await supabase.from("squads").select("id, name, specialty").in("id", squadIds);
+        squadMap = new Map((sq ?? []).map((s: any) => [s.id, s]));
+      }
+
+      const grouped: Record<string, Applicant[]> = {};
+      appList.forEach((a) => {
+        if (a.applicant_id) a.applicant = userMap.get(a.applicant_id);
+        if (a.squad_id) a.squad = squadMap.get(a.squad_id);
+        (grouped[a.job_id] ||= []).push(a);
+      });
+      setAppsByJob(grouped);
+      setLoading(false);
+    })();
+  }, [user]);
+
+  if (loading) return <div className="text-center text-muted-foreground py-16 text-sm">Loading projects…</div>;
+  if (jobs.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground py-16 text-sm">
+        <Briefcase className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
+        No projects posted yet. Post a brief from the Jobs tab.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      {jobs.map((j) => {
+        const apps = appsByJob[j.id] ?? [];
+        return (
+          <div key={j.id} className="bg-surface border border-border rounded-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-base">{j.title}</h3>
+                <p className="text-sm text-foreground/80 mt-1.5 leading-relaxed">{j.description}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-muted-foreground">
+                  {j.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {j.location}</span>}
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(j.created_at).toLocaleDateString()}</span>
+                  {j.category && <span className="px-2 py-0.5 bg-muted rounded-full font-semibold text-foreground/70">{j.category}</span>}
+                </div>
+              </div>
+              <div className="text-right">
+                {j.budget && <div className="text-sm font-semibold text-brand">{j.budget}</div>}
+                <span className={`mt-1 inline-block text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  j.status === "open" ? "bg-brand-soft text-brand" : "bg-muted text-foreground/70"
+                }`}>{j.status}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-border pt-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                Working on this · {apps.length}
+              </p>
+              {apps.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No creators or squads have applied yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {apps.map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/40">
+                      {a.squad ? (
+                        <>
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-brand text-primary-foreground flex items-center justify-center font-semibold text-xs">
+                            {a.squad.name.slice(0, 1).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{a.squad.name} <span className="text-[10px] text-muted-foreground font-normal">· squad</span></p>
+                            {a.squad.specialty && <p className="text-[11px] text-muted-foreground">{a.squad.specialty}</p>}
+                          </div>
+                        </>
+                      ) : a.applicant ? (
+                        <>
+                          <Link to="/user/$username" params={{ username: a.applicant.username }} className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold">
+                            {a.applicant.avatar_url
+                              ? <img src={a.applicant.avatar_url} className="w-full h-full object-cover" />
+                              : a.applicant.username.slice(0, 1).toUpperCase()}
+                          </Link>
+                          <div className="flex-1 min-w-0">
+                            <Link to="/user/$username" params={{ username: a.applicant.username }} className="text-sm font-semibold truncate hover:text-brand">
+                              @{a.applicant.username}
+                            </Link>
+                            {a.applicant.full_name && <p className="text-[11px] text-muted-foreground truncate">{a.applicant.full_name}</p>}
+                          </div>
+                        </>
+                      ) : null}
+                      <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        a.status === "accepted" ? "bg-brand-soft text-brand" :
+                        a.status === "rejected" ? "bg-destructive/10 text-destructive" :
+                        "bg-muted text-foreground/70"
+                      }`}>{a.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
