@@ -82,6 +82,7 @@ function BriefsPanel() {
   const [loading, setLoading] = useState(true);
   const [showPost, setShowPost] = useState(false);
   const [applyJob, setApplyJob] = useState<Job | null>(null);
+  const [searchQ, setSearchQ] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -112,12 +113,20 @@ function BriefsPanel() {
 
   // For creators, only show jobs whose category or title/description matches one of their specialties.
   const visibleJobs = useMemo(() => {
-    if (isClient || mySpecialties.length === 0) return jobs;
-    return jobs.filter((j) => {
-      const haystack = `${j.category ?? ""} ${j.title} ${j.description}`.toLowerCase();
-      return mySpecialties.some((s) => haystack.includes(s));
+    let base = jobs;
+    if (!isClient && mySpecialties.length > 0) {
+      base = base.filter((j) => {
+        const hay = `${j.category ?? ""} ${j.title} ${j.description}`.toLowerCase();
+        return mySpecialties.some((s) => hay.includes(s));
+      });
+    }
+    const term = searchQ.trim().toLowerCase();
+    if (!term) return base;
+    return base.filter((j) => {
+      const hay = `${j.title} ${j.description} ${j.category ?? ""} ${j.location ?? ""}`.toLowerCase();
+      return hay.includes(term);
     });
-  }, [jobs, isClient, mySpecialties]);
+  }, [jobs, isClient, mySpecialties, searchQ]);
 
   return (
     <div>
