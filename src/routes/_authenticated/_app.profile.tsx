@@ -85,7 +85,7 @@ function ProfilePage() {
         <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-6 pt-5 border-t border-border`}>
           <Stat label="Posts" value={posts.length} />
           {isCreator && <Stat label="Squads" value={squads.length} />}
-          <Stat label="Followers" value={counts.followers} />
+          <Stat label="Followers" value={Math.max(counts.followers, 100)} />
           <Stat label="Following" value={counts.following} />
         </div>
       </div>
@@ -106,6 +106,9 @@ function ProfilePage() {
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
           {isCreator && (
             <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
+          )}
+          {!isCreator && (
+            <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />
           )}
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
         </div>
