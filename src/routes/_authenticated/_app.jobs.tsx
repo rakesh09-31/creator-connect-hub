@@ -293,6 +293,20 @@ function CreatorsPanel() {
     });
   }, [creators, q, specialtyFilter]);
 
+  const visibleSquads = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return squads.filter((s) => {
+      if (specialtyFilter && !(s.specialty ?? "").toLowerCase().includes(specialtyFilter.toLowerCase())) return false;
+      if (!term) return true;
+      return (
+        s.name.toLowerCase().includes(term) ||
+        (s.description ?? "").toLowerCase().includes(term) ||
+        (s.specialty ?? "").toLowerCase().includes(term) ||
+        (s.owner_username ?? "").toLowerCase().includes(term)
+      );
+    });
+  }, [squads, q, specialtyFilter]);
+
   return (
     <div>
       <div className="relative mb-3">
@@ -300,7 +314,7 @@ function CreatorsPanel() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search creators by name, bio, or specialty…"
+          placeholder="Search creators or squads by name, bio, or specialty…"
           className="w-full pl-10 pr-3 h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
         />
       </div>
@@ -313,10 +327,10 @@ function CreatorsPanel() {
       </div>
 
       {loading ? (
-        <div className="text-center text-muted-foreground py-12 text-sm">Loading creators…</div>
-      ) : visible.length === 0 ? (
+        <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
+      ) : visible.length === 0 && visibleSquads.length === 0 ? (
         <div className="bg-surface rounded-2xl p-12 text-center border border-border text-sm text-muted-foreground">
-          No creators match your filters
+          No creators or squads match your filters
         </div>
       ) : (
         <div className="space-y-2">
