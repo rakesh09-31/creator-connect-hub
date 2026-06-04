@@ -92,31 +92,37 @@ export type Database = {
       job_applications: {
         Row: {
           applicant_id: string | null
+          cover_letter: string | null
           created_at: string
           id: string
           job_id: string
           message: string | null
           portfolio_url: string | null
+          resume_url: string | null
           squad_id: string | null
           status: string
         }
         Insert: {
           applicant_id?: string | null
+          cover_letter?: string | null
           created_at?: string
           id?: string
           job_id: string
           message?: string | null
           portfolio_url?: string | null
+          resume_url?: string | null
           squad_id?: string | null
           status?: string
         }
         Update: {
           applicant_id?: string | null
+          cover_letter?: string | null
           created_at?: string
           id?: string
           job_id?: string
           message?: string | null
           portfolio_url?: string | null
+          resume_url?: string | null
           squad_id?: string | null
           status?: string
         }
@@ -176,6 +182,108 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolios: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          media_type: string
+          media_url: string | null
+          project_link: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          media_type?: string
+          media_url?: string | null
+          project_link?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          media_type?: string
+          media_url?: string | null
+          project_link?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      post_comments: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      post_likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      post_saves: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           author_id: string
@@ -232,6 +340,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           client_field: string | null
+          cover_url: string | null
           created_at: string
           full_name: string | null
           id: string
@@ -245,6 +354,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           client_field?: string | null
+          cover_url?: string | null
           created_at?: string
           full_name?: string | null
           id: string
@@ -258,6 +368,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           client_field?: string | null
+          cover_url?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
