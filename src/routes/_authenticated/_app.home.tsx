@@ -24,62 +24,69 @@ function HomePage() {
   useEffect(() => {
     if (!user) return;
     (async () => {
+      setLoading(true);
+
+      // Determine the viewer's interests: creator specialties OR client field
+      const [{ data: me }, { data: mySpecs }] = await Promise.all([
+        supabase.from("profiles").select("role, client_field").eq("id", user.id).maybeSingle(),
+        supabase.from("creator_specialties").select("specialty").eq("user_id", user.id),
+      ]);
+      const myRole = (me as any)?.role as string | null;
+      const interests: string[] = [];
+      if (myRole === "creator") {
+        (mySpecs ?? []).forEach((s: any) => interests.push(String(s.specialty).toLowerCase()));
+      } else if (myRole === "client" && (me as any)?.client_field) {
+        interests.push(String((me as any).client_field).toLowerCase());
+      }
+
+      // Who I follow
       const { data: f } = await supabase.from("follows").select("following_id").eq("follower_id", user.id);
       const followIds = (f ?? []).map((x: any) => x.following_id);
-
       let followProfiles: Profile[] = [];
       if (followIds.length) {
         const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url, role")
-          .in("id", followIds);
+          .from("profiles").select("id, username, full_name, avatar_url, role").in("id", followIds);
         followProfiles = (profs ?? []) as Profile[];
       }
       setFollowing(followProfiles);
 
-      const feedIds = [...followIds, user.id];
+      // Find creators whose specialties match my interests
+      let relevantCreatorIds: string[] = [];
+      if (interests.length) {
+        const orFilter = interests.map((i) => `specialty.ilike.%${i}%`).join(",");
+        const { data: matchSpecs } = await supabase
+          .from("creator_specialties").select("user_id").or(orFilter).limit(120);
+        relevantCreatorIds = Array.from(new Set((matchSpecs ?? []).map((s: any) => s.user_id)));
+      }
+
+      const candidateIds = Array.from(new Set([...followIds, ...relevantCreatorIds, user.id]));
       const { data: postRows } = await supabase
         .from("posts").select("*")
-        .in("author_id", feedIds)
+        .in("author_id", candidateIds.length ? candidateIds : [user.id])
         .order("created_at", { ascending: false })
-        .limit(30);
+        .limit(60);
       let list = (postRows ?? []) as Post[];
 
-      // Fallback: when the user follows no one yet, show role-relevant discovery
-      // posts so the home feed is never empty for a brand-new account.
-      if (list.length < 3) {
-        const { data: me } = await supabase
-          .from("profiles").select("role, client_field")
-          .eq("id", user.id).maybeSingle();
-
-        let creatorIds: string[] = [];
-        if ((me as any)?.role === "client" && (me as any)?.client_field) {
-          const { data: specs } = await supabase
-            .from("creator_specialties").select("user_id")
-            .ilike("specialty", `%${(me as any).client_field}%`).limit(40);
-          creatorIds = Array.from(new Set((specs ?? []).map((s: any) => s.user_id)));
-        }
-        if (creatorIds.length === 0) {
-          const { data: creators } = await supabase
-            .from("profiles").select("id").eq("role", "creator").limit(40);
-          creatorIds = (creators ?? []).map((c: any) => c.id);
-        }
-        if (creatorIds.length) {
-          const { data: discover } = await supabase
-            .from("posts").select("*")
-            .in("author_id", creatorIds)
-            .order("created_at", { ascending: false })
-            .limit(20);
-          const existing = new Set(list.map((p) => p.id));
-          (discover ?? []).forEach((d: any) => { if (!existing.has(d.id)) list.push(d as Post); });
-        }
+      // Final fallback so a new account is never blank
+      if (list.length === 0) {
+        const { data: any2 } = await supabase
+          .from("posts").select("*").order("created_at", { ascending: false }).limit(20);
+        list = (any2 ?? []) as Post[];
       }
+
+      // Rank: followed first, then interest-matched, then the rest
+      const followSet = new Set(followIds);
+      const matchSet = new Set(relevantCreatorIds);
+      list.sort((a, b) => {
+        const score = (p: Post) =>
+          (followSet.has(p.author_id) ? 2 : 0) + (matchSet.has(p.author_id) ? 1 : 0);
+        return score(b) - score(a);
+      });
 
       const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
       if (allAuthorIds.length) {
         const { data: ap } = await supabase
-          .from("profiles").select("id, username, full_name, avatar_url, role")
-          .in("id", allAuthorIds);
+          .from("profiles").select("id, username, full_name, avatar_url, role").in("id", allAuthorIds);
         const map = new Map((ap ?? []).map((p: any) => [p.id, p]));
         list.forEach((p) => (p.author = map.get(p.author_id)));
       }
