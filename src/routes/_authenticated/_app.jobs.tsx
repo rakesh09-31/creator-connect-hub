@@ -113,21 +113,27 @@ function BriefsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isClient]);
 
-  // For creators, only show jobs whose category or title/description matches one of their specialties.
+  // Smart matching: score each job by overlap with the creator's specialties +
+  // required skills, category, and title. Hide jobs with no overlap when the
+  // creator has specialties set.
   const visibleJobs = useMemo(() => {
-    let base = jobs;
-    if (!isClient && mySpecialties.length > 0) {
-      base = base.filter((j) => {
-        const hay = `${j.category ?? ""} ${j.title} ${j.description}`.toLowerCase();
-        return mySpecialties.some((s) => hay.includes(s));
-      });
-    }
     const term = searchQ.trim().toLowerCase();
-    if (!term) return base;
-    return base.filter((j) => {
-      const hay = `${j.title} ${j.description} ${j.category ?? ""} ${j.location ?? ""}`.toLowerCase();
+    const scored = jobs.map((j) => {
+      const hay = `${j.category ?? ""} ${j.title} ${j.description} ${(j.skills_required ?? []).join(" ")}`.toLowerCase();
+      let score = 0;
+      if (!isClient && mySpecialties.length) {
+        mySpecialties.forEach((s) => { if (hay.includes(s)) score += 2; });
+      }
+      if (term && hay.includes(term)) score += 1;
+      return { j, score };
+    });
+    let base = scored;
+    if (!isClient && mySpecialties.length > 0) base = base.filter((x) => x.score > 0);
+    if (term) base = base.filter((x) => {
+      const hay = `${x.j.title} ${x.j.description} ${x.j.category ?? ""} ${x.j.location ?? ""} ${(x.j.skills_required ?? []).join(" ")}`.toLowerCase();
       return hay.includes(term);
     });
+    return base.sort((a, b) => b.score - a.score).map((x) => x.j);
   }, [jobs, isClient, mySpecialties, searchQ]);
 
   return (
