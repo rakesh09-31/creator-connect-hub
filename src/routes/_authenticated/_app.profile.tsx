@@ -413,3 +413,114 @@ function ClientProjectsPanel() {
     </div>
   );
 }
+
+/* ---------------------- Portfolio panel ---------------------- */
+
+type PortfolioItem = { id: string; title: string; description: string | null; media_url: string | null; media_type: string; project_link: string | null };
+
+function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }) {
+  const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const load = async () => {
+    if (!userId) return;
+    setLoading(true);
+    const { data } = await supabase.from("portfolios").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    setItems((data ?? []) as PortfolioItem[]);
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [userId]);
+
+  const remove = async (id: string) => {
+    if (!confirm("Remove this portfolio item?")) return;
+    await supabase.from("portfolios").delete().eq("id", id);
+    load();
+  };
+
+  return (
+    <div className="mt-4">
+      {isSelf && (
+        <div className="flex justify-end mb-3">
+          <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Add work
+          </button>
+        </div>
+      )}
+      {loading ? (
+        <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="text-center text-muted-foreground py-16 text-sm">
+          <ImageIcon className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
+          No portfolio items yet
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {items.map((p) => (
+            <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden group relative">
+              {p.media_url && <img src={p.media_url} className="w-full aspect-square object-cover" alt={p.title} />}
+              <div className="p-3">
+                <p className="font-semibold text-sm truncate">{p.title}</p>
+                {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                {p.project_link && (
+                  <a href={p.project_link} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-brand font-semibold hover:underline">
+                    <ExternalLink className="w-3 h-3" /> View
+                  </a>
+                )}
+              </div>
+              {isSelf && (
+                <button onClick={() => remove(p.id)} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {showAdd && <AddPortfolioModal userId={userId} onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load(); }} />}
+    </div>
+  );
+}
+
+function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({ title: "", description: "", media_url: "", project_link: "" });
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) { toast.error("Title required"); return; }
+    setBusy(true);
+    const { error } = await supabase.from("portfolios").insert({
+      user_id: userId,
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      media_url: form.media_url.trim() || null,
+      project_link: form.project_link.trim() || null,
+      media_type: "image",
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Added to portfolio");
+    onCreated();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Add portfolio work</h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={submit} className="space-y-3">
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Project title" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
+          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short description" rows={3} className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm resize-none" />
+          <input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="Image URL" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
+          <input value={form.project_link} onChange={(e) => setForm({ ...form, project_link: e.target.value })} placeholder="Project link (optional)" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
+          <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
