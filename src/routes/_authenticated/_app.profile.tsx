@@ -104,6 +104,7 @@ function ProfilePage() {
       <div className="mt-6 border-b border-border">
         <div className="flex">
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
+          <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-4 h-4" />} label="Portfolio" />
           {isCreator && (
             <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
           )}
@@ -113,6 +114,8 @@ function ProfilePage() {
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
         </div>
       </div>
+
+      {tab === "portfolio" && <PortfolioPanel userId={user?.id ?? ""} isSelf />}
 
       {tab === "posts" && (
         posts.length === 0 ? (
