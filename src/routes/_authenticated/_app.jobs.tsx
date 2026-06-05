@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Briefcase, MapPin, Clock, Plus, X, Send, Search, ExternalLink, MessageCircle } from "lucide-react";
+import { Briefcase, MapPin, Clock, Plus, X, Send, Search, ExternalLink, MessageCircle, Calendar, Award, Building2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +14,8 @@ type Job = {
   id: string; title: string; description: string; category: string | null;
   location: string | null; budget: string | null; status: string;
   client_id: string; created_at: string;
+  company_name?: string | null; skills_required?: string[] | null;
+  experience_level?: string | null; duration?: string | null; deadline?: string | null;
   client?: { username: string; full_name: string | null; avatar_url: string | null };
 };
 
@@ -111,21 +113,27 @@ function BriefsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isClient]);
 
-  // For creators, only show jobs whose category or title/description matches one of their specialties.
+  // Smart matching: score each job by overlap with the creator's specialties +
+  // required skills, category, and title. Hide jobs with no overlap when the
+  // creator has specialties set.
   const visibleJobs = useMemo(() => {
-    let base = jobs;
-    if (!isClient && mySpecialties.length > 0) {
-      base = base.filter((j) => {
-        const hay = `${j.category ?? ""} ${j.title} ${j.description}`.toLowerCase();
-        return mySpecialties.some((s) => hay.includes(s));
-      });
-    }
     const term = searchQ.trim().toLowerCase();
-    if (!term) return base;
-    return base.filter((j) => {
-      const hay = `${j.title} ${j.description} ${j.category ?? ""} ${j.location ?? ""}`.toLowerCase();
+    const scored = jobs.map((j) => {
+      const hay = `${j.category ?? ""} ${j.title} ${j.description} ${(j.skills_required ?? []).join(" ")}`.toLowerCase();
+      let score = 0;
+      if (!isClient && mySpecialties.length) {
+        mySpecialties.forEach((s) => { if (hay.includes(s)) score += 2; });
+      }
+      if (term && hay.includes(term)) score += 1;
+      return { j, score };
+    });
+    let base = scored;
+    if (!isClient && mySpecialties.length > 0) base = base.filter((x) => x.score > 0);
+    if (term) base = base.filter((x) => {
+      const hay = `${x.j.title} ${x.j.description} ${x.j.category ?? ""} ${x.j.location ?? ""} ${(x.j.skills_required ?? []).join(" ")}`.toLowerCase();
       return hay.includes(term);
     });
+    return base.sort((a, b) => b.score - a.score).map((x) => x.j);
   }, [jobs, isClient, mySpecialties, searchQ]);
 
   return (
@@ -181,33 +189,65 @@ function BriefsPanel() {
 }
 
 function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onApply: () => void }) {
+  const deadlineLabel = job.deadline ? new Date(job.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
   return (
-    <div className="bg-surface rounded-xl p-5 border border-border hover:border-brand/40 hover:shadow-sm transition">
+    <div className="bg-surface rounded-2xl p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-brand-soft flex items-center justify-center flex-shrink-0">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="w-11 h-11 rounded-xl bg-brand-soft flex items-center justify-center flex-shrink-0">
             <Briefcase className="w-5 h-5 text-brand" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-base tracking-tight">{job.title}</h3>
-            <Link to="/user/$username" params={{ username: job.client?.username ?? "" }} className="text-xs text-muted-foreground hover:text-brand">
-              @{job.client?.username ?? "client"}
-            </Link>
-            <p className="text-sm text-foreground/80 mt-2 line-clamp-2 leading-relaxed">{job.description}</p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-[11px] text-muted-foreground">
-              {job.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location}</span>}
-              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(job.created_at).toLocaleDateString()}</span>
-              {job.category && <span className="px-2 py-0.5 bg-muted rounded-full font-semibold text-foreground/70">{job.category}</span>}
+            <h3 className="font-bold text-base tracking-tight leading-snug">{job.title}</h3>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+              {job.company_name && <span className="inline-flex items-center gap-1 font-semibold text-foreground/80"><Building2 className="w-3 h-3" />{job.company_name}</span>}
+              {job.client?.username && (
+                <Link to="/user/$username" params={{ username: job.client.username }} className="hover:text-brand">@{job.client.username}</Link>
+              )}
             </div>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          {job.budget && <div className="text-sm font-semibold text-brand">{job.budget}</div>}
-          {canApply && (
-            <button onClick={onApply} className="mt-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold hover:opacity-90 transition">Apply</button>
-          )}
+          {job.budget && <div className="text-base font-bold text-brand">{job.budget}</div>}
+          {job.category && <span className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-foreground/70">{job.category}</span>}
         </div>
       </div>
+
+      <p className="text-sm text-foreground/80 mt-3 line-clamp-3 leading-relaxed whitespace-pre-line">{job.description}</p>
+
+      {job.skills_required && job.skills_required.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Skills required</p>
+          <div className="flex flex-wrap gap-1.5">
+            {job.skills_required.map((s) => (
+              <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-brand-soft text-brand font-semibold">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-border text-[11px]">
+        {job.experience_level && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><Award className="w-3.5 h-3.5" /><span><span className="font-semibold text-foreground/80">{job.experience_level}</span> level</span></div>
+        )}
+        {job.duration && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="w-3.5 h-3.5" /><span>{job.duration}</span></div>
+        )}
+        {job.location && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><MapPin className="w-3.5 h-3.5" /><span>{job.location}</span></div>
+        )}
+        {deadlineLabel && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="w-3.5 h-3.5" /><span>Deadline {deadlineLabel}</span></div>
+        )}
+      </div>
+
+      {canApply && (
+        <div className="mt-4 flex justify-end">
+          <button onClick={onApply} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition inline-flex items-center gap-1.5">
+            <Send className="w-3.5 h-3.5" /> Apply now
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -476,7 +516,10 @@ function RequestCreatorModal({ creator, onClose }: { creator: CreatorProfile; on
 
 function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
-  const [form, setForm] = useState({ title: "", description: "", category: "", location: "", budget: "" });
+  const [form, setForm] = useState({
+    title: "", description: "", category: "", location: "", budget: "",
+    company_name: "", skills: "", experience_level: "Intermediate", duration: "", deadline: "",
+  });
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -484,14 +527,20 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     if (!user) return;
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
     setBusy(true);
-    const { error } = await supabase.from("jobs").insert({
+    const payload: any = {
       client_id: user.id,
       title: form.title.trim(),
       description: form.description.trim(),
       category: form.category.trim() || null,
       location: form.location.trim() || null,
       budget: form.budget.trim() || null,
-    });
+      company_name: form.company_name.trim() || null,
+      experience_level: form.experience_level || null,
+      duration: form.duration.trim() || null,
+      deadline: form.deadline || null,
+      skills_required: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
+    };
+    const { error } = await supabase.from("jobs").insert(payload);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Project posted");
@@ -501,19 +550,38 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   return (
     <Modal onClose={onClose} title="Post a brief">
       <form onSubmit={submit} className="space-y-3">
-        <Input placeholder="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
+        <Input placeholder="Job title (e.g. Need Instagram Reel Editor)" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input placeholder="Company / brand name" value={form.company_name} onChange={(v) => setForm({ ...form, company_name: v })} />
+          <Input placeholder="Category (Video, Design…)" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
+        </div>
         <textarea
-          placeholder="Describe the project, deliverables, timeline…"
+          placeholder="Project description, deliverables, references…"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={5}
           className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm resize-none"
         />
+        <Input placeholder="Required skills, comma separated (Premiere Pro, After Effects)" value={form.skills} onChange={(v) => setForm({ ...form, skills: v })} />
         <div className="grid grid-cols-2 gap-3">
-          <Input placeholder="Category (Video, Design…)" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
-          <Input placeholder="Location (or Remote)" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
+          <Input placeholder="Budget (e.g. ₹10,000)" value={form.budget} onChange={(v) => setForm({ ...form, budget: v })} />
+          <Input placeholder="Duration (e.g. 30 days)" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} />
         </div>
-        <Input placeholder="Budget (e.g. ₹50,000)" value={form.budget} onChange={(v) => setForm({ ...form, budget: v })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input placeholder="Location (or Remote)" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
+          <select
+            value={form.experience_level}
+            onChange={(e) => setForm({ ...form, experience_level: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
+          >
+            <option>Entry</option><option>Intermediate</option><option>Senior</option>
+          </select>
+        </div>
+        <label className="block">
+          <span className="block text-xs font-semibold text-muted-foreground mb-1">Deadline</span>
+          <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+        </label>
         <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
           {busy ? "Posting…" : "Post brief"}
         </button>

@@ -148,10 +148,15 @@ export type Database = {
           budget: string | null
           category: string | null
           client_id: string
+          company_name: string | null
           created_at: string
+          deadline: string | null
           description: string
+          duration: string | null
+          experience_level: string | null
           id: string
           location: string | null
+          skills_required: string[] | null
           status: string
           title: string
           updated_at: string
@@ -160,10 +165,15 @@ export type Database = {
           budget?: string | null
           category?: string | null
           client_id: string
+          company_name?: string | null
           created_at?: string
+          deadline?: string | null
           description: string
+          duration?: string | null
+          experience_level?: string | null
           id?: string
           location?: string | null
+          skills_required?: string[] | null
           status?: string
           title: string
           updated_at?: string
@@ -172,10 +182,15 @@ export type Database = {
           budget?: string | null
           category?: string | null
           client_id?: string
+          company_name?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string
+          duration?: string | null
+          experience_level?: string | null
           id?: string
           location?: string | null
+          skills_required?: string[] | null
           status?: string
           title?: string
           updated_at?: string
@@ -344,11 +359,15 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          languages: string[] | null
+          location: string | null
           onboarded: boolean
           portfolio_url: string | null
           role: Database["public"]["Enums"]["app_role"] | null
           updated_at: string
           username: string
+          verified: boolean
+          website: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -358,11 +377,15 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          languages?: string[] | null
+          location?: string | null
           onboarded?: boolean
           portfolio_url?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username: string
+          verified?: boolean
+          website?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -372,11 +395,15 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          languages?: string[] | null
+          location?: string | null
           onboarded?: boolean
           portfolio_url?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           updated_at?: string
           username?: string
+          verified?: boolean
+          website?: string | null
         }
         Relationships: []
       }

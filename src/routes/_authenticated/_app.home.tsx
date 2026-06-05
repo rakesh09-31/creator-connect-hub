@@ -67,11 +67,19 @@ function HomePage() {
         .limit(60);
       let list = (postRows ?? []) as Post[];
 
-      // Final fallback so a new account is never blank
-      if (list.length === 0) {
-        const { data: any2 } = await supabase
-          .from("posts").select("*").order("created_at", { ascending: false }).limit(20);
-        list = (any2 ?? []) as Post[];
+      // Strict role-based fallback: only show posts from creators whose specialty
+      // matches the viewer's interests. Never show unrelated content.
+      if (list.length === 0 && interests.length) {
+        const orFilter = interests.map((i) => `specialty.ilike.%${i}%`).join(",");
+        const { data: matchSpecs } = await supabase
+          .from("creator_specialties").select("user_id").or(orFilter).limit(200);
+        const ids = Array.from(new Set((matchSpecs ?? []).map((s: any) => s.user_id)));
+        if (ids.length) {
+          const { data: any2 } = await supabase
+            .from("posts").select("*").in("author_id", ids)
+            .order("created_at", { ascending: false }).limit(30);
+          list = (any2 ?? []) as Post[];
+        }
       }
 
       // Rank: followed first, then interest-matched, then the rest
