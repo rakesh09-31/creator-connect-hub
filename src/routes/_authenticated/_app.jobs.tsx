@@ -516,7 +516,10 @@ function RequestCreatorModal({ creator, onClose }: { creator: CreatorProfile; on
 
 function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
-  const [form, setForm] = useState({ title: "", description: "", category: "", location: "", budget: "" });
+  const [form, setForm] = useState({
+    title: "", description: "", category: "", location: "", budget: "",
+    company_name: "", skills: "", experience_level: "Intermediate", duration: "", deadline: "",
+  });
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -524,14 +527,20 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     if (!user) return;
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
     setBusy(true);
-    const { error } = await supabase.from("jobs").insert({
+    const payload: any = {
       client_id: user.id,
       title: form.title.trim(),
       description: form.description.trim(),
       category: form.category.trim() || null,
       location: form.location.trim() || null,
       budget: form.budget.trim() || null,
-    });
+      company_name: form.company_name.trim() || null,
+      experience_level: form.experience_level || null,
+      duration: form.duration.trim() || null,
+      deadline: form.deadline || null,
+      skills_required: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
+    };
+    const { error } = await supabase.from("jobs").insert(payload);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Project posted");
@@ -541,19 +550,38 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   return (
     <Modal onClose={onClose} title="Post a brief">
       <form onSubmit={submit} className="space-y-3">
-        <Input placeholder="Title" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
+        <Input placeholder="Job title (e.g. Need Instagram Reel Editor)" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input placeholder="Company / brand name" value={form.company_name} onChange={(v) => setForm({ ...form, company_name: v })} />
+          <Input placeholder="Category (Video, Design…)" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
+        </div>
         <textarea
-          placeholder="Describe the project, deliverables, timeline…"
+          placeholder="Project description, deliverables, references…"
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={5}
           className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm resize-none"
         />
+        <Input placeholder="Required skills, comma separated (Premiere Pro, After Effects)" value={form.skills} onChange={(v) => setForm({ ...form, skills: v })} />
         <div className="grid grid-cols-2 gap-3">
-          <Input placeholder="Category (Video, Design…)" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
-          <Input placeholder="Location (or Remote)" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
+          <Input placeholder="Budget (e.g. ₹10,000)" value={form.budget} onChange={(v) => setForm({ ...form, budget: v })} />
+          <Input placeholder="Duration (e.g. 30 days)" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} />
         </div>
-        <Input placeholder="Budget (e.g. ₹50,000)" value={form.budget} onChange={(v) => setForm({ ...form, budget: v })} />
+        <div className="grid grid-cols-2 gap-3">
+          <Input placeholder="Location (or Remote)" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
+          <select
+            value={form.experience_level}
+            onChange={(e) => setForm({ ...form, experience_level: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
+          >
+            <option>Entry</option><option>Intermediate</option><option>Senior</option>
+          </select>
+        </div>
+        <label className="block">
+          <span className="block text-xs font-semibold text-muted-foreground mb-1">Deadline</span>
+          <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+        </label>
         <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
           {busy ? "Posting…" : "Post brief"}
         </button>
