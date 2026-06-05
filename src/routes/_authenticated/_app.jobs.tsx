@@ -14,6 +14,8 @@ type Job = {
   id: string; title: string; description: string; category: string | null;
   location: string | null; budget: string | null; status: string;
   client_id: string; created_at: string;
+  company_name?: string | null; skills_required?: string[] | null;
+  experience_level?: string | null; duration?: string | null; deadline?: string | null;
   client?: { username: string; full_name: string | null; avatar_url: string | null };
 };
 
