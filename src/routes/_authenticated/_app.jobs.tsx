@@ -189,33 +189,65 @@ function BriefsPanel() {
 }
 
 function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onApply: () => void }) {
+  const deadlineLabel = job.deadline ? new Date(job.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
   return (
-    <div className="bg-surface rounded-xl p-5 border border-border hover:border-brand/40 hover:shadow-sm transition">
+    <div className="bg-surface rounded-2xl p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-brand-soft flex items-center justify-center flex-shrink-0">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="w-11 h-11 rounded-xl bg-brand-soft flex items-center justify-center flex-shrink-0">
             <Briefcase className="w-5 h-5 text-brand" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-base tracking-tight">{job.title}</h3>
-            <Link to="/user/$username" params={{ username: job.client?.username ?? "" }} className="text-xs text-muted-foreground hover:text-brand">
-              @{job.client?.username ?? "client"}
-            </Link>
-            <p className="text-sm text-foreground/80 mt-2 line-clamp-2 leading-relaxed">{job.description}</p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-[11px] text-muted-foreground">
-              {job.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location}</span>}
-              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(job.created_at).toLocaleDateString()}</span>
-              {job.category && <span className="px-2 py-0.5 bg-muted rounded-full font-semibold text-foreground/70">{job.category}</span>}
+            <h3 className="font-bold text-base tracking-tight leading-snug">{job.title}</h3>
+            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+              {job.company_name && <span className="inline-flex items-center gap-1 font-semibold text-foreground/80"><Building2 className="w-3 h-3" />{job.company_name}</span>}
+              {job.client?.username && (
+                <Link to="/user/$username" params={{ username: job.client.username }} className="hover:text-brand">@{job.client.username}</Link>
+              )}
             </div>
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          {job.budget && <div className="text-sm font-semibold text-brand">{job.budget}</div>}
-          {canApply && (
-            <button onClick={onApply} className="mt-2 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-semibold hover:opacity-90 transition">Apply</button>
-          )}
+          {job.budget && <div className="text-base font-bold text-brand">{job.budget}</div>}
+          {job.category && <span className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-foreground/70">{job.category}</span>}
         </div>
       </div>
+
+      <p className="text-sm text-foreground/80 mt-3 line-clamp-3 leading-relaxed whitespace-pre-line">{job.description}</p>
+
+      {job.skills_required && job.skills_required.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Skills required</p>
+          <div className="flex flex-wrap gap-1.5">
+            {job.skills_required.map((s) => (
+              <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-brand-soft text-brand font-semibold">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-border text-[11px]">
+        {job.experience_level && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><Award className="w-3.5 h-3.5" /><span><span className="font-semibold text-foreground/80">{job.experience_level}</span> level</span></div>
+        )}
+        {job.duration && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="w-3.5 h-3.5" /><span>{job.duration}</span></div>
+        )}
+        {job.location && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><MapPin className="w-3.5 h-3.5" /><span>{job.location}</span></div>
+        )}
+        {deadlineLabel && (
+          <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="w-3.5 h-3.5" /><span>Deadline {deadlineLabel}</span></div>
+        )}
+      </div>
+
+      {canApply && (
+        <div className="mt-4 flex justify-end">
+          <button onClick={onApply} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition inline-flex items-center gap-1.5">
+            <Send className="w-3.5 h-3.5" /> Apply now
+          </button>
+        </div>
+      )}
     </div>
   );
 }
