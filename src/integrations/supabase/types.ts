@@ -362,8 +362,15 @@ export type Database = {
           languages: string[] | null
           location: string | null
           onboarded: boolean
+          portfolio_tagline: string | null
+          portfolio_template: string | null
+          portfolio_theme: string | null
           portfolio_url: string | null
+          resume_url: string | null
           role: Database["public"]["Enums"]["app_role"] | null
+          services: Json | null
+          social_links: Json | null
+          testimonials: Json | null
           updated_at: string
           username: string
           verified: boolean
@@ -380,8 +387,15 @@ export type Database = {
           languages?: string[] | null
           location?: string | null
           onboarded?: boolean
+          portfolio_tagline?: string | null
+          portfolio_template?: string | null
+          portfolio_theme?: string | null
           portfolio_url?: string | null
+          resume_url?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
+          services?: Json | null
+          social_links?: Json | null
+          testimonials?: Json | null
           updated_at?: string
           username: string
           verified?: boolean
@@ -398,8 +412,15 @@ export type Database = {
           languages?: string[] | null
           location?: string | null
           onboarded?: boolean
+          portfolio_tagline?: string | null
+          portfolio_template?: string | null
+          portfolio_theme?: string | null
           portfolio_url?: string | null
+          resume_url?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
+          services?: Json | null
+          social_links?: Json | null
+          testimonials?: Json | null
           updated_at?: string
           username?: string
           verified?: boolean

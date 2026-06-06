@@ -414,14 +414,31 @@ function ClientProjectsPanel() {
   );
 }
 
-/* ---------------------- Portfolio panel ---------------------- */
+/* ---------------------- Portfolio website builder ---------------------- */
 
 type PortfolioItem = { id: string; title: string; description: string | null; media_url: string | null; media_type: string; project_link: string | null };
+type Service = { title: string; description: string; price?: string };
+type Testimonial = { name: string; role?: string; quote: string };
+
+const TEMPLATES = [
+  { id: "classic", label: "Classic", desc: "Clean grid layout" },
+  { id: "showcase", label: "Showcase", desc: "Bold hero, large media" },
+  { id: "minimal", label: "Minimal", desc: "Typography forward" },
+];
 
 function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }) {
+  const { profile, refresh } = useAuth();
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showCustomize, setShowCustomize] = useState(false);
+
+  const template = (profile as any)?.portfolio_template ?? "classic";
+  const tagline = (profile as any)?.portfolio_tagline ?? "";
+  const services: Service[] = (profile as any)?.services ?? [];
+  const testimonials: Testimonial[] = (profile as any)?.testimonials ?? [];
+  const social: Record<string, string> = (profile as any)?.social_links ?? {};
+  const resumeUrl = (profile as any)?.resume_url ?? "";
 
   const load = async () => {
     if (!userId) return;
@@ -438,46 +455,116 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
     load();
   };
 
+  const heroClass =
+    template === "showcase"
+      ? "bg-gradient-to-br from-primary/15 via-brand/10 to-transparent p-8 text-center"
+      : template === "minimal"
+      ? "p-6 border-l-4 border-brand"
+      : "p-6 bg-surface";
+
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-6">
       {isSelf && (
-        <div className="flex justify-end mb-3">
+        <div className="flex justify-end gap-2">
+          <button onClick={() => setShowCustomize(true)} className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
+            <Pencil className="w-3.5 h-3.5" /> Customize site
+          </button>
           <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Add work
+            <Plus className="w-3.5 h-3.5" /> Add project
           </button>
         </div>
       )}
-      {loading ? (
-        <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
-      ) : items.length === 0 ? (
-        <div className="text-center text-muted-foreground py-16 text-sm">
-          <ImageIcon className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
-          No portfolio items yet
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {items.map((p) => (
-            <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden group relative">
-              {p.media_url && <img src={p.media_url} className="w-full aspect-square object-cover" alt={p.title} />}
-              <div className="p-3">
-                <p className="font-semibold text-sm truncate">{p.title}</p>
-                {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
-                {p.project_link && (
-                  <a href={p.project_link} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-brand font-semibold hover:underline">
-                    <ExternalLink className="w-3 h-3" /> View
-                  </a>
-                )}
-              </div>
-              {isSelf && (
-                <button onClick={() => remove(p.id)} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              )}
-            </div>
+
+      {/* HERO / About */}
+      <section className={`rounded-2xl border border-border ${heroClass}`}>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">About</h2>
+        <p className="text-2xl font-bold tracking-tight">{profile?.full_name || profile?.username}</p>
+        {tagline && <p className="text-sm text-foreground/80 mt-1">{tagline}</p>}
+        {profile?.bio && <p className="text-sm text-foreground/70 mt-2 leading-relaxed">{profile.bio}</p>}
+        <div className="flex flex-wrap gap-2 mt-3">
+          {resumeUrl && (
+            <a href={resumeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">
+              <ExternalLink className="w-3 h-3" /> Download resume
+            </a>
+          )}
+          {Object.entries(social).filter(([_, v]) => v).map(([k, v]) => (
+            <a key={k} href={v} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold capitalize">
+              {k}
+            </a>
           ))}
         </div>
+      </section>
+
+      {/* Services */}
+      {services.length > 0 && (
+        <section>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Services</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {services.map((s, i) => (
+              <div key={i} className="p-4 bg-surface border border-border rounded-xl">
+                <p className="font-semibold text-sm">{s.title}</p>
+                {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
+                {s.price && <p className="text-xs font-bold text-brand mt-2">{s.price}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
+
+      {/* Projects gallery */}
+      <section>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Projects & Gallery</h2>
+        {loading ? (
+          <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
+        ) : items.length === 0 ? (
+          <div className="text-center text-muted-foreground py-12 text-sm bg-surface border border-border rounded-xl">
+            <ImageIcon className="w-10 h-10 mx-auto mb-2" />
+            {isSelf ? "Add your first project to build your portfolio" : "No projects yet"}
+          </div>
+        ) : (
+          <div className={template === "showcase"
+            ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+            : "grid grid-cols-2 sm:grid-cols-3 gap-3"}>
+            {items.map((p) => (
+              <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden group relative">
+                {p.media_url && <img src={p.media_url} className={`w-full ${template === "showcase" ? "aspect-video" : "aspect-square"} object-cover`} alt={p.title} />}
+                <div className="p-3">
+                  <p className="font-semibold text-sm truncate">{p.title}</p>
+                  {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                  {p.project_link && (
+                    <a href={p.project_link} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-brand font-semibold hover:underline">
+                      <ExternalLink className="w-3 h-3" /> View
+                    </a>
+                  )}
+                </div>
+                {isSelf && (
+                  <button onClick={() => remove(p.id)} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Testimonials */}
+      {testimonials.length > 0 && (
+        <section>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Testimonials</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {testimonials.map((t, i) => (
+              <blockquote key={i} className="p-4 bg-surface border border-border rounded-xl">
+                <p className="text-sm italic text-foreground/80">"{t.quote}"</p>
+                <footer className="text-xs text-muted-foreground mt-2 font-semibold">— {t.name}{t.role ? `, ${t.role}` : ""}</footer>
+              </blockquote>
+            ))}
+          </div>
+        </section>
+      )}
+
       {showAdd && <AddPortfolioModal userId={userId} onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load(); }} />}
+      {showCustomize && <CustomizePortfolioModal onClose={() => setShowCustomize(false)} onSaved={() => { setShowCustomize(false); refresh(); }} />}
     </div>
   );
 }
@@ -508,7 +595,7 @@ function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onC
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 border border-border">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Add portfolio work</h2>
+          <h2 className="text-lg font-semibold">Add portfolio project</h2>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
@@ -524,3 +611,122 @@ function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onC
     </div>
   );
 }
+
+function CustomizePortfolioModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { profile, user } = useAuth();
+  const p = profile as any;
+  const [template, setTemplate] = useState<string>(p?.portfolio_template ?? "classic");
+  const [tagline, setTagline] = useState<string>(p?.portfolio_tagline ?? "");
+  const [resumeUrl, setResumeUrl] = useState<string>(p?.resume_url ?? "");
+  const [social, setSocial] = useState<Record<string, string>>(p?.social_links ?? {});
+  const [services, setServices] = useState<Service[]>(p?.services ?? []);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(p?.testimonials ?? []);
+  const [busy, setBusy] = useState(false);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setBusy(true);
+    const { error } = await supabase.from("profiles").update({
+      portfolio_template: template,
+      portfolio_tagline: tagline.trim() || null,
+      resume_url: resumeUrl.trim() || null,
+      social_links: social,
+      services: services.filter((s) => s.title.trim()),
+      testimonials: testimonials.filter((t) => t.quote.trim()),
+    } as any).eq("id", user.id);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Portfolio updated");
+    onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Customize portfolio website</h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={save} className="space-y-5">
+          {/* Template */}
+          <div>
+            <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Template</span>
+            <div className="grid grid-cols-3 gap-2">
+              {TEMPLATES.map((t) => (
+                <button type="button" key={t.id} onClick={() => setTemplate(t.id)}
+                  className={`p-3 rounded-xl border text-left transition ${
+                    template === t.id ? "border-brand bg-brand-soft" : "border-border hover:border-brand/40"
+                  }`}>
+                  <p className="font-semibold text-sm">{t.label}</p>
+                  <p className="text-[11px] text-muted-foreground">{t.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Field label="Tagline (one-line)">
+            <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="e.g. Choreographer crafting cinematic dance reels" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
+          </Field>
+
+          <Field label="Resume URL">
+            <input value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} placeholder="https://… (link to your CV/PDF)" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
+          </Field>
+
+          {/* Socials */}
+          <div>
+            <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Social links</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {["instagram", "youtube", "linkedin", "twitter", "website", "behance"].map((k) => (
+                <input key={k} value={social[k] ?? ""} onChange={(e) => setSocial({ ...social, [k]: e.target.value })}
+                  placeholder={`${k} URL`}
+                  className="px-3 py-2 rounded-lg bg-surface border border-border text-sm" />
+              ))}
+            </div>
+          </div>
+
+          {/* Services */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground">Services offered</span>
+              <button type="button" onClick={() => setServices([...services, { title: "", description: "", price: "" }])} className="text-xs font-semibold text-brand inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
+            </div>
+            <div className="space-y-2">
+              {services.map((s, i) => (
+                <div key={i} className="p-3 bg-surface border border-border rounded-lg space-y-2 relative">
+                  <button type="button" onClick={() => setServices(services.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1 hover:bg-muted rounded"><X className="w-3 h-3" /></button>
+                  <input value={s.title} onChange={(e) => { const c = [...services]; c[i] = { ...s, title: e.target.value }; setServices(c); }} placeholder="Service title" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
+                  <input value={s.description} onChange={(e) => { const c = [...services]; c[i] = { ...s, description: e.target.value }; setServices(c); }} placeholder="Description" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
+                  <input value={s.price ?? ""} onChange={(e) => { const c = [...services]; c[i] = { ...s, price: e.target.value }; setServices(c); }} placeholder="Price (e.g. from $500)" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Testimonials */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground">Testimonials</span>
+              <button type="button" onClick={() => setTestimonials([...testimonials, { name: "", role: "", quote: "" }])} className="text-xs font-semibold text-brand inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
+            </div>
+            <div className="space-y-2">
+              {testimonials.map((t, i) => (
+                <div key={i} className="p-3 bg-surface border border-border rounded-lg space-y-2 relative">
+                  <button type="button" onClick={() => setTestimonials(testimonials.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1 hover:bg-muted rounded"><X className="w-3 h-3" /></button>
+                  <input value={t.name} onChange={(e) => { const c = [...testimonials]; c[i] = { ...t, name: e.target.value }; setTestimonials(c); }} placeholder="Client name" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
+                  <input value={t.role ?? ""} onChange={(e) => { const c = [...testimonials]; c[i] = { ...t, role: e.target.value }; setTestimonials(c); }} placeholder="Role / Company" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
+                  <textarea value={t.quote} onChange={(e) => { const c = [...testimonials]; c[i] = { ...t, quote: e.target.value }; setTestimonials(c); }} placeholder="Quote" rows={2} className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm resize-none" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
+            {busy ? "Saving…" : "Save portfolio"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+

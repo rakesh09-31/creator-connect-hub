@@ -15,6 +15,42 @@ type Post = {
   created_at: string; author_id: string; author?: Profile;
 };
 
+
+// Round-robin shuffle so consecutive posts come from different creators.
+function diversifyByAuthor(items: Post[]): Post[] {
+  const buckets = new Map<string, Post[]>();
+  for (const p of items) {
+    const arr = buckets.get(p.author_id) ?? [];
+    arr.push(p);
+    buckets.set(p.author_id, arr);
+  }
+  const out: Post[] = [];
+  let lastAuthor = "";
+  while (out.length < items.length) {
+    let progressed = false;
+    // sort keys by remaining count desc each pass for balanced spread
+    const keys = Array.from(buckets.keys())
+      .filter((k) => (buckets.get(k) ?? []).length > 0)
+      .sort((a, b) => (buckets.get(b)?.length ?? 0) - (buckets.get(a)?.length ?? 0));
+    for (const k of keys) {
+      if (k === lastAuthor && keys.length > 1) continue;
+      const arr = buckets.get(k)!;
+      out.push(arr.shift()!);
+      lastAuthor = k;
+      progressed = true;
+      break;
+    }
+    if (!progressed) {
+      // Only one author left
+      for (const k of keys) {
+        const arr = buckets.get(k)!;
+        while (arr.length) out.push(arr.shift()!);
+      }
+    }
+  }
+  return out;
+}
+
 function HomePage() {
   const { profile, user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -90,6 +126,9 @@ function HomePage() {
           (followSet.has(p.author_id) ? 2 : 0) + (matchSet.has(p.author_id) ? 1 : 0);
         return score(b) - score(a);
       });
+
+      // Diversity: avoid consecutive posts from the same creator, mix fields.
+      list = diversifyByAuthor(list);
 
       const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
       if (allAuthorIds.length) {
