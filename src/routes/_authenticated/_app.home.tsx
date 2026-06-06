@@ -91,6 +91,9 @@ function HomePage() {
         return score(b) - score(a);
       });
 
+      // Diversity: avoid consecutive posts from the same creator, mix fields.
+      list = diversifyByAuthor(list);
+
       const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
       if (allAuthorIds.length) {
         const { data: ap } = await supabase
