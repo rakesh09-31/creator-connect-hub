@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
+import { Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
+import { PostCard } from "@/components/PostCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -262,59 +263,3 @@ function StoryItem({ label, username, avatarUrl, you, linkTo }: {
   return <Link to="/user/$username" params={{ username }}>{inner}</Link>;
 }
 
-function PostCard({ post }: { post: Post }) {
-  const [liked, setLiked] = useState(false);
-  const author = post.author;
-  const initial = (author?.username || "?").slice(0, 1).toUpperCase();
-  const isVideo = post.post_type === "video" || post.post_type === "reel";
-  return (
-    <article className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
-      <header className="flex items-center justify-between p-4">
-        <Link to="/user/$username" params={{ username: author?.username ?? "" }} className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-foreground font-semibold text-sm shrink-0 overflow-hidden">
-            {author?.avatar_url ? <img src={author.avatar_url} className="w-full h-full object-cover" /> : initial}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">{author?.full_name || author?.username || "User"}</p>
-            <p className="text-[11px] text-muted-foreground capitalize">@{author?.username} · {author?.role ?? "creator"}</p>
-          </div>
-        </Link>
-        <button className="p-1.5 hover:bg-muted rounded-md text-muted-foreground">
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
-      </header>
-
-      {post.media_url && (
-        <div className="bg-black">
-          {isVideo ? (
-            <video src={post.media_url} className="w-full max-h-[600px] object-contain" controls playsInline />
-          ) : (
-            <img src={post.media_url} alt="" className="w-full max-h-[600px] object-cover" />
-          )}
-        </div>
-      )}
-
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setLiked(!liked)} className="text-foreground">
-              <Heart className={`w-[22px] h-[22px] ${liked ? "fill-destructive text-destructive" : ""}`} />
-            </button>
-            <button className="text-foreground"><MessageCircle className="w-[22px] h-[22px]" /></button>
-            <button className="text-foreground"><Share2 className="w-[22px] h-[22px]" /></button>
-          </div>
-          <button className="text-foreground"><Bookmark className="w-[22px] h-[22px]" /></button>
-        </div>
-        {post.caption && (
-          <p className="text-sm leading-relaxed">
-            <span className="font-semibold mr-1.5">{author?.username}</span>
-            {post.caption}
-          </p>
-        )}
-        <p className="text-[11px] text-muted-foreground mt-2 uppercase tracking-wider">
-          {new Date(post.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-        </p>
-      </div>
-    </article>
-  );
-}
