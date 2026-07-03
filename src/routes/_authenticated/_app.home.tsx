@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
+import { Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
+import { PostCard } from "@/components/PostCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
