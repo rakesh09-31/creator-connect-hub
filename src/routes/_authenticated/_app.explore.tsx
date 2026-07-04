@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PostViewer } from "@/components/PostViewer";
 
 export const Route = createFileRoute("/_authenticated/_app/explore")({
   head: () => ({ meta: [{ title: "Search — Omnicraft" }] }),
@@ -29,6 +30,7 @@ function ExplorePage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [people, setPeople] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewerPostId, setViewerPostId] = useState<string | null>(null);
 
   // Initial unified discovery feed
   useEffect(() => {
@@ -164,16 +166,24 @@ function ExplorePage() {
                 tile={t}
                 big={big}
                 onReelClick={(id) => navigate({ to: "/reels", search: { start: id } })}
+                onPostClick={(id) => setViewerPostId(id)}
               />
             );
           })}
         </div>
       )}
+      {viewerPostId && (
+        <PostViewer startId={viewerPostId} onClose={() => setViewerPostId(null)} />
+      )}
     </div>
   );
 }
 
-function ExploreTile({ tile, big, onReelClick }: { tile: Tile; big?: boolean; onReelClick?: (id: string) => void }) {
+function ExploreTile({ tile, big, onReelClick, onPostClick }: {
+  tile: Tile; big?: boolean;
+  onReelClick?: (id: string) => void;
+  onPostClick?: (id: string) => void;
+}) {
   const username = tile.author?.username ?? "";
   const isVideo = tile.kind === "post" && (tile.post_type === "video" || tile.post_type === "reel");
   const spanCls = big ? "col-span-2 row-span-2" : "";
@@ -184,24 +194,25 @@ function ExploreTile({ tile, big, onReelClick }: { tile: Tile; big?: boolean; on
         className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
         <video src={tile.media_url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
         <div className="absolute top-1.5 right-1.5 text-white drop-shadow"><Play className="w-4 h-4 fill-white" /></div>
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition">
-          <p className="text-[10px] text-white font-semibold truncate">@{username}</p>
-        </div>
       </button>
     );
   }
 
+  // Image posts open the in-app PostViewer (Instagram Explore behavior)
+  if (tile.kind === "post" && onPostClick) {
+    return (
+      <button onClick={() => onPostClick(tile.id)}
+        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
+        <img src={tile.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" />
+      </button>
+    );
+  }
+
+  // Portfolio tiles still route to the creator profile
   return (
     <Link to="/user/$username" params={{ username }}
       className={`relative aspect-square bg-muted overflow-hidden rounded-sm group ${spanCls}`}>
-      {isVideo ? (
-        <>
-          <video src={tile.media_url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
-          <div className="absolute top-1.5 right-1.5 text-white drop-shadow"><Play className="w-4 h-4 fill-white" /></div>
-        </>
-      ) : (
-        <img src={tile.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" />
-      )}
+      <img src={tile.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" />
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition">
         <p className="text-[10px] text-white font-semibold truncate">@{username}</p>
       </div>

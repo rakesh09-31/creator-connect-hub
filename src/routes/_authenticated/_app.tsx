@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, Heart, MessageCircle, Briefcase, LogOut } from "lucide-react";
+import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, Heart, MessageCircle, Briefcase, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   component: AppShell,
@@ -11,6 +12,7 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, loading, signOut } = useAuth();
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     if (!loading && profile && !profile.onboarded) {
@@ -43,6 +45,13 @@ function AppShell() {
             <HeaderBtn to="/messages" active={isActive("/messages")}>
               <MessageCircle className="w-5 h-5" />
             </HeaderBtn>
+            <button
+              onClick={toggle}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
             <button
               onClick={() => signOut()}
               className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition"

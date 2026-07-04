@@ -261,32 +261,28 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
         <div className="text-white text-center p-8 max-w-md">{reel.caption}</div>
       )}
 
-      {/* Bottom-left: author + caption */}
-      <div className="absolute bottom-0 left-0 right-20 p-6 pb-24 bg-gradient-to-t from-black/90 via-black/50 to-transparent text-white">
-        <div className="flex items-center gap-3 mb-3">
-          <Link to="/user/$username" params={{ username: reel.author?.username ?? "" }} className="flex items-center gap-3 hover:opacity-80">
-            <div className="w-11 h-11 rounded-full bg-white/20 ring-2 ring-white/60 overflow-hidden flex items-center justify-center font-bold">
-              {reel.author?.avatar_url
-                ? <img src={reel.author.avatar_url} className="w-full h-full object-cover" />
-                : (reel.author?.username ?? "?").slice(0, 1).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold text-sm">@{reel.author?.username ?? "user"}</p>
-              <p className="text-[11px] text-white/70 capitalize">{reel.author?.role ?? "creator"}</p>
-            </div>
+      {/* Bottom-left: username + caption only (Instagram-style) */}
+      <div className="absolute bottom-0 left-0 right-20 p-5 pb-24 bg-gradient-to-t from-black/90 via-black/40 to-transparent text-white">
+        <div className="flex items-center gap-2 mb-2">
+          <Link
+            to="/user/$username"
+            params={{ username: reel.author?.username ?? "" }}
+            className="text-sm font-semibold hover:underline"
+          >
+            @{reel.author?.username ?? "user"}
           </Link>
           {!isOwn && (
             <button
               onClick={toggleFollow}
-              className={`ml-2 px-3 py-1 rounded-full text-xs font-bold border ${
-                following ? "bg-white/15 border-white/30 text-white" : "bg-white text-black border-white"
+              className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                following ? "bg-transparent border-white/40 text-white/80" : "bg-white text-black border-white"
               }`}
             >
               {following ? "Following" : "Follow"}
             </button>
           )}
         </div>
-        {reel.caption && <p className="text-sm leading-relaxed line-clamp-3 max-w-md">{reel.caption}</p>}
+        {reel.caption && <p className="text-sm leading-snug line-clamp-2 max-w-md">{reel.caption}</p>}
       </div>
 
       {/* Right rail: actions */}

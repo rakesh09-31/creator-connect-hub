@@ -146,9 +146,9 @@ function HomePage() {
   const isCreator = profile?.role === "creator";
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4">
       {/* Vibrant welcome */}
-      <section className="relative overflow-hidden rounded-3xl p-6 shadow-brand bg-gradient-brand text-white">
+      <section className="relative overflow-hidden rounded-2xl p-5 shadow-brand bg-gradient-brand text-white">
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
         <div className="relative flex items-center justify-between gap-4">
@@ -156,12 +156,9 @@ function HomePage() {
             <p className="text-[11px] uppercase tracking-widest text-white/80 font-semibold">
               {isCreator ? "Creator workspace" : "Client workspace"}
             </p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1 truncate">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-1 truncate">
               Welcome back, {profile?.full_name || profile?.username} ✨
             </h1>
-            <p className="text-sm text-white/85 mt-1">
-              {isCreator ? "Share your latest work and discover new briefs." : "Find specialists and post your next project."}
-            </p>
           </div>
           <Link
             to={isCreator ? "/create" : "/jobs"}
@@ -172,16 +169,11 @@ function HomePage() {
         </div>
       </section>
 
-      {/* Stories strip - vibrant attractive theme */}
-      <section className="relative overflow-hidden rounded-3xl p-5 shadow-lg border border-white/40"
-        style={{
-          background: "linear-gradient(135deg, #fef3c7 0%, #fce7f3 35%, #ddd6fe 70%, #bae6fd 100%)"
-        }}>
-        <div className="absolute -top-16 -right-10 w-48 h-48 rounded-full bg-fuchsia-300/40 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-10 w-48 h-48 rounded-full bg-sky-300/40 blur-3xl pointer-events-none" />
+      {/* Stories strip */}
+      <section className="relative overflow-hidden rounded-2xl p-4 border border-border bg-surface">
         <div className="relative flex items-center justify-between mb-3 px-1">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-700">✨ Your network</h2>
-          <Link to="/explore" className="text-xs font-bold text-fuchsia-700 inline-flex items-center gap-0.5 hover:underline">
+          <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Your network</h2>
+          <Link to="/explore" className="text-xs font-bold text-brand inline-flex items-center gap-0.5 hover:underline">
             Discover <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -203,19 +195,26 @@ function HomePage() {
           ))}
           {following.length === 0 && (
             <Link to="/explore" className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
-              <div className="w-14 h-14 rounded-full border-2 border-dashed border-slate-500/60 flex items-center justify-center text-slate-700 bg-white/50">
+              <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground bg-surface-muted">
                 <UserPlus className="w-5 h-5" />
               </div>
-              <span className="text-[11px] text-slate-700 font-semibold">Find people</span>
+              <span className="text-[11px] text-muted-foreground font-semibold">Find people</span>
             </Link>
           )}
         </div>
       </section>
 
-
       {/* Feed */}
       {loading ? (
-        <div className="text-center text-muted-foreground py-12 text-sm">Loading your feed…</div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-2xl bg-surface border border-border overflow-hidden">
+              <div className="h-14 bg-muted animate-pulse" />
+              <div className="aspect-square bg-muted animate-pulse" />
+              <div className="h-16 bg-muted/60 animate-pulse" />
+            </div>
+          ))}
+        </div>
       ) : posts.length === 0 ? (
         <div className="bg-surface rounded-2xl p-12 text-center border border-border shadow-sm">
           <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-brand-soft flex items-center justify-center">
@@ -228,7 +227,9 @@ function HomePage() {
           </Link>
         </div>
       ) : (
-        posts.map((p) => <PostCard key={p.id} post={p} />)
+        <div className="space-y-3">
+          {posts.map((p) => <PostCard key={p.id} post={p} />)}
+        </div>
       )}
     </div>
   );
