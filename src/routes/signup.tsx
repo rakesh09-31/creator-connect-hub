@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, Sparkles, Lock, Mail, User, Phone } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, User, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { AuthShell, TextField } from "./login";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Create account — Omnicraft" }] }),
@@ -11,7 +13,12 @@ export const Route = createFileRoute("/signup")({
 });
 
 const schema = z.object({
-  username: z.string().trim().min(3, "Username must be at least 3 characters").max(30).regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers and underscores only"),
+  username: z
+    .string()
+    .trim()
+    .min(3, "Username must be at least 3 characters")
+    .max(30)
+    .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers and underscores only"),
   email: z.string().trim().email("Enter a valid email").max(255),
   phone: z.string().trim().min(7, "Enter a valid phone number").max(20),
   password: z.string().min(6, "Password must be at least 6 characters").max(100),
@@ -21,118 +28,125 @@ function SignupPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ username: "", email: "", phone: "", password: "", confirmPassword: "" });
-
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [k]: e.target.value });
+  const [form, setForm] = useState({
+    username: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const set = (k: keyof typeof form) => (v: string) => setForm({ ...form, [k]: v });
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
+    if (submitting) return;
+    if (form.password !== form.confirmPassword) return toast.error("Passwords do not match");
     const parsed = schema.safeParse(form);
-    if (!parsed.success) {
-      toast.error(parsed.error.issues[0].message);
+    if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+
+    setSubmitting(true);
+    const { error } = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/splash`,
+        data: {
+          username: parsed.data.username,
+          full_name: parsed.data.username,
+          phone: parsed.data.phone,
+        },
+      },
+    });
+    if (error) {
+      toast.error(error.message);
+      setSubmitting(false);
       return;
     }
-    setSubmitting(true);
-    try {
-      // Username uniqueness is enforced server-side by the new-user trigger
-      // (it appends a numeric suffix if the username is taken).
-      const { error } = await supabase.auth.signUp({
-        email: parsed.data.email,
-        password: parsed.data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/splash`,
-          data: {
-            username: parsed.data.username,
-            full_name: parsed.data.username,
-            phone: parsed.data.phone,
-          },
-        },
-      });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Welcome to Omnicraft!");
-      navigate({ to: "/onboarding/role" });
-    } finally {
-      setSubmitting(false);
-    }
+    toast.success("Welcome to Omnicraft!");
+    navigate({ to: "/onboarding/role" });
   };
 
+  if (submitting) return <LoadingScreen message="Creating your account" />;
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto bg-white rounded-2xl shadow-xl flex items-center justify-center mb-4 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-90" />
-            <Sparkles className="w-10 h-10 text-white relative z-10" strokeWidth={2.5} />
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-white/80">Join Omnicraft today</p>
-        </div>
+    <AuthShell title="Create your account" subtitle="Join Omnicraft — free forever">
+      <form onSubmit={handleSignup} className="space-y-4">
+        <TextField
+          label="Username"
+          icon={<User className="h-4 w-4" />}
+          value={form.username}
+          onChange={set("username")}
+          placeholder="choose a username"
+          autoComplete="username"
+        />
+        <TextField
+          label="Email"
+          icon={<Mail className="h-4 w-4" />}
+          type="email"
+          value={form.email}
+          onChange={set("email")}
+          placeholder="you@email.com"
+          autoComplete="email"
+        />
+        <TextField
+          label="Phone"
+          icon={<Phone className="h-4 w-4" />}
+          type="tel"
+          value={form.phone}
+          onChange={set("phone")}
+          placeholder="+1 (555) 000-0000"
+          autoComplete="tel"
+        />
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <form onSubmit={handleSignup} className="space-y-4">
-            <Field label="Username *" icon={<User className="w-5 h-5 text-gray-400" />}>
-              <input type="text" value={form.username} onChange={set("username")} placeholder="Choose a username"
-                className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-            </Field>
-            <Field label="Email *" icon={<Mail className="w-5 h-5 text-gray-400" />}>
-              <input type="email" value={form.email} onChange={set("email")} placeholder="your@email.com"
-                className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-            </Field>
-            <Field label="Phone *" icon={<Phone className="w-5 h-5 text-gray-400" />}>
-              <input type="tel" value={form.phone} onChange={set("phone")} placeholder="+1 (555) 000-0000"
-                className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-            </Field>
-            <Field label="Password *" icon={<Lock className="w-5 h-5 text-gray-400" />}>
-              <input type={showPassword ? "text" : "password"} value={form.password} onChange={set("password")} placeholder="Create a password"
-                className="w-full pl-11 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </Field>
-            <Field label="Confirm Password *" icon={<Lock className="w-5 h-5 text-gray-400" />}>
-              <input type={showPassword ? "text" : "password"} value={form.confirmPassword} onChange={set("confirmPassword")} placeholder="Confirm your password"
-                className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-            </Field>
-
-            <button type="submit" disabled={submitting}
-              className="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold rounded-xl hover:opacity-90 transition-opacity shadow-lg mt-6 disabled:opacity-60">
-              {submitting ? "Creating account..." : "Create Account"}
+        <div>
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/60">
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <input
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={(e) => set("password")(e.target.value)}
+              placeholder="Create a password"
+              autoComplete="new-password"
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-11 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-purple-400/50 focus:bg-white/10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
-          </form>
-
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-sm text-gray-500">OR</span>
-            <div className="flex-1 h-px bg-gray-200" />
           </div>
-
-          <p className="text-center text-gray-600">
-            Already have an account?{" "}
-            <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-700">Sign In</Link>
-          </p>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function Field({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</span>
-        {children}
-      </div>
-    </div>
+        <TextField
+          label="Confirm password"
+          icon={<Lock className="h-4 w-4" />}
+          type={showPassword ? "text" : "password"}
+          value={form.confirmPassword}
+          onChange={set("confirmPassword")}
+          placeholder="Confirm your password"
+          autoComplete="new-password"
+        />
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="group relative mt-3 w-full overflow-hidden rounded-xl bg-[linear-gradient(135deg,#7c3aed,#c026d3_55%,#3b82f6)] py-3 text-sm font-bold text-white shadow-[0_0_30px_-8px_rgba(168,85,247,0.7)] transition disabled:opacity-60"
+        >
+          Create account
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-white/60">
+        Already have an account?{" "}
+        <Link to="/login" className="font-semibold text-white hover:text-purple-300">
+          Sign in
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
