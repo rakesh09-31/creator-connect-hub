@@ -97,26 +97,27 @@ function HomePage() {
       }
 
       const candidateIds = Array.from(new Set([...followIds, ...relevantCreatorIds, user.id]));
-      const { data: postRows } = await supabase
+
+      // Preferred pool: followed + interest-matched
+      const { data: preferredRows } = await supabase
         .from("posts").select("*")
         .in("author_id", candidateIds.length ? candidateIds : [user.id])
         .order("created_at", { ascending: false })
-        .limit(60);
-      let list = (postRows ?? []) as Post[];
+        .limit(40);
 
-      // Strict role-based fallback: only show posts from creators whose specialty
-      // matches the viewer's interests. Never show unrelated content.
-      if (list.length === 0 && interests.length) {
-        const orFilter = interests.map((i) => `specialty.ilike.%${i}%`).join(",");
-        const { data: matchSpecs } = await supabase
-          .from("creator_specialties").select("user_id").or(orFilter).limit(200);
-        const ids = Array.from(new Set((matchSpecs ?? []).map((s: any) => s.user_id)));
-        if (ids.length) {
-          const { data: any2 } = await supabase
-            .from("posts").select("*").in("author_id", ids)
-            .order("created_at", { ascending: false }).limit(30);
-          list = (any2 ?? []) as Post[];
-        }
+      // Global discovery pool: latest posts from anyone (mixed creators)
+      const { data: globalRows } = await supabase
+        .from("posts").select("*")
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      // Merge, dedupe by id
+      const seen = new Set<string>();
+      let list: Post[] = [];
+      for (const p of [...(preferredRows ?? []), ...(globalRows ?? [])] as Post[]) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        list.push(p);
       }
 
       // Rank: followed first, then interest-matched, then the rest
