@@ -416,7 +416,13 @@ function ClientProjectsPanel() {
 
 /* ---------------------- Portfolio website builder ---------------------- */
 
-type PortfolioItem = { id: string; title: string; description: string | null; media_url: string | null; media_type: string; project_link: string | null };
+type PortfolioItem = {
+  id: string; title: string; description: string | null; media_url: string | null;
+  media_type: string; project_link: string | null;
+  cover_url?: string | null; category?: string | null;
+  skills?: string[]; tags?: string[]; tech?: string[];
+  github_url?: string | null; website_url?: string | null; demo_url?: string | null;
+};
 type Service = { title: string; description: string; price?: string };
 type Testimonial = { name: string; role?: string; quote: string };
 
@@ -570,8 +576,14 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 }
 
 function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ title: "", description: "", media_url: "", project_link: "" });
+  const [form, setForm] = useState({
+    title: "", description: "", category: "", media_url: "", cover_url: "",
+    project_link: "", github_url: "", website_url: "", demo_url: "",
+    skills: "", tags: "", tech: "",
+  });
   const [busy, setBusy] = useState(false);
+
+  const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -581,30 +593,52 @@ function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onC
       user_id: userId,
       title: form.title.trim(),
       description: form.description.trim() || null,
+      category: form.category.trim() || null,
       media_url: form.media_url.trim() || null,
+      cover_url: form.cover_url.trim() || null,
       project_link: form.project_link.trim() || null,
+      github_url: form.github_url.trim() || null,
+      website_url: form.website_url.trim() || null,
+      demo_url: form.demo_url.trim() || null,
+      skills: toArr(form.skills),
+      tags: toArr(form.tags),
+      tech: toArr(form.tech),
       media_type: "image",
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Added to portfolio");
+    toast.success("Portfolio published");
     onCreated();
   };
 
+  const field = "w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm";
+
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 border border-border">
+      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 border border-border max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Add portfolio project</h2>
+          <h2 className="text-lg font-semibold">Publish portfolio project</h2>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Project title" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
-          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short description" rows={3} className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm resize-none" />
-          <input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="Image URL" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
-          <input value={form.project_link} onChange={(e) => setForm({ ...form, project_link: e.target.value })} placeholder="Project link (optional)" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
+          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Project title *" className={field} />
+          <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Category (e.g. UI/UX, Web App, Photography)" className={field} />
+          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" rows={3} className={`${field} resize-none`} />
+          <div className="grid grid-cols-2 gap-2">
+            <input value={form.cover_url} onChange={(e) => setForm({ ...form, cover_url: e.target.value })} placeholder="Cover image URL" className={field} />
+            <input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="Main image URL" className={field} />
+          </div>
+          <input value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} placeholder="Skills (comma separated)" className={field} />
+          <input value={form.tech} onChange={(e) => setForm({ ...form, tech: e.target.value })} placeholder="Technologies (comma separated)" className={field} />
+          <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="Tags (comma separated)" className={field} />
+          <div className="grid grid-cols-2 gap-2">
+            <input value={form.project_link} onChange={(e) => setForm({ ...form, project_link: e.target.value })} placeholder="Project link" className={field} />
+            <input value={form.demo_url} onChange={(e) => setForm({ ...form, demo_url: e.target.value })} placeholder="Live demo URL" className={field} />
+            <input value={form.github_url} onChange={(e) => setForm({ ...form, github_url: e.target.value })} placeholder="GitHub URL" className={field} />
+            <input value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="Website URL" className={field} />
+          </div>
           <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
-            {busy ? "Saving…" : "Save"}
+            {busy ? "Publishing…" : "Publish"}
           </button>
         </form>
       </div>
