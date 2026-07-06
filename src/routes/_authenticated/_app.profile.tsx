@@ -576,12 +576,6 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 }
 
 function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ title: "", description: "", media_url: "", project_link: "" });
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState({
     title: "", description: "", category: "", media_url: "", cover_url: "",
     project_link: "", github_url: "", website_url: "", demo_url: "",
