@@ -85,7 +85,7 @@ function ProfilePage() {
         <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-6 pt-5 border-t border-border`}>
           <Stat label="Posts" value={posts.length} />
           {isCreator && <Stat label="Squads" value={squads.length} />}
-          <Stat label="Followers" value={Math.max(counts.followers, 100)} />
+          <Stat label="Followers" value={counts.followers} />
           <Stat label="Following" value={counts.following} />
         </div>
       </div>

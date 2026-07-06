@@ -81,7 +81,7 @@ function UserProfilePage() {
                 Portfolio ↗
               </a>
             )}
-            <p className="mt-2 text-xs text-white/80">{Math.max(followCount, 100)} followers</p>
+            <p className="mt-2 text-xs text-white/80">{followCount.toLocaleString()} {followCount === 1 ? "follower" : "followers"}</p>
             {!isSelf && (
               <button onClick={toggleFollow} className={`mt-4 px-5 py-2 rounded-xl font-semibold text-sm ${following ? "bg-white/20 text-white" : "bg-white text-gray-900"}`}>
                 {following ? "Following" : "Follow"}
