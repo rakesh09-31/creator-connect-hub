@@ -416,7 +416,13 @@ function ClientProjectsPanel() {
 
 /* ---------------------- Portfolio website builder ---------------------- */
 
-type PortfolioItem = { id: string; title: string; description: string | null; media_url: string | null; media_type: string; project_link: string | null };
+type PortfolioItem = {
+  id: string; title: string; description: string | null; media_url: string | null;
+  media_type: string; project_link: string | null;
+  cover_url?: string | null; category?: string | null;
+  skills?: string[]; tags?: string[]; tech?: string[];
+  github_url?: string | null; website_url?: string | null; demo_url?: string | null;
+};
 type Service = { title: string; description: string; price?: string };
 type Testimonial = { name: string; role?: string; quote: string };
 
