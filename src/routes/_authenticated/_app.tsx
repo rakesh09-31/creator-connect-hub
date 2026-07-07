@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, Heart, MessageCircle, Briefcase, LogOut, Sun, Moon } from "lucide-react";
+import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, Briefcase, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   component: AppShell,
