@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2, Play, Info, ChevronLeft, ChevronRight, Github, Globe, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +18,7 @@ function ProfilePage() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
-  const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "saved">("posts");
+  const [tab, setTab] = useState<"posts" | "videos" | "portfolio" | "squads" | "projects" | "saved" | "about">("posts");
   const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
@@ -101,9 +101,10 @@ function ProfilePage() {
         </div>
       )}
 
-      <div className="mt-6 border-b border-border">
-        <div className="flex">
+      <div className="mt-6 border-b border-border overflow-x-auto">
+        <div className="flex min-w-max">
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
+          <TabBtn active={tab === "videos"} onClick={() => setTab("videos")} icon={<Play className="w-4 h-4" />} label="Videos" />
           <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-4 h-4" />} label="Portfolio" />
           {isCreator && (
             <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
@@ -112,23 +113,29 @@ function ProfilePage() {
             <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />
           )}
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
+          <TabBtn active={tab === "about"} onClick={() => setTab("about")} icon={<Info className="w-4 h-4" />} label="About" />
         </div>
       </div>
 
       {tab === "portfolio" && <PortfolioPanel userId={user?.id ?? ""} isSelf />}
 
-      {tab === "posts" && (
-        posts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-16 text-sm">No posts yet</div>
-        ) : (
+      {(tab === "posts" || tab === "videos") && (() => {
+        const list = posts.filter((p) => {
+          const isVid = p.post_type === "video" || p.post_type === "reel";
+          return tab === "videos" ? isVid : !isVid;
+        });
+        if (list.length === 0) {
+          return <div className="text-center text-muted-foreground py-16 text-sm">No {tab === "videos" ? "videos" : "posts"} yet</div>;
+        }
+        return (
           <div className="grid grid-cols-3 gap-1 mt-2">
-            {posts.map((p) => {
+            {list.map((p) => {
               const isVid = p.post_type === "video" || p.post_type === "reel";
               return (
                 <div key={p.id} className="aspect-square bg-muted overflow-hidden relative rounded-sm">
                   {p.media_url ? (
                     isVid
-                      ? <video src={p.media_url} className="w-full h-full object-cover" muted />
+                      ? <><video src={p.media_url} className="w-full h-full object-cover" muted /><span className="absolute top-1.5 right-1.5 p-1 bg-black/60 rounded-full text-white"><Play className="w-3 h-3" /></span></>
                       : <img src={p.media_url} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center p-3 text-[11px] text-muted-foreground text-center">{p.caption}</div>
@@ -137,8 +144,8 @@ function ProfilePage() {
               );
             })}
           </div>
-        )
-      )}
+        );
+      })()}
 
       {tab === "squads" && isCreator && (
         <div className="mt-4 space-y-2">
@@ -171,7 +178,9 @@ function ProfilePage() {
 
       {tab === "projects" && !isCreator && <ClientProjectsPanel />}
 
-      {tab === "saved" && <div className="text-center text-muted-foreground py-16 text-sm">Nothing saved yet</div>}
+      {tab === "saved" && <SavedPanel />}
+
+      {tab === "about" && <AboutPanel />}
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
     </div>
@@ -438,6 +447,8 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [viewIdx, setViewIdx] = useState<number | null>(null);
+  const [view, setView] = useState<"grid" | "list">("grid");
 
   const template = (profile as any)?.portfolio_template ?? "classic";
   const tagline = (profile as any)?.portfolio_tagline ?? "";
@@ -470,16 +481,22 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 
   return (
     <div className="mt-4 space-y-6">
-      {isSelf && (
-        <div className="flex justify-end gap-2">
-          <button onClick={() => setShowCustomize(true)} className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-            <Pencil className="w-3.5 h-3.5" /> Customize site
-          </button>
-          <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Add project
-          </button>
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs font-semibold">
+          <button onClick={() => setView("grid")} className={`px-3 py-1 rounded-md transition ${view === "grid" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Grid</button>
+          <button onClick={() => setView("list")} className={`px-3 py-1 rounded-md transition ${view === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>List</button>
         </div>
-      )}
+        {isSelf && (
+          <div className="flex gap-2">
+            <button onClick={() => setShowCustomize(true)} className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
+              <Pencil className="w-3.5 h-3.5" /> Customize site
+            </button>
+            <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5" /> Add project
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* HERO / About */}
       <section className={`rounded-2xl border border-border ${heroClass}`}>
@@ -527,24 +544,37 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
             <ImageIcon className="w-10 h-10 mx-auto mb-2" />
             {isSelf ? "Add your first project to build your portfolio" : "No projects yet"}
           </div>
+        ) : view === "list" ? (
+          <div className="space-y-2">
+            {items.map((p, idx) => (
+              <button key={p.id} onClick={() => setViewIdx(idx)} className="w-full flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:border-brand/40 transition text-left">
+                <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0">
+                  {(p.cover_url || p.media_url) && <img src={p.cover_url || p.media_url!} className="w-full h-full object-cover" alt={p.title} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{p.title}</p>
+                  {p.category && <p className="text-[11px] text-brand font-semibold">{p.category}</p>}
+                  {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
         ) : (
           <div className={template === "showcase"
             ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
             : "grid grid-cols-2 sm:grid-cols-3 gap-3"}>
-            {items.map((p) => (
+            {items.map((p, idx) => (
               <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden group relative">
-                {p.media_url && <img src={p.media_url} className={`w-full ${template === "showcase" ? "aspect-video" : "aspect-square"} object-cover`} alt={p.title} />}
-                <div className="p-3">
-                  <p className="font-semibold text-sm truncate">{p.title}</p>
-                  {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
-                  {p.project_link && (
-                    <a href={p.project_link} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-brand font-semibold hover:underline">
-                      <ExternalLink className="w-3 h-3" /> View
-                    </a>
-                  )}
-                </div>
+                <button onClick={() => setViewIdx(idx)} className="block w-full text-left">
+                  {(p.cover_url || p.media_url) && <img src={p.cover_url || p.media_url!} className={`w-full ${template === "showcase" ? "aspect-video" : "aspect-square"} object-cover`} alt={p.title} />}
+                  <div className="p-3">
+                    <p className="font-semibold text-sm truncate">{p.title}</p>
+                    {p.category && <p className="text-[11px] text-brand font-semibold mt-0.5">{p.category}</p>}
+                    {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                  </div>
+                </button>
                 {isSelf && (
-                  <button onClick={() => remove(p.id)} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
+                  <button onClick={(e) => { e.stopPropagation(); remove(p.id); }} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 )}
@@ -571,6 +601,224 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 
       {showAdd && <AddPortfolioModal userId={userId} onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load(); }} />}
       {showCustomize && <CustomizePortfolioModal onClose={() => setShowCustomize(false)} onSaved={() => { setShowCustomize(false); refresh(); }} />}
+      {viewIdx !== null && items[viewIdx] && (
+        <PortfolioViewer
+          items={items}
+          index={viewIdx}
+          onClose={() => setViewIdx(null)}
+          onIndex={setViewIdx}
+        />
+      )}
+    </div>
+  );
+}
+
+function PortfolioViewer({ items, index, onClose, onIndex }: { items: PortfolioItem[]; index: number; onClose: () => void; onIndex: (i: number) => void }) {
+  const p = items[index];
+  const images = useMemo(() => {
+    const arr = [p.cover_url, p.media_url].filter(Boolean) as string[];
+    return Array.from(new Set(arr));
+  }, [p]);
+  const [img, setImg] = useState(0);
+
+  useEffect(() => {
+    setImg(0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && index < items.length - 1) onIndex(index + 1);
+      if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, items.length, onClose, onIndex]);
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/95 flex flex-col" onClick={onClose}>
+      <div className="flex items-center justify-between p-4 text-white" onClick={(e) => e.stopPropagation()}>
+        <div className="min-w-0">
+          <p className="font-bold truncate">{p.title}</p>
+          {p.category && <p className="text-xs text-white/60">{p.category}</p>}
+        </div>
+        <button onClick={onClose} className="p-2 rounded-full bg-white/10 hover:bg-white/20"><X className="w-5 h-5" /></button>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center relative px-4" onClick={(e) => e.stopPropagation()}>
+        {index > 0 && (
+          <button onClick={() => onIndex(index - 1)} className="absolute left-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-10">
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        )}
+        <div className="max-w-4xl w-full flex flex-col items-center">
+          {images.length > 0 ? (
+            <div className="relative w-full">
+              <img src={images[img]} className="max-h-[65vh] w-full object-contain rounded-xl" alt={p.title} />
+              {images.length > 1 && (
+                <div className="flex justify-center gap-1.5 mt-3">
+                  {images.map((_, i) => (
+                    <button key={i} onClick={() => setImg(i)} className={`w-2 h-2 rounded-full ${i === img ? "bg-white" : "bg-white/30"}`} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-white/40"><ImageIcon className="w-12 h-12" /></div>
+          )}
+        </div>
+        {index < items.length - 1 && (
+          <button onClick={() => onIndex(index + 1)} className="absolute right-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-10">
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        )}
+      </div>
+
+      <div className="bg-black/70 backdrop-blur border-t border-white/10 p-5 text-white max-h-[40vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="max-w-4xl mx-auto space-y-3">
+          {p.description && <p className="text-sm text-white/80 leading-relaxed">{p.description}</p>}
+          {p.skills && p.skills.length > 0 && (
+            <div><p className="text-[10px] uppercase tracking-widest text-white/50 mb-1">Skills</p>
+              <div className="flex flex-wrap gap-1.5">{p.skills.map((s) => <span key={s} className="px-2 py-0.5 rounded-md bg-white/10 text-xs">{s}</span>)}</div></div>
+          )}
+          {p.tech && p.tech.length > 0 && (
+            <div><p className="text-[10px] uppercase tracking-widest text-white/50 mb-1 flex items-center gap-1"><Wrench className="w-3 h-3" /> Tech</p>
+              <div className="flex flex-wrap gap-1.5">{p.tech.map((s) => <span key={s} className="px-2 py-0.5 rounded-md bg-white/10 text-xs">{s}</span>)}</div></div>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {p.project_link && <a href={p.project_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold"><ExternalLink className="w-3 h-3" /> View project</a>}
+            {p.demo_url && <a href={p.demo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold"><ExternalLink className="w-3 h-3" /> Live demo</a>}
+            {p.github_url && <a href={p.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold"><Github className="w-3 h-3" /> GitHub</a>}
+            {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold"><Globe className="w-3 h-3" /> Website</a>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SavedPanel() {
+  const { user } = useAuth();
+  const [posts, setPosts] = useState<any[]>([]);
+  const [portfolios, setPortfolios] = useState<PortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"posts" | "videos" | "portfolio">("posts");
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+      const { data: saves } = await supabase.from("post_saves").select("post_id, created_at").eq("user_id", user.id).order("created_at", { ascending: false });
+      const ids = (saves ?? []).map((s: any) => s.post_id);
+      if (ids.length) {
+        const { data: ps } = await supabase.from("posts").select("*").in("id", ids);
+        setPosts(ps ?? []);
+      } else setPosts([]);
+      setLoading(false);
+    })();
+  }, [user, filter]);
+
+  const list = filter === "portfolio" ? [] : posts.filter((p) => {
+    const isVid = p.post_type === "video" || p.post_type === "reel";
+    return filter === "videos" ? isVid : !isVid;
+  });
+
+  return (
+    <div className="mt-4">
+      <div className="flex gap-2 mb-3">
+        {(["posts", "videos", "portfolio"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition ${
+            filter === f ? "bg-brand text-white" : "bg-surface border border-border text-muted-foreground hover:text-foreground"
+          }`}>{f}</button>
+        ))}
+      </div>
+      {loading ? (
+        <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
+      ) : filter === "portfolio" ? (
+        <div className="text-center text-muted-foreground py-16 text-sm bg-surface border border-border rounded-xl">
+          <Bookmark className="w-10 h-10 mx-auto mb-2" />
+          Saved portfolios will appear here
+        </div>
+      ) : list.length === 0 ? (
+        <div className="text-center text-muted-foreground py-16 text-sm bg-surface border border-border rounded-xl">
+          <Bookmark className="w-10 h-10 mx-auto mb-2" />
+          Nothing saved yet
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-1">
+          {list.map((p) => {
+            const isVid = p.post_type === "video" || p.post_type === "reel";
+            return (
+              <div key={p.id} className="aspect-square bg-muted overflow-hidden relative rounded-sm">
+                {p.media_url ? (
+                  isVid
+                    ? <video src={p.media_url} className="w-full h-full object-cover" muted />
+                    : <img src={p.media_url} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center p-3 text-[11px] text-muted-foreground text-center">{p.caption}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AboutPanel() {
+  const { profile } = useAuth();
+  if (!profile) return null;
+  const p = profile as any;
+  const social: Record<string, string> = p.social_links ?? {};
+  const services: Service[] = p.services ?? [];
+  const languages: string[] = p.languages ?? [];
+
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-start gap-3 py-2 border-b border-border last:border-b-0">
+      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground w-24 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-foreground flex-1">{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="mt-4 space-y-5">
+      <section className="bg-surface border border-border rounded-2xl p-5">
+        <h2 className="text-sm font-bold mb-2">About</h2>
+        <p className="text-sm text-foreground/80 leading-relaxed">{profile.bio || "No bio yet."}</p>
+      </section>
+
+      <section className="bg-surface border border-border rounded-2xl p-5">
+        <h2 className="text-sm font-bold mb-2">Details</h2>
+        {p.portfolio_tagline && <Row label="Tagline" value={p.portfolio_tagline} />}
+        {p.location && <Row label="Location" value={p.location} />}
+        {p.website && <Row label="Website" value={<a href={p.website} target="_blank" rel="noreferrer" className="text-brand hover:underline">{p.website}</a>} />}
+        {languages.length > 0 && <Row label="Languages" value={languages.join(" · ")} />}
+        {p.resume_url && <Row label="Resume" value={<a href={p.resume_url} target="_blank" rel="noreferrer" className="text-brand hover:underline">Download</a>} />}
+      </section>
+
+      {Object.values(social).some(Boolean) && (
+        <section className="bg-surface border border-border rounded-2xl p-5">
+          <h2 className="text-sm font-bold mb-2">Social</h2>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(social).filter(([_, v]) => v).map(([k, v]) => (
+              <a key={k} href={v} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold capitalize">{k}</a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {services.length > 0 && (
+        <section className="bg-surface border border-border rounded-2xl p-5">
+          <h2 className="text-sm font-bold mb-2">Services</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {services.map((s, i) => (
+              <div key={i} className="p-3 border border-border rounded-xl">
+                <p className="font-semibold text-sm">{s.title}</p>
+                {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
+                {s.price && <p className="text-xs font-bold text-brand mt-2">{s.price}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
