@@ -101,9 +101,10 @@ function ProfilePage() {
         </div>
       )}
 
-      <div className="mt-6 border-b border-border">
-        <div className="flex">
+      <div className="mt-6 border-b border-border overflow-x-auto">
+        <div className="flex min-w-max">
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
+          <TabBtn active={tab === "videos"} onClick={() => setTab("videos")} icon={<Play className="w-4 h-4" />} label="Videos" />
           <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-4 h-4" />} label="Portfolio" />
           {isCreator && (
             <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
@@ -112,23 +113,29 @@ function ProfilePage() {
             <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />
           )}
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
+          <TabBtn active={tab === "about"} onClick={() => setTab("about")} icon={<Info className="w-4 h-4" />} label="About" />
         </div>
       </div>
 
       {tab === "portfolio" && <PortfolioPanel userId={user?.id ?? ""} isSelf />}
 
-      {tab === "posts" && (
-        posts.length === 0 ? (
-          <div className="text-center text-muted-foreground py-16 text-sm">No posts yet</div>
-        ) : (
+      {(tab === "posts" || tab === "videos") && (() => {
+        const list = posts.filter((p) => {
+          const isVid = p.post_type === "video" || p.post_type === "reel";
+          return tab === "videos" ? isVid : !isVid;
+        });
+        if (list.length === 0) {
+          return <div className="text-center text-muted-foreground py-16 text-sm">No {tab === "videos" ? "videos" : "posts"} yet</div>;
+        }
+        return (
           <div className="grid grid-cols-3 gap-1 mt-2">
-            {posts.map((p) => {
+            {list.map((p) => {
               const isVid = p.post_type === "video" || p.post_type === "reel";
               return (
                 <div key={p.id} className="aspect-square bg-muted overflow-hidden relative rounded-sm">
                   {p.media_url ? (
                     isVid
-                      ? <video src={p.media_url} className="w-full h-full object-cover" muted />
+                      ? <><video src={p.media_url} className="w-full h-full object-cover" muted /><span className="absolute top-1.5 right-1.5 p-1 bg-black/60 rounded-full text-white"><Play className="w-3 h-3" /></span></>
                       : <img src={p.media_url} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center p-3 text-[11px] text-muted-foreground text-center">{p.caption}</div>
@@ -137,8 +144,8 @@ function ProfilePage() {
               );
             })}
           </div>
-        )
-      )}
+        );
+      })()}
 
       {tab === "squads" && isCreator && (
         <div className="mt-4 space-y-2">
@@ -171,7 +178,9 @@ function ProfilePage() {
 
       {tab === "projects" && !isCreator && <ClientProjectsPanel />}
 
-      {tab === "saved" && <div className="text-center text-muted-foreground py-16 text-sm">Nothing saved yet</div>}
+      {tab === "saved" && <SavedPanel />}
+
+      {tab === "about" && <AboutPanel />}
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
     </div>
