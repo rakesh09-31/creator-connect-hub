@@ -481,16 +481,22 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 
   return (
     <div className="mt-4 space-y-6">
-      {isSelf && (
-        <div className="flex justify-end gap-2">
-          <button onClick={() => setShowCustomize(true)} className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-            <Pencil className="w-3.5 h-3.5" /> Customize site
-          </button>
-          <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Add project
-          </button>
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs font-semibold">
+          <button onClick={() => setView("grid")} className={`px-3 py-1 rounded-md transition ${view === "grid" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Grid</button>
+          <button onClick={() => setView("list")} className={`px-3 py-1 rounded-md transition ${view === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>List</button>
         </div>
-      )}
+        {isSelf && (
+          <div className="flex gap-2">
+            <button onClick={() => setShowCustomize(true)} className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
+              <Pencil className="w-3.5 h-3.5" /> Customize site
+            </button>
+            <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5" /> Add project
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* HERO / About */}
       <section className={`rounded-2xl border border-border ${heroClass}`}>
