@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, Heart, MessageCircle, Briefcase, LogOut, Sun, Moon } from "lucide-react";
+import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, Briefcase, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   component: AppShell,
@@ -39,9 +40,7 @@ function AppShell() {
           </Link>
 
           <div className="flex items-center gap-1">
-            <HeaderBtn to="/notifications" active={isActive("/notifications")}>
-              <Heart className="w-5 h-5" />
-            </HeaderBtn>
+            <NotificationBell active={isActive("/notifications")} />
             <HeaderBtn to="/messages" active={isActive("/messages")}>
               <MessageCircle className="w-5 h-5" />
             </HeaderBtn>
