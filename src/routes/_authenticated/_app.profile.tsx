@@ -544,24 +544,37 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
             <ImageIcon className="w-10 h-10 mx-auto mb-2" />
             {isSelf ? "Add your first project to build your portfolio" : "No projects yet"}
           </div>
+        ) : view === "list" ? (
+          <div className="space-y-2">
+            {items.map((p, idx) => (
+              <button key={p.id} onClick={() => setViewIdx(idx)} className="w-full flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:border-brand/40 transition text-left">
+                <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0">
+                  {(p.cover_url || p.media_url) && <img src={p.cover_url || p.media_url!} className="w-full h-full object-cover" alt={p.title} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{p.title}</p>
+                  {p.category && <p className="text-[11px] text-brand font-semibold">{p.category}</p>}
+                  {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                </div>
+              </button>
+            ))}
+          </div>
         ) : (
           <div className={template === "showcase"
             ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
             : "grid grid-cols-2 sm:grid-cols-3 gap-3"}>
-            {items.map((p) => (
+            {items.map((p, idx) => (
               <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden group relative">
-                {p.media_url && <img src={p.media_url} className={`w-full ${template === "showcase" ? "aspect-video" : "aspect-square"} object-cover`} alt={p.title} />}
-                <div className="p-3">
-                  <p className="font-semibold text-sm truncate">{p.title}</p>
-                  {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
-                  {p.project_link && (
-                    <a href={p.project_link} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-brand font-semibold hover:underline">
-                      <ExternalLink className="w-3 h-3" /> View
-                    </a>
-                  )}
-                </div>
+                <button onClick={() => setViewIdx(idx)} className="block w-full text-left">
+                  {(p.cover_url || p.media_url) && <img src={p.cover_url || p.media_url!} className={`w-full ${template === "showcase" ? "aspect-video" : "aspect-square"} object-cover`} alt={p.title} />}
+                  <div className="p-3">
+                    <p className="font-semibold text-sm truncate">{p.title}</p>
+                    {p.category && <p className="text-[11px] text-brand font-semibold mt-0.5">{p.category}</p>}
+                    {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                  </div>
+                </button>
                 {isSelf && (
-                  <button onClick={() => remove(p.id)} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
+                  <button onClick={(e) => { e.stopPropagation(); remove(p.id); }} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 )}
