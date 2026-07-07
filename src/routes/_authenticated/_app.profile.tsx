@@ -447,6 +447,8 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
+  const [viewIdx, setViewIdx] = useState<number | null>(null);
+  const [view, setView] = useState<"grid" | "list">("grid");
 
   const template = (profile as any)?.portfolio_template ?? "classic";
   const tagline = (profile as any)?.portfolio_tagline ?? "";
