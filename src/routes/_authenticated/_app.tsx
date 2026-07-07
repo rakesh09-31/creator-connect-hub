@@ -40,9 +40,7 @@ function AppShell() {
           </Link>
 
           <div className="flex items-center gap-1">
-            <HeaderBtn to="/notifications" active={isActive("/notifications")}>
-              <Heart className="w-5 h-5" />
-            </HeaderBtn>
+            <NotificationBell active={isActive("/notifications")} />
             <HeaderBtn to="/messages" active={isActive("/messages")}>
               <MessageCircle className="w-5 h-5" />
             </HeaderBtn>
