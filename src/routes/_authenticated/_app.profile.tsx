@@ -18,7 +18,7 @@ function ProfilePage() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
-  const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "saved">("posts");
+  const [tab, setTab] = useState<"posts" | "videos" | "portfolio" | "squads" | "projects" | "saved" | "about">("posts");
   const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
