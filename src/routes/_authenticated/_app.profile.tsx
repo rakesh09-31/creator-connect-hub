@@ -788,8 +788,8 @@ function AboutPanel() {
       <section className="bg-surface border border-border rounded-2xl p-5">
         <h2 className="text-sm font-bold mb-2">Details</h2>
         {p.portfolio_tagline && <Row label="Tagline" value={p.portfolio_tagline} />}
-        {profile.location && <Row label="Location" value={profile.location} />}
-        {profile.website && <Row label="Website" value={<a href={profile.website} target="_blank" rel="noreferrer" className="text-brand hover:underline">{profile.website}</a>} />}
+        {p.location && <Row label="Location" value={p.location} />}
+        {p.website && <Row label="Website" value={<a href={p.website} target="_blank" rel="noreferrer" className="text-brand hover:underline">{p.website}</a>} />}
         {languages.length > 0 && <Row label="Languages" value={languages.join(" · ")} />}
         {p.resume_url && <Row label="Resume" value={<a href={p.resume_url} target="_blank" rel="noreferrer" className="text-brand hover:underline">Download</a>} />}
       </section>
