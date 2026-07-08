@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, MessageCircle, UserCheck, UserPlus, Search } from "lucide-react";
+import { ArrowLeft, MessageCircle, UserCheck, UserPlus, Search as SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
-type Search = { tab?: "followers" | "following" };
+type SearchParams = { tab?: "followers" | "following" };
 
 export const Route = createFileRoute("/_authenticated/_app/connections/$username")({
   validateSearch: (search: Record<string, unknown>): Search => ({
