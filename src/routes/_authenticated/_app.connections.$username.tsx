@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 type SearchParams = { tab?: "followers" | "following" };
 
 export const Route = createFileRoute("/_authenticated/_app/connections/$username")({
-  validateSearch: (search: Record<string, unknown>): Search => ({
+  validateSearch: (search: Record<string, unknown>): SearchParams => ({
     tab: search.tab === "following" ? "following" : "followers",
   }),
   component: ConnectionsPage,
@@ -25,7 +25,7 @@ type Profile = {
 
 function ConnectionsPage() {
   const { username } = Route.useParams();
-  const { tab = "followers" } = useSearch({ from: "/_authenticated/_app/connections/$username" }) as Search;
+  const { tab = "followers" } = useSearch({ from: "/_authenticated/_app/connections/$username" }) as SearchParams;
   const { user } = useAuth();
   const navigate = useNavigate();
   const [owner, setOwner] = useState<Profile | null>(null);
@@ -112,7 +112,7 @@ function ConnectionsPage() {
       </div>
 
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
