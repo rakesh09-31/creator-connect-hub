@@ -251,13 +251,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="text-center">
+function Stat({ label, value, to }: { label: string; value: number; to?: string }) {
+  const inner = (
+    <>
       <div className="text-xl font-semibold tracking-tight">{value}</div>
       <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">{label}</div>
-    </div>
+    </>
   );
+  if (to) return <Link to={to} className="text-center block hover:opacity-80 transition">{inner}</Link>;
+  return <div className="text-center">{inner}</div>;
 }
 
 function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
