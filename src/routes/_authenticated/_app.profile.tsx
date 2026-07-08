@@ -258,7 +258,7 @@ function Stat({ label, value, to }: { label: string; value: number; to?: string 
       <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">{label}</div>
     </>
   );
-  if (to) return <Link to={to} className="text-center block hover:opacity-80 transition">{inner}</Link>;
+  if (to) return <Link to={to as any} className="text-center block hover:opacity-80 transition">{inner}</Link>;
   return <div className="text-center">{inner}</div>;
 }
 
