@@ -31,6 +31,7 @@ import { Route as AuthenticatedAppExploreRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAppCreateRouteImport } from './routes/_authenticated/_app.create'
 import { Route as AuthenticatedAppUserUsernameRouteImport } from './routes/_authenticated/_app.user.$username'
 import { Route as AuthenticatedAppSquadsSquadIdRouteImport } from './routes/_authenticated/_app.squads.$squadId'
+import { Route as AuthenticatedAppConnectionsUsernameRouteImport } from './routes/_authenticated/_app.connections.$username'
 
 const SplashRoute = SplashRouteImport.update({
   id: '/splash',
@@ -147,6 +148,12 @@ const AuthenticatedAppSquadsSquadIdRoute =
     path: '/$squadId',
     getParentRoute: () => AuthenticatedAppSquadsRoute,
   } as any)
+const AuthenticatedAppConnectionsUsernameRoute =
+  AuthenticatedAppConnectionsUsernameRouteImport.update({
+    id: '/connections/$username',
+    path: '/connections/$username',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/connections/$username': typeof AuthenticatedAppConnectionsUsernameRoute
   '/squads/$squadId': typeof AuthenticatedAppSquadsSquadIdRoute
   '/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
@@ -189,6 +197,7 @@ export interface FileRoutesByTo {
   '/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/connections/$username': typeof AuthenticatedAppConnectionsUsernameRoute
   '/squads/$squadId': typeof AuthenticatedAppSquadsSquadIdRoute
   '/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
@@ -214,6 +223,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding/client': typeof AuthenticatedOnboardingClientRoute
   '/_authenticated/onboarding/role': typeof AuthenticatedOnboardingRoleRoute
   '/_authenticated/onboarding/specialty': typeof AuthenticatedOnboardingSpecialtyRoute
+  '/_authenticated/_app/connections/$username': typeof AuthenticatedAppConnectionsUsernameRoute
   '/_authenticated/_app/squads/$squadId': typeof AuthenticatedAppSquadsSquadIdRoute
   '/_authenticated/_app/user/$username': typeof AuthenticatedAppUserUsernameRoute
 }
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
+    | '/connections/$username'
     | '/squads/$squadId'
     | '/user/$username'
   fileRoutesByTo: FileRoutesByTo
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/onboarding/client'
     | '/onboarding/role'
     | '/onboarding/specialty'
+    | '/connections/$username'
     | '/squads/$squadId'
     | '/user/$username'
   id:
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding/client'
     | '/_authenticated/onboarding/role'
     | '/_authenticated/onboarding/specialty'
+    | '/_authenticated/_app/connections/$username'
     | '/_authenticated/_app/squads/$squadId'
     | '/_authenticated/_app/user/$username'
   fileRoutesById: FileRoutesById
@@ -454,6 +467,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSquadsSquadIdRouteImport
       parentRoute: typeof AuthenticatedAppSquadsRoute
     }
+    '/_authenticated/_app/connections/$username': {
+      id: '/_authenticated/_app/connections/$username'
+      path: '/connections/$username'
+      fullPath: '/connections/$username'
+      preLoaderRoute: typeof AuthenticatedAppConnectionsUsernameRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
   }
 }
 
@@ -481,6 +501,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRoute
   AuthenticatedAppReelsRoute: typeof AuthenticatedAppReelsRoute
   AuthenticatedAppSquadsRoute: typeof AuthenticatedAppSquadsRouteWithChildren
+  AuthenticatedAppConnectionsUsernameRoute: typeof AuthenticatedAppConnectionsUsernameRoute
   AuthenticatedAppUserUsernameRoute: typeof AuthenticatedAppUserUsernameRoute
 }
 
@@ -494,6 +515,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppProfileRoute: AuthenticatedAppProfileRoute,
   AuthenticatedAppReelsRoute: AuthenticatedAppReelsRoute,
   AuthenticatedAppSquadsRoute: AuthenticatedAppSquadsRouteWithChildren,
+  AuthenticatedAppConnectionsUsernameRoute:
+    AuthenticatedAppConnectionsUsernameRoute,
   AuthenticatedAppUserUsernameRoute: AuthenticatedAppUserUsernameRoute,
 }
 

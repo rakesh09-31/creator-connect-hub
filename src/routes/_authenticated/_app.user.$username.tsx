@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -81,7 +81,9 @@ function UserProfilePage() {
                 Portfolio ↗
               </a>
             )}
-            <p className="mt-2 text-xs text-white/80">{followCount.toLocaleString()} {followCount === 1 ? "follower" : "followers"}</p>
+            <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "followers" as const }} className="mt-2 inline-block text-xs text-white/80 hover:text-white underline-offset-2 hover:underline">
+              {followCount.toLocaleString()} {followCount === 1 ? "follower" : "followers"}
+            </Link>
             {!isSelf && (
               <button onClick={toggleFollow} className={`mt-4 px-5 py-2 rounded-xl font-semibold text-sm ${following ? "bg-white/20 text-white" : "bg-white text-gray-900"}`}>
                 {following ? "Following" : "Follow"}

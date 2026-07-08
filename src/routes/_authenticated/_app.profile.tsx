@@ -85,8 +85,8 @@ function ProfilePage() {
         <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-6 pt-5 border-t border-border`}>
           <Stat label="Posts" value={posts.length} />
           {isCreator && <Stat label="Squads" value={squads.length} />}
-          <Stat label="Followers" value={counts.followers} />
-          <Stat label="Following" value={counts.following} />
+          <Stat label="Followers" value={counts.followers} to={`/connections/${profile.username}?tab=followers`} />
+          <Stat label="Following" value={counts.following} to={`/connections/${profile.username}?tab=following`} />
         </div>
       </div>
 
@@ -251,13 +251,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="text-center">
+function Stat({ label, value, to }: { label: string; value: number; to?: string }) {
+  const inner = (
+    <>
       <div className="text-xl font-semibold tracking-tight">{value}</div>
       <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">{label}</div>
-    </div>
+    </>
   );
+  if (to) return <Link to={to as any} className="text-center block hover:opacity-80 transition">{inner}</Link>;
+  return <div className="text-center">{inner}</div>;
 }
 
 function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
