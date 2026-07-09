@@ -48,12 +48,14 @@ function labelFor(n: Notif) {
     case "hire_request": return `${name} sent a hire request${n.data?.subject ? `: ${n.data.subject}` : ""}`;
     case "hire_accepted": return `${name} accepted your hire request`;
     case "hire_rejected": return `${name} declined your hire request`;
+    case "message": return `${name}: ${n.data?.preview ?? "sent you a message"}`;
     default: return `${name} · ${n.type}`;
   }
 }
 
 function linkFor(n: Notif): string {
   if (n.type === "follow" && n.actor?.username) return `/user/${n.actor.username}`;
+  if (n.type === "message" && n.entity_id) return `/messages?c=${n.entity_id}`;
   if (n.entity_type === "post" && n.entity_id) return `/home`;
   if (n.entity_type === "creator_request") return `/messages`;
   return "/notifications";
