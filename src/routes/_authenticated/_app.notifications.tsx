@@ -48,6 +48,7 @@ function labelFor(n: Notif) {
     case "hire_request": return `${name} sent a hire request${n.data?.subject ? `: ${n.data.subject}` : ""}`;
     case "hire_accepted": return `${name} accepted your hire request`;
     case "hire_rejected": return `${name} declined your hire request`;
+    case "message": return `${name}: ${n.data?.preview ?? "sent you a message"}`;
     default: return `${name} · ${n.type}`;
   }
 }
