@@ -55,6 +55,7 @@ function labelFor(n: Notif) {
 
 function linkFor(n: Notif): string {
   if (n.type === "follow" && n.actor?.username) return `/user/${n.actor.username}`;
+  if (n.type === "message" && n.entity_id) return `/messages?c=${n.entity_id}`;
   if (n.entity_type === "post" && n.entity_id) return `/home`;
   if (n.entity_type === "creator_request") return `/messages`;
   return "/notifications";
