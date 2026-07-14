@@ -118,15 +118,15 @@ function CreateSquadModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6">
+    <div onClick={(e) => e.stopPropagation()} className="white-modal w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold flex items-center gap-2"><Users className="w-5 h-5" /> New Squad</h2>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={submit} className="space-y-3">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Squad name" className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-fuchsia-500" />
-          <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Focus (e.g. Wedding films, Brand design)" className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-fuchsia-500" />
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this squad do?" rows={4} className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-fuchsia-500 resize-none" />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Squad name" className="white-input w-full px-4 py-3 rounded-xl focus:outline-none focus:border-fuchsia-500" />
+          <input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="Focus (e.g. Wedding films, Brand design)" className="white-input w-full px-4 py-3 rounded-xl focus:outline-none focus:border-fuchsia-500" />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this squad do?" rows={4} className="white-textarea w-full px-4 py-3 rounded-xl resize-none focus:outline-none focus:border-fuchsia-500" />
           <button disabled={busy} className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white font-bold rounded-xl disabled:opacity-60">
             {busy ? "Creating..." : "Create Squad"}
           </button>

@@ -250,3 +250,41 @@
 .animate-wiggle     { animation: wiggle 2.4s ease-in-out infinite; }
 .animate-pop        { animation: pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ===== Omnicraft Fixed UI Colors ===== */
+
+@layer utilities {
+
+  /* White dialogs */
+  .white-modal {
+    background: white;
+    color: black;
+  }
+
+  /* White input fields */
+  .white-input {
+    background: white;
+    color: black !important;
+    border: 1px solid #d1d5db;
+  }
+
+  .white-input::placeholder {
+    color: #6b7280;
+  }
+
+  /* White textarea */
+  .white-textarea {
+    background: white;
+    color: black !important;
+    border: 1px solid #d1d5db;
+  }
+
+  .white-textarea::placeholder {
+    color: #6b7280;
+  }
+
+  /* Titles inside white dialogs */
+  .white-title {
+    color: black;
+    font-weight: 700;
+  }
+}
