@@ -4,6 +4,7 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { uploadMedia } from "@/lib/uploadMedia";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
   head: () => ({ meta: [{ title: "Profile — Omnicraft" }] }),
@@ -18,12 +19,15 @@ function ProfilePage() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
-  const [tab, setTab] = useState<"posts" | "videos" | "portfolio" | "squads" | "projects" | "saved" | "about">("posts");
+  const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "saved">("posts");
   const [editOpen, setEditOpen] = useState(false);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
+      setPostsLoading(true);
       const [{ data: p }, { data: s }, { data: mems }, { count: fc }, { count: gc }] = await Promise.all([
         supabase.from("posts").select("*").eq("author_id", user.id).order("created_at", { ascending: false }),
         supabase.from("creator_specialties").select("specialty").eq("user_id", user.id),
@@ -36,6 +40,7 @@ function ProfilePage() {
       const sq = (mems ?? []).map((m: any) => m.squads).filter(Boolean);
       setSquads(sq as Squad[]);
       setCounts({ followers: fc ?? 0, following: gc ?? 0 });
+      setPostsLoading(false);
     })();
   }, [user]);
 
@@ -104,7 +109,6 @@ function ProfilePage() {
       <div className="mt-6 border-b border-border overflow-x-auto">
         <div className="flex min-w-max">
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
-          <TabBtn active={tab === "videos"} onClick={() => setTab("videos")} icon={<Play className="w-4 h-4" />} label="Videos" />
           <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-4 h-4" />} label="Portfolio" />
           {isCreator && (
             <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
@@ -113,39 +117,49 @@ function ProfilePage() {
             <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />
           )}
           <TabBtn active={tab === "saved"} onClick={() => setTab("saved")} icon={<Bookmark className="w-4 h-4" />} label="Saved" />
-          <TabBtn active={tab === "about"} onClick={() => setTab("about")} icon={<Info className="w-4 h-4" />} label="About" />
         </div>
       </div>
 
       {tab === "portfolio" && <PortfolioPanel userId={user?.id ?? ""} isSelf />}
 
-      {(tab === "posts" || tab === "videos") && (() => {
-        const list = posts.filter((p) => {
-          const isVid = p.post_type === "video" || p.post_type === "reel";
-          return tab === "videos" ? isVid : !isVid;
-        });
-        if (list.length === 0) {
-          return <div className="text-center text-muted-foreground py-16 text-sm">No {tab === "videos" ? "videos" : "posts"} yet</div>;
-        }
-        return (
-          <div className="grid grid-cols-3 gap-1 mt-2">
-            {list.map((p) => {
-              const isVid = p.post_type === "video" || p.post_type === "reel";
-              return (
-                <div key={p.id} className="aspect-square bg-muted overflow-hidden relative rounded-sm">
-                  {p.media_url ? (
-                    isVid
-                      ? <><video src={p.media_url} className="w-full h-full object-cover" muted /><span className="absolute top-1.5 right-1.5 p-1 bg-black/60 rounded-full text-white"><Play className="w-3 h-3" /></span></>
-                      : <img src={p.media_url} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center p-3 text-[11px] text-muted-foreground text-center">{p.caption}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
+      {tab === "posts" && (
+        <div className="mt-4">
+          {postsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-64 animate-pulse rounded-3xl bg-surface border border-border" />
+              ))}
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="text-center text-muted-foreground py-16 text-sm bg-surface border border-border rounded-2xl">No posts yet</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {posts.map((p) => {
+                const isVid = isVideoMedia(p);
+                return (
+                  <button key={p.id} onClick={() => setSelectedPost(p)} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                    <div className="aspect-[4/5] bg-muted">
+                      {p.media_url ? (
+                        isVid ? (
+                          <video src={p.media_url} controls className="h-full w-full object-cover" preload="metadata" />
+                        ) : (
+                          <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Post media"} />
+                        )
+                      ) : (
+                        <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{p.caption || "Media preview"}</div>
+                      )}
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-3 py-3 text-white">
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em]">{isVid ? "Video" : "Image"}</span>
+                      <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] backdrop-blur">Open</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === "squads" && isCreator && (
         <div className="mt-4 space-y-2">
@@ -180,9 +194,8 @@ function ProfilePage() {
 
       {tab === "saved" && <SavedPanel />}
 
-      {tab === "about" && <AboutPanel />}
-
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
+      {selectedPost && <PostMediaViewer post={selectedPost} onClose={() => setSelectedPost(null)} />}
     </div>
   );
 }
@@ -272,6 +285,34 @@ function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
     >
       {icon} {label}
     </button>
+  );
+}
+
+function isVideoMedia(post: any) {
+  if (!post?.media_url) return false;
+  if (post.post_type === "video" || post.post_type === "reel") return true;
+  return /\.(mp4|mov|webm|m3u8|avi)(\?.*)?$/i.test(post.media_url);
+}
+
+function PostMediaViewer({ post, onClose }: { post: any; onClose: () => void }) {
+  const isVideo = isVideoMedia(post);
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/95 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex items-center justify-between p-4 text-white">
+        <div>
+          <p className="text-sm font-semibold">{post.caption || "Media"}</p>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-white/60">{isVideo ? "Video" : "Image"}</p>
+        </div>
+        <button onClick={onClose} className="rounded-full bg-white/10 p-2 hover:bg-white/20"><X className="w-5 h-5" /></button>
+      </div>
+      <div className="flex h-[calc(100vh-72px)] items-center justify-center px-4 py-2" onClick={(e) => e.stopPropagation()}>
+        {isVideo ? (
+          <video src={post.media_url} controls autoPlay playsInline className="max-h-full max-w-full rounded-3xl" />
+        ) : (
+          <img src={post.media_url} alt={post.caption || "Post media"} className="max-h-full max-w-full rounded-3xl object-contain" />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -428,269 +469,238 @@ function ClientProjectsPanel() {
 /* ---------------------- Portfolio website builder ---------------------- */
 
 type PortfolioItem = {
-  id: string; title: string; description: string | null; media_url: string | null;
-  media_type: string; project_link: string | null;
-  cover_url?: string | null; category?: string | null;
-  skills?: string[]; tags?: string[]; tech?: string[];
-  github_url?: string | null; website_url?: string | null; demo_url?: string | null;
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  portfolio_url: string | null;
+  technologies: string[] | null;
+  thumbnail_url: string | null;
+  created_at: string;
+  updated_at: string;
 };
+
 type Service = { title: string; description: string; price?: string };
 type Testimonial = { name: string; role?: string; quote: string };
 
-const TEMPLATES = [
-  { id: "classic", label: "Classic", desc: "Clean grid layout" },
-  { id: "showcase", label: "Showcase", desc: "Bold hero, large media" },
-  { id: "minimal", label: "Minimal", desc: "Typography forward" },
-];
+function isValidPortfolioUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:") && !!url.hostname;
+  } catch {
+    return false;
+  }
+}
+
+function getDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
 
 function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }) {
-  const { profile, refresh } = useAuth();
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [showCustomize, setShowCustomize] = useState(false);
-  const [viewIdx, setViewIdx] = useState<number | null>(null);
-  const [view, setView] = useState<"grid" | "list">("grid");
-
-  const template = (profile as any)?.portfolio_template ?? "classic";
-  const tagline = (profile as any)?.portfolio_tagline ?? "";
-  const services: Service[] = (profile as any)?.services ?? [];
-  const testimonials: Testimonial[] = (profile as any)?.testimonials ?? [];
-  const social: Record<string, string> = (profile as any)?.social_links ?? {};
-  const resumeUrl = (profile as any)?.resume_url ?? "";
+  const [editing, setEditing] = useState<PortfolioItem | null>(null);
 
   const load = async () => {
     if (!userId) return;
     setLoading(true);
-    const { data } = await supabase.from("portfolios").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    const { data } = await supabase.from("portfolio_items").select("*").eq("user_id", userId).order("created_at", { ascending: false });
     setItems((data ?? []) as PortfolioItem[]);
     setLoading(false);
   };
+
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [userId]);
 
-  const remove = async (id: string) => {
-    if (!confirm("Remove this portfolio item?")) return;
-    await supabase.from("portfolios").delete().eq("id", id);
+  const remove = async (item: PortfolioItem) => {
+    if (!confirm("Delete Portfolio?")) return;
+    await supabase.from("portfolio_items").delete().eq("id", item.id);
+    toast.success("Portfolio removed");
     load();
   };
 
-  const heroClass =
-    template === "showcase"
-      ? "bg-gradient-to-br from-primary/15 via-brand/10 to-transparent p-8 text-center"
-      : template === "minimal"
-      ? "p-6 border-l-4 border-brand"
-      : "p-6 bg-surface";
-
   return (
-    <div className="mt-4 space-y-6">
-      <div className="flex items-center justify-between gap-2">
-        <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs font-semibold">
-          <button onClick={() => setView("grid")} className={`px-3 py-1 rounded-md transition ${view === "grid" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Grid</button>
-          <button onClick={() => setView("list")} className={`px-3 py-1 rounded-md transition ${view === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>List</button>
-        </div>
-        {isSelf && (
-          <div className="flex gap-2">
-            <button onClick={() => setShowCustomize(true)} className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-              <Pencil className="w-3.5 h-3.5" /> Customize site
-            </button>
-            <button onClick={() => setShowAdd(true)} className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold inline-flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5" /> Add project
-            </button>
+    <div className="mt-4 space-y-5">
+      <div className="rounded-3xl border border-border bg-gradient-to-br from-background to-surface/80 p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Portfolio</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Showcase your work for brands and clients.</p>
           </div>
-        )}
+          {isSelf && (
+            <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
+              <Plus className="w-4 h-4" /> Add Portfolio URL
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* HERO / About */}
-      <section className={`rounded-2xl border border-border ${heroClass}`}>
-        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">About</h2>
-        <p className="text-2xl font-bold tracking-tight">{profile?.full_name || profile?.username}</p>
-        {tagline && <p className="text-sm text-foreground/80 mt-1">{tagline}</p>}
-        {profile?.bio && <p className="text-sm text-foreground/70 mt-2 leading-relaxed">{profile.bio}</p>}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {resumeUrl && (
-            <a href={resumeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold">
-              <ExternalLink className="w-3 h-3" /> Download resume
-            </a>
-          )}
-          {Object.entries(social).filter(([_, v]) => v).map(([k, v]) => (
-            <a key={k} href={v} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold capitalize">
-              {k}
-            </a>
+      {loading ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-64 animate-pulse rounded-3xl border border-border bg-surface" />
           ))}
         </div>
-      </section>
-
-      {/* Services */}
-      {services.length > 0 && (
-        <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Services</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {services.map((s, i) => (
-              <div key={i} className="p-4 bg-surface border border-border rounded-xl">
-                <p className="font-semibold text-sm">{s.title}</p>
-                {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
-                {s.price && <p className="text-xs font-bold text-brand mt-2">{s.price}</p>}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Projects gallery */}
-      <section>
-        <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Projects & Gallery</h2>
-        {loading ? (
-          <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
-        ) : items.length === 0 ? (
-          <div className="text-center text-muted-foreground py-12 text-sm bg-surface border border-border rounded-xl">
-            <ImageIcon className="w-10 h-10 mx-auto mb-2" />
-            {isSelf ? "Add your first project to build your portfolio" : "No projects yet"}
-          </div>
-        ) : view === "list" ? (
-          <div className="space-y-2">
-            {items.map((p, idx) => (
-              <button key={p.id} onClick={() => setViewIdx(idx)} className="w-full flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:border-brand/40 transition text-left">
-                <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden shrink-0">
-                  {(p.cover_url || p.media_url) && <img src={p.cover_url || p.media_url!} className="w-full h-full object-cover" alt={p.title} />}
+      ) : items.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-border bg-surface/70 p-12 text-center text-sm text-muted-foreground">
+          <ImageIcon className="mx-auto mb-3 h-10 w-10" />
+          {isSelf ? "Add your first portfolio project to start building your professional portfolio." : "No portfolio projects yet."}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {items.map((item) => (
+            <div key={item.id} className="group overflow-hidden rounded-[20px] border border-border bg-surface/80 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
+              <button onClick={() => item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")} className="block w-full text-left">
+                <div className="relative h-40 overflow-hidden bg-muted">
+                  {item.thumbnail_url ? (
+                    <img src={item.thumbnail_url} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" alt={item.title} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-brand/15 to-primary/10 p-4 text-center text-sm font-semibold text-foreground/70">
+                      {item.title}
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{p.title}</p>
-                  {p.category && <p className="text-[11px] text-brand font-semibold">{p.category}</p>}
-                  {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
+                    {item.portfolio_url && <span className="rounded-full bg-brand-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.26em] text-brand">Live</span>}
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-3">{item.description || "A polished portfolio entry with a live link and project summary."}</p>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Globe className="h-3.5 w-3.5" />
+                    {item.portfolio_url ? getDomain(item.portfolio_url) : "Portfolio link"}
+                  </div>
+                  {item.technologies && item.technologies.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {item.technologies.slice(0, 3).map((tech) => (
+                        <span key={tech} className="rounded-full border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground/70">{tech}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </button>
-            ))}
-          </div>
-        ) : (
-          <div className={template === "showcase"
-            ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
-            : "grid grid-cols-2 sm:grid-cols-3 gap-3"}>
-            {items.map((p, idx) => (
-              <div key={p.id} className="bg-surface border border-border rounded-xl overflow-hidden group relative">
-                <button onClick={() => setViewIdx(idx)} className="block w-full text-left">
-                  {(p.cover_url || p.media_url) && <img src={p.cover_url || p.media_url!} className={`w-full ${template === "showcase" ? "aspect-video" : "aspect-square"} object-cover`} alt={p.title} />}
-                  <div className="p-3">
-                    <p className="font-semibold text-sm truncate">{p.title}</p>
-                    {p.category && <p className="text-[11px] text-brand font-semibold mt-0.5">{p.category}</p>}
-                    {p.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{p.description}</p>}
-                  </div>
-                </button>
-                {isSelf && (
-                  <button onClick={(e) => { e.stopPropagation(); remove(p.id); }} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Testimonials */}
-      {testimonials.length > 0 && (
-        <section>
-          <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Testimonials</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {testimonials.map((t, i) => (
-              <blockquote key={i} className="p-4 bg-surface border border-border rounded-xl">
-                <p className="text-sm italic text-foreground/80">"{t.quote}"</p>
-                <footer className="text-xs text-muted-foreground mt-2 font-semibold">— {t.name}{t.role ? `, ${t.role}` : ""}</footer>
-              </blockquote>
-            ))}
-          </div>
-        </section>
+              {isSelf && (
+                <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+                  <button onClick={(e) => { e.stopPropagation(); setEditing(item); }} className="flex-1 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground/80 transition hover:bg-muted">Edit</button>
+                  <button onClick={(e) => { e.stopPropagation(); remove(item); }} className="flex-1 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/20">Delete</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
-      {showAdd && <AddPortfolioModal userId={userId} onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load(); }} />}
-      {showCustomize && <CustomizePortfolioModal onClose={() => setShowCustomize(false)} onSaved={() => { setShowCustomize(false); refresh(); }} />}
-      {viewIdx !== null && items[viewIdx] && (
-        <PortfolioViewer
-          items={items}
-          index={viewIdx}
-          onClose={() => setViewIdx(null)}
-          onIndex={setViewIdx}
-        />
-      )}
+      {showAdd && <PortfolioModal userId={userId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />}
+      {editing && <PortfolioModal item={editing} userId={userId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>
   );
 }
 
-function PortfolioViewer({ items, index, onClose, onIndex }: { items: PortfolioItem[]; index: number; onClose: () => void; onIndex: (i: number) => void }) {
-  const p = items[index];
-  const images = useMemo(() => {
-    const arr = [p.cover_url, p.media_url].filter(Boolean) as string[];
-    return Array.from(new Set(arr));
-  }, [p]);
-  const [img, setImg] = useState(0);
+function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioItem; userId: string; onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(item?.title ?? "");
+  const [description, setDescription] = useState(item?.description ?? "");
+  const [portfolioUrl, setPortfolioUrl] = useState(item?.portfolio_url ?? "");
+  const [technologies, setTechnologies] = useState((item?.technologies ?? []).join(", "));
+  const [thumbnailUrl, setThumbnailUrl] = useState(item?.thumbnail_url ?? "");
+  const [busy, setBusy] = useState(false);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
-  useEffect(() => {
-    setImg(0);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight" && index < items.length - 1) onIndex(index + 1);
-      if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingThumbnail(true);
+    try {
+      const url = await uploadMedia(file, userId);
+      setThumbnailUrl(url);
+      toast.success("Thumbnail uploaded");
+    } catch {
+      toast.error("Unable to upload thumbnail");
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedTitle = title.trim();
+    const trimmedUrl = portfolioUrl.trim();
+    if (!trimmedTitle) { toast.error("Portfolio title is required"); return; }
+    if (!trimmedUrl) { toast.error("Portfolio URL is required"); return; }
+    if (!isValidPortfolioUrl(trimmedUrl)) { toast.error("Please enter a valid URL."); return; }
+
+    setBusy(true);
+    const techList = technologies.split(",").map((x) => x.trim()).filter(Boolean);
+    const { data: existing } = await supabase.from("portfolio_items").select("id").eq("user_id", userId).eq("portfolio_url", trimmedUrl).maybeSingle();
+    if (existing && existing.id !== item?.id) {
+      setBusy(false);
+      toast.error("A portfolio with this URL already exists for this profile.");
+      return;
+    }
+
+    const payload = {
+      user_id: userId,
+      title: trimmedTitle,
+      description: description.trim() || null,
+      portfolio_url: trimmedUrl,
+      technologies: techList,
+      thumbnail_url: thumbnailUrl || null,
+      updated_at: new Date().toISOString(),
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, items.length, onClose, onIndex]);
+
+    const { error } = item
+      ? await supabase.from("portfolio_items").update(payload).eq("id", item.id)
+      : await supabase.from("portfolio_items").insert(payload);
+
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(item ? "Portfolio updated" : "Portfolio saved");
+    onSaved();
+  };
 
   return (
-    <div className="fixed inset-0 z-[80] bg-black/95 flex flex-col" onClick={onClose}>
-      <div className="flex items-center justify-between p-4 text-white" onClick={(e) => e.stopPropagation()}>
-        <div className="min-w-0">
-          <p className="font-bold truncate">{p.title}</p>
-          {p.category && <p className="text-xs text-white/60">{p.category}</p>}
-        </div>
-        <button onClick={onClose} className="p-2 rounded-full bg-white/10 hover:bg-white/20"><X className="w-5 h-5" /></button>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center relative px-4" onClick={(e) => e.stopPropagation()}>
-        {index > 0 && (
-          <button onClick={() => onIndex(index - 1)} className="absolute left-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-10">
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        )}
-        <div className="max-w-4xl w-full flex flex-col items-center">
-          {images.length > 0 ? (
-            <div className="relative w-full">
-              <img src={images[img]} className="max-h-[65vh] w-full object-contain rounded-xl" alt={p.title} />
-              {images.length > 1 && (
-                <div className="flex justify-center gap-1.5 mt-3">
-                  {images.map((_, i) => (
-                    <button key={i} onClick={() => setImg(i)} className={`w-2 h-2 rounded-full ${i === img ? "bg-white" : "bg-white/30"}`} />
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-white/40"><ImageIcon className="w-12 h-12" /></div>
-          )}
-        </div>
-        {index < items.length - 1 && (
-          <button onClick={() => onIndex(index + 1)} className="absolute right-3 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white z-10">
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        )}
-      </div>
-
-      <div className="bg-black/70 backdrop-blur border-t border-white/10 p-5 text-white max-h-[40vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="max-w-4xl mx-auto space-y-3">
-          {p.description && <p className="text-sm text-white/80 leading-relaxed">{p.description}</p>}
-          {p.skills && p.skills.length > 0 && (
-            <div><p className="text-[10px] uppercase tracking-widest text-white/50 mb-1">Skills</p>
-              <div className="flex flex-wrap gap-1.5">{p.skills.map((s) => <span key={s} className="px-2 py-0.5 rounded-md bg-white/10 text-xs">{s}</span>)}</div></div>
-          )}
-          {p.tech && p.tech.length > 0 && (
-            <div><p className="text-[10px] uppercase tracking-widest text-white/50 mb-1 flex items-center gap-1"><Wrench className="w-3 h-3" /> Tech</p>
-              <div className="flex flex-wrap gap-1.5">{p.tech.map((s) => <span key={s} className="px-2 py-0.5 rounded-md bg-white/10 text-xs">{s}</span>)}</div></div>
-          )}
-          <div className="flex flex-wrap gap-2 pt-1">
-            {p.project_link && <a href={p.project_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-black rounded-lg text-xs font-semibold"><ExternalLink className="w-3 h-3" /> View project</a>}
-            {p.demo_url && <a href={p.demo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold"><ExternalLink className="w-3 h-3" /> Live demo</a>}
-            {p.github_url && <a href={p.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold"><Github className="w-3 h-3" /> GitHub</a>}
-            {p.website_url && <a href={p.website_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold"><Globe className="w-3 h-3" /> Website</a>}
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-t-[24px] border border-border bg-background p-6 shadow-2xl sm:rounded-[24px]">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">{item ? "Edit portfolio" : "Add portfolio URL"}</h2>
+            <p className="text-sm text-muted-foreground">Share a polished project link with a thumbnail and description.</p>
           </div>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-muted"><X className="h-4 w-4" /></button>
         </div>
+        <form onSubmit={save} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Portfolio Title *</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-2xl border border-border bg-surface px-3 py-2.5 text-sm" placeholder="Restaurant Website" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Portfolio URL *</label>
+            <input value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} className="w-full rounded-2xl border border-border bg-surface px-3 py-2.5 text-sm" placeholder="https://github.com/username/project" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full resize-none rounded-2xl border border-border bg-surface px-3 py-2.5 text-sm" placeholder="Describe the project and the impact." />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Technology Used</label>
+            <input value={technologies} onChange={(e) => setTechnologies(e.target.value)} className="w-full rounded-2xl border border-border bg-surface px-3 py-2.5 text-sm" placeholder="React, Supabase, Tailwind" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Thumbnail Image (optional)</label>
+            <input type="file" accept="image/*" onChange={handleUpload} className="w-full rounded-2xl border border-dashed border-border bg-surface px-3 py-2.5 text-sm" />
+            {uploadingThumbnail && <p className="mt-2 text-xs text-muted-foreground">Uploading thumbnail…</p>}
+            {thumbnailUrl && <img src={thumbnailUrl} className="mt-3 h-32 w-full rounded-2xl object-cover" alt="Portfolio thumbnail" />}
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-2xl border border-border px-3 py-2.5 text-sm font-semibold text-foreground/80">Cancel</button>
+            <button type="submit" disabled={busy || uploadingThumbnail} className="flex-1 rounded-2xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+              {busy ? "Saving…" : item ? "Save changes" : "Save Portfolio"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -699,9 +709,8 @@ function PortfolioViewer({ items, index, onClose, onIndex }: { items: PortfolioI
 function SavedPanel() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
-  const [portfolios, setPortfolios] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"posts" | "videos" | "portfolio">("posts");
+  const [filter, setFilter] = useState<"posts" | "portfolio">("posts");
 
   useEffect(() => {
     if (!user) return;
@@ -715,18 +724,13 @@ function SavedPanel() {
       } else setPosts([]);
       setLoading(false);
     })();
-  }, [user, filter]);
-
-  const list = filter === "portfolio" ? [] : posts.filter((p) => {
-    const isVid = p.post_type === "video" || p.post_type === "reel";
-    return filter === "videos" ? isVid : !isVid;
-  });
+  }, [user]);
 
   return (
     <div className="mt-4">
-      <div className="flex gap-2 mb-3">
-        {(["posts", "videos", "portfolio"] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition ${
+      <div className="mb-3 flex gap-2">
+        {(["posts", "portfolio"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition ${
             filter === f ? "bg-brand text-white" : "bg-surface border border-border text-muted-foreground hover:text-foreground"
           }`}>{f}</button>
         ))}
@@ -734,28 +738,28 @@ function SavedPanel() {
       {loading ? (
         <div className="text-center text-muted-foreground py-12 text-sm">Loading…</div>
       ) : filter === "portfolio" ? (
-        <div className="text-center text-muted-foreground py-16 text-sm bg-surface border border-border rounded-xl">
-          <Bookmark className="w-10 h-10 mx-auto mb-2" />
+        <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center text-sm text-muted-foreground">
+          <Bookmark className="mx-auto mb-2 h-10 w-10" />
           Saved portfolios will appear here
         </div>
-      ) : list.length === 0 ? (
-        <div className="text-center text-muted-foreground py-16 text-sm bg-surface border border-border rounded-xl">
-          <Bookmark className="w-10 h-10 mx-auto mb-2" />
+      ) : posts.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center text-sm text-muted-foreground">
+          <Bookmark className="mx-auto mb-2 h-10 w-10" />
           Nothing saved yet
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1">
-          {list.map((p) => {
-            const isVid = p.post_type === "video" || p.post_type === "reel";
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((p) => {
+            const isVid = isVideoMedia(p);
             return (
-              <div key={p.id} className="aspect-square bg-muted overflow-hidden relative rounded-sm">
-                {p.media_url ? (
-                  isVid
-                    ? <video src={p.media_url} className="w-full h-full object-cover" muted />
-                    : <img src={p.media_url} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center p-3 text-[11px] text-muted-foreground text-center">{p.caption}</div>
-                )}
+              <div key={p.id} className="overflow-hidden rounded-3xl border border-border bg-surface">
+                <div className="aspect-[4/5] bg-muted">
+                  {p.media_url ? (
+                    isVid ? <video src={p.media_url} className="h-full w-full object-cover" controls preload="metadata" /> : <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Saved media"} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{p.caption || "Saved media"}</div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -765,252 +769,5 @@ function SavedPanel() {
   );
 }
 
-function AboutPanel() {
-  const { profile } = useAuth();
-  if (!profile) return null;
-  const p = profile as any;
-  const social: Record<string, string> = p.social_links ?? {};
-  const services: Service[] = p.services ?? [];
-  const languages: string[] = p.languages ?? [];
-
-  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div className="flex items-start gap-3 py-2 border-b border-border last:border-b-0">
-      <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground w-24 shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-foreground flex-1">{value}</span>
-    </div>
-  );
-
-  return (
-    <div className="mt-4 space-y-5">
-      <section className="bg-surface border border-border rounded-2xl p-5">
-        <h2 className="text-sm font-bold mb-2">About</h2>
-        <p className="text-sm text-foreground/80 leading-relaxed">{profile.bio || "No bio yet."}</p>
-      </section>
-
-      <section className="bg-surface border border-border rounded-2xl p-5">
-        <h2 className="text-sm font-bold mb-2">Details</h2>
-        {p.portfolio_tagline && <Row label="Tagline" value={p.portfolio_tagline} />}
-        {p.location && <Row label="Location" value={p.location} />}
-        {p.website && <Row label="Website" value={<a href={p.website} target="_blank" rel="noreferrer" className="text-brand hover:underline">{p.website}</a>} />}
-        {languages.length > 0 && <Row label="Languages" value={languages.join(" · ")} />}
-        {p.resume_url && <Row label="Resume" value={<a href={p.resume_url} target="_blank" rel="noreferrer" className="text-brand hover:underline">Download</a>} />}
-      </section>
-
-      {Object.values(social).some(Boolean) && (
-        <section className="bg-surface border border-border rounded-2xl p-5">
-          <h2 className="text-sm font-bold mb-2">Social</h2>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(social).filter(([_, v]) => v).map(([k, v]) => (
-              <a key={k} href={v} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-muted hover:bg-muted/70 rounded-lg text-xs font-semibold capitalize">{k}</a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {services.length > 0 && (
-        <section className="bg-surface border border-border rounded-2xl p-5">
-          <h2 className="text-sm font-bold mb-2">Services</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {services.map((s, i) => (
-              <div key={i} className="p-3 border border-border rounded-xl">
-                <p className="font-semibold text-sm">{s.title}</p>
-                {s.description && <p className="text-xs text-muted-foreground mt-1">{s.description}</p>}
-                {s.price && <p className="text-xs font-bold text-brand mt-2">{s.price}</p>}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function AddPortfolioModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({
-    title: "", description: "", category: "", media_url: "", cover_url: "",
-    project_link: "", github_url: "", website_url: "", demo_url: "",
-    skills: "", tags: "", tech: "",
-  });
-  const [busy, setBusy] = useState(false);
-
-  const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim()) { toast.error("Title required"); return; }
-    setBusy(true);
-    const { error } = await supabase.from("portfolios").insert({
-      user_id: userId,
-      title: form.title.trim(),
-      description: form.description.trim() || null,
-      category: form.category.trim() || null,
-      media_url: form.media_url.trim() || null,
-      cover_url: form.cover_url.trim() || null,
-      project_link: form.project_link.trim() || null,
-      github_url: form.github_url.trim() || null,
-      website_url: form.website_url.trim() || null,
-      demo_url: form.demo_url.trim() || null,
-      skills: toArr(form.skills),
-      tags: toArr(form.tags),
-      tech: toArr(form.tech),
-      media_type: "image",
-    });
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Portfolio published");
-    onCreated();
-  };
-
-  const field = "w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm";
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 border border-border max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Publish portfolio project</h2>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
-        </div>
-        <form onSubmit={submit} className="space-y-3">
-          <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Project title *" className={field} />
-          <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Category (e.g. UI/UX, Web App, Photography)" className={field} />
-          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" rows={3} className={`${field} resize-none`} />
-          <div className="grid grid-cols-2 gap-2">
-            <input value={form.cover_url} onChange={(e) => setForm({ ...form, cover_url: e.target.value })} placeholder="Cover image URL" className={field} />
-            <input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="Main image URL" className={field} />
-          </div>
-          <input value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} placeholder="Skills (comma separated)" className={field} />
-          <input value={form.tech} onChange={(e) => setForm({ ...form, tech: e.target.value })} placeholder="Technologies (comma separated)" className={field} />
-          <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="Tags (comma separated)" className={field} />
-          <div className="grid grid-cols-2 gap-2">
-            <input value={form.project_link} onChange={(e) => setForm({ ...form, project_link: e.target.value })} placeholder="Project link" className={field} />
-            <input value={form.demo_url} onChange={(e) => setForm({ ...form, demo_url: e.target.value })} placeholder="Live demo URL" className={field} />
-            <input value={form.github_url} onChange={(e) => setForm({ ...form, github_url: e.target.value })} placeholder="GitHub URL" className={field} />
-            <input value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} placeholder="Website URL" className={field} />
-          </div>
-          <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
-            {busy ? "Publishing…" : "Publish"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function CustomizePortfolioModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const { profile, user } = useAuth();
-  const p = profile as any;
-  const [template, setTemplate] = useState<string>(p?.portfolio_template ?? "classic");
-  const [tagline, setTagline] = useState<string>(p?.portfolio_tagline ?? "");
-  const [resumeUrl, setResumeUrl] = useState<string>(p?.resume_url ?? "");
-  const [social, setSocial] = useState<Record<string, string>>(p?.social_links ?? {});
-  const [services, setServices] = useState<Service[]>(p?.services ?? []);
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(p?.testimonials ?? []);
-  const [busy, setBusy] = useState(false);
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setBusy(true);
-    const { error } = await supabase.from("profiles").update({
-      portfolio_template: template,
-      portfolio_tagline: tagline.trim() || null,
-      resume_url: resumeUrl.trim() || null,
-      social_links: social,
-      services: services.filter((s) => s.title.trim()),
-      testimonials: testimonials.filter((t) => t.quote.trim()),
-    } as any).eq("id", user.id);
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Portfolio updated");
-    onSaved();
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="bg-background w-full sm:max-w-2xl rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto border border-border">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Customize portfolio website</h2>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-4 h-4" /></button>
-        </div>
-        <form onSubmit={save} className="space-y-5">
-          {/* Template */}
-          <div>
-            <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Template</span>
-            <div className="grid grid-cols-3 gap-2">
-              {TEMPLATES.map((t) => (
-                <button type="button" key={t.id} onClick={() => setTemplate(t.id)}
-                  className={`p-3 rounded-xl border text-left transition ${
-                    template === t.id ? "border-brand bg-brand-soft" : "border-border hover:border-brand/40"
-                  }`}>
-                  <p className="font-semibold text-sm">{t.label}</p>
-                  <p className="text-[11px] text-muted-foreground">{t.desc}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Field label="Tagline (one-line)">
-            <input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="e.g. Choreographer crafting cinematic dance reels" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
-          </Field>
-
-          <Field label="Resume URL">
-            <input value={resumeUrl} onChange={(e) => setResumeUrl(e.target.value)} placeholder="https://… (link to your CV/PDF)" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border text-sm" />
-          </Field>
-
-          {/* Socials */}
-          <div>
-            <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Social links</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {["instagram", "youtube", "linkedin", "twitter", "website", "behance"].map((k) => (
-                <input key={k} value={social[k] ?? ""} onChange={(e) => setSocial({ ...social, [k]: e.target.value })}
-                  placeholder={`${k} URL`}
-                  className="px-3 py-2 rounded-lg bg-surface border border-border text-sm" />
-              ))}
-            </div>
-          </div>
-
-          {/* Services */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground">Services offered</span>
-              <button type="button" onClick={() => setServices([...services, { title: "", description: "", price: "" }])} className="text-xs font-semibold text-brand inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
-            </div>
-            <div className="space-y-2">
-              {services.map((s, i) => (
-                <div key={i} className="p-3 bg-surface border border-border rounded-lg space-y-2 relative">
-                  <button type="button" onClick={() => setServices(services.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1 hover:bg-muted rounded"><X className="w-3 h-3" /></button>
-                  <input value={s.title} onChange={(e) => { const c = [...services]; c[i] = { ...s, title: e.target.value }; setServices(c); }} placeholder="Service title" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
-                  <input value={s.description} onChange={(e) => { const c = [...services]; c[i] = { ...s, description: e.target.value }; setServices(c); }} placeholder="Description" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
-                  <input value={s.price ?? ""} onChange={(e) => { const c = [...services]; c[i] = { ...s, price: e.target.value }; setServices(c); }} placeholder="Price (e.g. from $500)" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Testimonials */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="block text-xs font-bold uppercase tracking-widest text-muted-foreground">Testimonials</span>
-              <button type="button" onClick={() => setTestimonials([...testimonials, { name: "", role: "", quote: "" }])} className="text-xs font-semibold text-brand inline-flex items-center gap-1"><Plus className="w-3 h-3" /> Add</button>
-            </div>
-            <div className="space-y-2">
-              {testimonials.map((t, i) => (
-                <div key={i} className="p-3 bg-surface border border-border rounded-lg space-y-2 relative">
-                  <button type="button" onClick={() => setTestimonials(testimonials.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1 hover:bg-muted rounded"><X className="w-3 h-3" /></button>
-                  <input value={t.name} onChange={(e) => { const c = [...testimonials]; c[i] = { ...t, name: e.target.value }; setTestimonials(c); }} placeholder="Client name" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
-                  <input value={t.role ?? ""} onChange={(e) => { const c = [...testimonials]; c[i] = { ...t, role: e.target.value }; setTestimonials(c); }} placeholder="Role / Company" className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm" />
-                  <textarea value={t.quote} onChange={(e) => { const c = [...testimonials]; c[i] = { ...t, quote: e.target.value }; setTestimonials(c); }} placeholder="Quote" rows={2} className="w-full px-2 py-1.5 rounded bg-background border border-border text-sm resize-none" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
-            {busy ? "Saving…" : "Save portfolio"}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
+// Customize portfolio modal removed in favor of the new portfolio card workflow.
 
