@@ -153,17 +153,30 @@ function NotificationsPage() {
 
   const respondToSquadNotification = async (n: Notif, accept: boolean) => {
     if (!user?.id || !n.entity_id) return;
-    const isInvite = n.type === "squad_invite";
-    const table = isInvite ? "squad_invitations" : "squad_join_requests";
-    const idField = isInvite ? "invitee_id" : "squad_id";
-    let query = supabase.from(table).select("id").eq("squad_id", n.entity_id);
-    query = isInvite ? query.eq(idField, user.id) : query.eq("id", n.data?.request_id ?? "");
-    const { data, error } = await query.eq("status", "pending").maybeSingle();
-    if (error || !data) return;
-    await supabase
-      .from(table)
-      .update({ status: accept ? "accepted" : "rejected" })
-      .eq("id", data.id);
+    const status = accept ? "accepted" : "rejected";
+    if (n.type === "squad_invite") {
+      const { data } = await supabase
+        .from("squad_invites")
+        .select("id")
+        .eq("squad_id", n.entity_id)
+        .eq("invitee_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (!data) return;
+      await supabase.from("squad_invites").update({ status }).eq("id", data.id);
+    } else {
+      const requestId = (n.data?.request_id as string | undefined) ?? "";
+      if (!requestId) return;
+      const { data } = await supabase
+        .from("squad_join_requests")
+        .select("id")
+        .eq("squad_id", n.entity_id)
+        .eq("id", requestId)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (!data) return;
+      await supabase.from("squad_join_requests").update({ status }).eq("id", data.id);
+    }
     await markOne(n.id, true);
   };
 

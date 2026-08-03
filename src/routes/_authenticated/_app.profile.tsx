@@ -4,7 +4,7 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadMedia } from "@/lib/uploadMedia";
+import { uploadFile } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
   head: () => ({ meta: [{ title: "Profile — Omnicraft" }] }),
@@ -509,8 +509,20 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
   const load = async () => {
     if (!userId) return;
     setLoading(true);
-    const { data } = await supabase.from("portfolio_items").select("*").eq("user_id", userId).order("created_at", { ascending: false });
-    setItems((data ?? []) as PortfolioItem[]);
+    const { data } = await supabase.from("portfolios").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    setItems(
+      (data ?? []).map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        title: row.title,
+        description: row.description,
+        portfolio_url: row.project_link ?? row.website_url ?? null,
+        technologies: row.tech ?? [],
+        thumbnail_url: row.cover_url ?? row.media_url ?? null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })),
+    );
     setLoading(false);
   };
 
@@ -518,7 +530,7 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 
   const remove = async (item: PortfolioItem) => {
     if (!confirm("Delete Portfolio?")) return;
-    await supabase.from("portfolio_items").delete().eq("id", item.id);
+    await supabase.from("portfolios").delete().eq("id", item.id);
     toast.success("Portfolio removed");
     load();
   };
@@ -614,7 +626,7 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
     if (!file) return;
     setUploadingThumbnail(true);
     try {
-      const url = await uploadMedia(file, userId);
+      const { url } = await uploadFile({ feature: "thumbnail", file, userId });
       setThumbnailUrl(url);
       toast.success("Thumbnail uploaded");
     } catch {
@@ -634,7 +646,7 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
 
     setBusy(true);
     const techList = technologies.split(",").map((x) => x.trim()).filter(Boolean);
-    const { data: existing } = await supabase.from("portfolio_items").select("id").eq("user_id", userId).eq("portfolio_url", trimmedUrl).maybeSingle();
+    const { data: existing } = await supabase.from("portfolios").select("id").eq("user_id", userId).eq("project_link", trimmedUrl).maybeSingle();
     if (existing && existing.id !== item?.id) {
       setBusy(false);
       toast.error("A portfolio with this URL already exists for this profile.");
@@ -645,15 +657,16 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
       user_id: userId,
       title: trimmedTitle,
       description: description.trim() || null,
-      portfolio_url: trimmedUrl,
-      technologies: techList,
-      thumbnail_url: thumbnailUrl || null,
+      project_link: trimmedUrl,
+      tech: techList,
+      cover_url: thumbnailUrl || null,
+      media_url: thumbnailUrl || null,
       updated_at: new Date().toISOString(),
     };
 
     const { error } = item
-      ? await supabase.from("portfolio_items").update(payload).eq("id", item.id)
-      : await supabase.from("portfolio_items").insert(payload);
+      ? await supabase.from("portfolios").update(payload).eq("id", item.id)
+      : await supabase.from("portfolios").insert(payload);
 
     setBusy(false);
     if (error) { toast.error(error.message); return; }

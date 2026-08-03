@@ -4,7 +4,7 @@ import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X } from "l
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadMedia } from "@/lib/uploadMedia";
+import { uploadFile, featureForMedia } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   head: () => ({ meta: [{ title: "Create — Omnicraft" }] }),
@@ -56,7 +56,12 @@ function CreatePage() {
       let mediaUrl: string | null = null;
       if (file) {
         toast.message("Uploading...");
-        mediaUrl = await uploadMedia(file, user.id);
+        const uploaded = await uploadFile({
+          feature: featureForMedia(file, "post"),
+          file,
+          userId: user.id,
+        });
+        mediaUrl = uploaded.url;
       }
       const { error } = await supabase.from("posts").insert({
         author_id: user.id,
