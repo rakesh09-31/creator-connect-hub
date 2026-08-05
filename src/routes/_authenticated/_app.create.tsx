@@ -4,7 +4,7 @@ import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X } from "l
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, featureForMedia } from "@/lib/storage";
+import { uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   head: () => ({ meta: [{ title: "Create — Omnicraft" }] }),
@@ -19,6 +19,7 @@ function CreatePage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
 
