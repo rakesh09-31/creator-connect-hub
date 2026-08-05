@@ -55,13 +55,24 @@ function CreatePage() {
     try {
       let mediaUrl: string | null = null;
       if (file) {
-        toast.message("Uploading...");
+        const feature = featureForMedia(file, "post");
+        const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
         const uploaded = await uploadFile({
-          feature: featureForMedia(file, "post"),
-          file,
+          feature,
+          file: prepared,
           userId: user.id,
+          entityType: "post",
+          onProgress: setProgress,
         });
         mediaUrl = uploaded.url;
+
+        // Auto-generate a poster frame for videos.
+        if (file.type.startsWith("video/")) {
+          const poster = await generateVideoThumbnail(file);
+          if (poster) {
+            await uploadFile({ feature: "thumbnail", file: poster, userId: user.id, entityType: "post" }).catch(() => null);
+          }
+        }
       }
       const { error } = await supabase.from("posts").insert({
         author_id: user.id,
@@ -76,6 +87,7 @@ function CreatePage() {
       toast.error(err.message ?? "Failed to publish");
     } finally {
       setSubmitting(false);
+      setProgress(0);
     }
   };
 
