@@ -4,7 +4,7 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile } from "@/lib/storage";
+import { uploadFile, optimizeImage } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
   head: () => ({ meta: [{ title: "Profile — Omnicraft" }] }),
