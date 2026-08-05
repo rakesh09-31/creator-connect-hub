@@ -207,8 +207,37 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     bio: profile?.bio ?? "",
     portfolio_url: profile?.portfolio_url ?? "",
     avatar_url: profile?.avatar_url ?? "",
+    cover_url: (profile as any)?.cover_url ?? "",
+    resume_url: (profile as any)?.resume_url ?? "",
   });
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState<null | { field: string; pct: number }>(null);
+
+  const pickAndUpload = async (
+    field: "avatar_url" | "cover_url" | "resume_url",
+    feature: "profileImage" | "coverImage" | "resume",
+    file: File | null,
+  ) => {
+    if (!file || !user) return;
+    try {
+      setUploading({ field, pct: 0 });
+      const prepared = feature === "resume" ? file : await optimizeImage(file);
+      const { url } = await uploadFile({
+        feature,
+        file: prepared,
+        userId: user.id,
+        entityType: "profile",
+        entityId: user.id,
+        onProgress: (pct) => setUploading({ field, pct }),
+      });
+      setForm((f) => ({ ...f, [field]: url }));
+      toast.success("Uploaded");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Upload failed");
+    } finally {
+      setUploading(null);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,12 +248,16 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       bio: form.bio.trim() || null,
       portfolio_url: form.portfolio_url.trim() || null,
       avatar_url: form.avatar_url.trim() || null,
+      cover_url: form.cover_url.trim() || null,
+      resume_url: form.resume_url.trim() || null,
     }).eq("id", user.id);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Profile updated");
     onSaved();
   };
+
+  const uploadingField = uploading?.field;
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
@@ -243,10 +276,32 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <Field label="Portfolio URL">
             <input value={form.portfolio_url} onChange={(e) => setForm({ ...form, portfolio_url: e.target.value })} placeholder="https://…" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
           </Field>
-          <Field label="Avatar URL">
-            <input value={form.avatar_url} onChange={(e) => setForm({ ...form, avatar_url: e.target.value })} placeholder="https://…" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+
+          <Field label="Profile photo">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-muted overflow-hidden shrink-0">
+                {form.avatar_url && <img src={form.avatar_url} alt="" className="w-full h-full object-cover" />}
+              </div>
+              <input type="file" accept="image/*" onChange={(e) => pickAndUpload("avatar_url", "profileImage", e.target.files?.[0] ?? null)} className="flex-1 text-xs" />
+            </div>
+            {uploadingField === "avatar_url" && <p className="mt-1 text-xs text-muted-foreground">Uploading… {uploading?.pct}%</p>}
           </Field>
-          <button disabled={busy} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
+
+          <Field label="Cover photo">
+            <div className="space-y-2">
+              {form.cover_url && <img src={form.cover_url} alt="" className="h-24 w-full rounded-xl object-cover" />}
+              <input type="file" accept="image/*" onChange={(e) => pickAndUpload("cover_url", "coverImage", e.target.files?.[0] ?? null)} className="w-full text-xs" />
+            </div>
+            {uploadingField === "cover_url" && <p className="mt-1 text-xs text-muted-foreground">Uploading… {uploading?.pct}%</p>}
+          </Field>
+
+          <Field label="Resume (private — PDF or Word)">
+            <input type="file" accept=".pdf,.doc,.docx,application/pdf" onChange={(e) => pickAndUpload("resume_url", "resume", e.target.files?.[0] ?? null)} className="w-full text-xs" />
+            {form.resume_url && <p className="mt-1 text-xs text-muted-foreground">Resume uploaded ✓ (visible only to you and recruiters you share it with)</p>}
+            {uploadingField === "resume_url" && <p className="mt-1 text-xs text-muted-foreground">Uploading… {uploading?.pct}%</p>}
+          </Field>
+
+          <button disabled={busy || !!uploading} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm disabled:opacity-60">
             {busy ? "Saving…" : "Save changes"}
           </button>
         </form>
