@@ -139,6 +139,57 @@ export type Database = {
         }
         Relationships: []
       }
+      file_uploads: {
+        Row: {
+          bucket_name: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          feature: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          is_public: boolean
+          mime_type: string | null
+          public_url: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          bucket_name: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          feature: string
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          is_public?: boolean
+          mime_type?: string | null
+          public_url?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          bucket_name?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          feature?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_public?: boolean
+          mime_type?: string | null
+          public_url?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       follows: {
         Row: {
           created_at: string
