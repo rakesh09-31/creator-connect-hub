@@ -355,6 +355,38 @@ function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; 
     setSending(false);
   };
 
+  const sendAttachment = async (file: File | null) => {
+    if (!file) return;
+    try {
+      setAttaching(1);
+      const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
+      const { url } = await uploadFile({
+        feature: "chatMedia",
+        file: prepared,
+        userId: meId,
+        conversationId: conv.id,
+        entityType: "conversation",
+        entityId: conv.id,
+        onProgress: setAttaching,
+      });
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({ conversation_id: conv.id, sender_id: meId, attachment_url: url, attachment_type: kindOfFile(file) })
+        .select("*")
+        .single();
+      if (error) throw error;
+      if (data) setMsgs((prev) => [...prev, data as Msg]);
+      scrollToBottom();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not send attachment");
+    } finally {
+      setAttaching(0);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+
+
   const handleTyping = async (v: string) => {
     setText(v);
     if (typingTimer.current) clearTimeout(typingTimer.current);
