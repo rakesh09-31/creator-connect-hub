@@ -195,7 +195,7 @@ function CreatePage() {
           className="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <Send className="w-5 h-5" />
-          {submitting ? "Publishing..." : "Publish"}
+          {submitting ? (progress > 0 && progress < 100 ? `Uploading ${progress}%` : "Publishing...") : "Publish"}
         </button>
       </form>
     </div>
