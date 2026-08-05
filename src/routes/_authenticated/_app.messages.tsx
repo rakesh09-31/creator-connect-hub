@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
-import { MessageCircle, Send, Search as SearchIcon, ArrowLeft, Check, CheckCheck, Loader2, Smile } from "lucide-react";
+import { MessageCircle, Send, Search as SearchIcon, ArrowLeft, Check, CheckCheck, Loader2, Smile, Paperclip, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { uploadFile, optimizeImage, kindOfFile } from "@/lib/storage";
 
 type MessagesSearch = { with?: string; c?: string };
 
@@ -255,10 +256,13 @@ function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; 
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [attaching, setAttaching] = useState(0);
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherReadAt, setOtherReadAt] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
