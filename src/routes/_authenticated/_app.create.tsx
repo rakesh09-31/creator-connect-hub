@@ -4,7 +4,7 @@ import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X } from "l
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, featureForMedia } from "@/lib/storage";
+import { uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   head: () => ({ meta: [{ title: "Create — Omnicraft" }] }),
@@ -19,6 +19,7 @@ function CreatePage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
 
@@ -55,13 +56,24 @@ function CreatePage() {
     try {
       let mediaUrl: string | null = null;
       if (file) {
-        toast.message("Uploading...");
+        const feature = featureForMedia(file, "post");
+        const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
         const uploaded = await uploadFile({
-          feature: featureForMedia(file, "post"),
-          file,
+          feature,
+          file: prepared,
           userId: user.id,
+          entityType: "post",
+          onProgress: setProgress,
         });
         mediaUrl = uploaded.url;
+
+        // Auto-generate a poster frame for videos.
+        if (file.type.startsWith("video/")) {
+          const poster = await generateVideoThumbnail(file);
+          if (poster) {
+            await uploadFile({ feature: "thumbnail", file: poster, userId: user.id, entityType: "post" }).catch(() => null);
+          }
+        }
       }
       const { error } = await supabase.from("posts").insert({
         author_id: user.id,
@@ -76,6 +88,7 @@ function CreatePage() {
       toast.error(err.message ?? "Failed to publish");
     } finally {
       setSubmitting(false);
+      setProgress(0);
     }
   };
 
@@ -182,7 +195,7 @@ function CreatePage() {
           className="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <Send className="w-5 h-5" />
-          {submitting ? "Publishing..." : "Publish"}
+          {submitting ? (progress > 0 && progress < 100 ? `Uploading ${progress}%` : "Publishing...") : "Publish"}
         </button>
       </form>
     </div>

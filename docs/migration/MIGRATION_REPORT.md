@@ -48,21 +48,31 @@ notifications, conversations, conversation_members, messages, message_reactions,
 ## 9. Storage buckets (feature based)
 | bucket | visibility | used by |
 | --- | --- | --- |
-| profile-images | public | avatars |
-| cover-images | public | profile covers |
-| portfolio-images | public | portfolio stills / thumbnails |
-| portfolio-videos | public | portfolio showreels |
-| posts | public | photo posts |
-| stories | public | 24h stories |
-| reels | public | vertical video |
-| chat-media | private | VChat attachments |
-| creator-assets | public | creator uploads |
-| client-assets | public | client uploads |
-| documents | private | resumes, briefs |
-| verification | private | ID / verification docs |
-| thumbnails | public | generated covers |
+| profile-images | shared* | avatars |
+| cover-images | shared* | profile covers |
+| posts | shared* | photo/video posts and reels (`reels/` subfolder) |
+| stories | shared* | 24h stories |
+| portfolio | shared* | portfolio `images/` and `videos/` |
+| thumbnails | shared* | generated video posters |
+| creator-assets | shared* | creator uploads |
+| client-assets | shared* | client uploads |
+| resumes | private | resume PDF/DOC/DOCX (owner only) |
+| documents | private | contracts, invoices, job & project files |
+| chat-media | private | VChat attachments (conversation members only) |
+| verification | private | IDs / certificates (owner + admin) |
 | temp-uploads | private | staging |
 | media | public | legacy bucket (kept so existing URLs keep working) |
+
+\* "shared" buckets are physically private because the workspace blocks public
+buckets; they are readable by every signed-in member through RLS and served via
+long-lived signed URLs. Flip `SHARED_BUCKETS_ARE_PUBLIC` in `src/lib/storage.ts`
+after making them public.
+
+Folder layout: `users/{userId}/{feature}/{YYYY}/{MM}/{uuid}.{ext}`,
+`chat-media/conversations/{conversationId}/…`, `resumes/users/{userId}/resume/…`.
+File metadata (bucket, path, name, size, mime, feature, owner, entity) is
+recorded in `public.file_uploads`; binaries never touch Postgres.
+
 
 Storage policies: public read on public buckets, owner-only read on private buckets,
 owner-only insert/update/delete where the first path segment equals `auth.uid()`.

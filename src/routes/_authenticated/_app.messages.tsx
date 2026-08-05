@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
-import { MessageCircle, Send, Search as SearchIcon, ArrowLeft, Check, CheckCheck, Loader2, Smile } from "lucide-react";
+import { MessageCircle, Send, Search as SearchIcon, ArrowLeft, Check, CheckCheck, Loader2, Smile, Paperclip, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { uploadFile, optimizeImage, kindOfFile } from "@/lib/storage";
 
 type MessagesSearch = { with?: string; c?: string };
 
@@ -255,10 +256,13 @@ function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; 
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [attaching, setAttaching] = useState(0);
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherReadAt, setOtherReadAt] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -351,6 +355,38 @@ function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; 
     setSending(false);
   };
 
+  const sendAttachment = async (file: File | null) => {
+    if (!file) return;
+    try {
+      setAttaching(1);
+      const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
+      const { url } = await uploadFile({
+        feature: "chatMedia",
+        file: prepared,
+        userId: meId,
+        conversationId: conv.id,
+        entityType: "conversation",
+        entityId: conv.id,
+        onProgress: setAttaching,
+      });
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({ conversation_id: conv.id, sender_id: meId, attachment_url: url, attachment_type: kindOfFile(file) })
+        .select("*")
+        .single();
+      if (error) throw error;
+      if (data) setMsgs((prev) => [...prev, data as Msg]);
+      scrollToBottom();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not send attachment");
+    } finally {
+      setAttaching(0);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+
+
   const handleTyping = async (v: string) => {
     setText(v);
     if (typingTimer.current) clearTimeout(typingTimer.current);
@@ -390,6 +426,21 @@ function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; 
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"} ${showGap ? "mt-2" : ""}`}>
               <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm animate-fade-in ${mine ? "bg-brand text-white rounded-br-md" : "bg-muted text-foreground rounded-bl-md"}`}>
+                {m.attachment_url && (
+                  <div className="mb-1 overflow-hidden rounded-xl">
+                    {m.attachment_type === "image" ? (
+                      <img src={m.attachment_url} alt="attachment" className="max-h-64 w-full object-cover" />
+                    ) : m.attachment_type === "video" ? (
+                      <video src={m.attachment_url} controls playsInline className="max-h-64 w-full" />
+                    ) : m.attachment_type === "audio" ? (
+                      <audio src={m.attachment_url} controls className="w-56" />
+                    ) : (
+                      <a href={m.attachment_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-2 py-1.5 underline">
+                        <FileText className="w-4 h-4" /> Open document
+                      </a>
+                    )}
+                  </div>
+                )}
                 {m.body}
                 <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${mine ? "text-white/70 justify-end" : "text-muted-foreground"}`}>
                   <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -407,6 +458,22 @@ function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; 
       {/* Composer */}
       <div className="p-3 border-t border-border flex items-end gap-2">
         <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Emoji"><Smile className="w-5 h-5" /></button>
+        <input
+          ref={fileInput}
+          type="file"
+          className="hidden"
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.ppt,.pptx,.xls,.xlsx,.zip,.rar"
+          onChange={(e) => sendAttachment(e.target.files?.[0] ?? null)}
+        />
+        <button
+          type="button"
+          onClick={() => fileInput.current?.click()}
+          disabled={attaching > 0}
+          className="p-2 rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-50"
+          title="Attach a file"
+        >
+          {attaching > 0 ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
+        </button>
         <textarea
           value={text}
           onChange={(e) => handleTyping(e.target.value)}
