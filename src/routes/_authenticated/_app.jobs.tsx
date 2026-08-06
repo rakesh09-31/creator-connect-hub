@@ -298,14 +298,147 @@ function JobCard({ job, canApply, onApply, appStatus, isOwner }: {
 
       {canApply && (
         <div className="mt-4 flex justify-end">
-          <button onClick={onApply} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition inline-flex items-center gap-1.5">
-            <Send className="w-3.5 h-3.5" /> Apply now
+          {appStatus ? (
+            <StatusBadge status={appStatus} />
+          ) : (
+            <button onClick={onApply} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition inline-flex items-center gap-1.5">
+              <Send className="w-3.5 h-3.5" /> Apply now
+            </button>
+          )}
+        </div>
+      )}
+
+      {isOwner && (
+        <div className="mt-4 pt-3 border-t border-border">
+          <button
+            onClick={() => setShowApplicants((v) => !v)}
+            className="text-sm font-semibold text-brand inline-flex items-center gap-1.5 hover:underline"
+          >
+            <Users className="w-4 h-4" /> {showApplicants ? "Hide applications" : "Review applications"}
           </button>
+          {showApplicants && <ApplicantsPanel jobId={job.id} />}
         </div>
       )}
     </div>
   );
 }
+
+/* ---------------------- Applications review (client) ---------------------- */
+
+type Application = {
+  id: string; job_id: string; applicant_id: string | null; squad_id: string | null;
+  portfolio_url: string | null; message: string | null; status: string; created_at: string;
+  applicant?: { username: string; full_name: string | null; avatar_url: string | null } | null;
+  squad?: { name: string } | null;
+};
+
+function ApplicantsPanel({ jobId }: { jobId: string }) {
+  const [apps, setApps] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("job_applications")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    if (error) { toast.error(error.message); setLoading(false); return; }
+    const list = (data ?? []) as Application[];
+    const userIds = Array.from(new Set(list.map((a) => a.applicant_id).filter(Boolean))) as string[];
+    const squadIds = Array.from(new Set(list.map((a) => a.squad_id).filter(Boolean))) as string[];
+    const [{ data: profs }, { data: sqs }] = await Promise.all([
+      userIds.length
+        ? supabase.from("profiles").select("id, username, full_name, avatar_url").in("id", userIds)
+        : Promise.resolve({ data: [] as any[] }),
+      squadIds.length
+        ? supabase.from("squads").select("id, name").in("id", squadIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const pMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+    const sMap = new Map((sqs ?? []).map((s: any) => [s.id, s]));
+    list.forEach((a) => {
+      a.applicant = a.applicant_id ? pMap.get(a.applicant_id) ?? null : null;
+      a.squad = a.squad_id ? sMap.get(a.squad_id) ?? null : null;
+    });
+    setApps(list);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [jobId]);
+
+  const decide = async (id: string, status: "accepted" | "rejected") => {
+    setBusyId(id);
+    const { error } = await supabase.rpc("decide_job_application", {
+      _application_id: id,
+      _status: status,
+    });
+    setBusyId(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success(status === "accepted" ? "Application accepted" : "Application rejected");
+    setApps((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+  };
+
+  if (loading) return <p className="text-sm text-muted-foreground py-3">Loading applications…</p>;
+  if (apps.length === 0) return <p className="text-sm text-muted-foreground py-3">No applications yet.</p>;
+
+  return (
+    <div className="mt-3 space-y-2">
+      {apps.map((a) => (
+        <div key={a.id} className="rounded-xl border border-border bg-background p-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0">
+              {a.applicant?.avatar_url
+                ? <img src={a.applicant.avatar_url} alt="" className="w-full h-full object-cover" />
+                : (a.squad?.name ?? a.applicant?.username ?? "?").slice(0, 1).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              {a.squad ? (
+                <p className="text-sm font-semibold truncate">Squad: {a.squad.name}</p>
+              ) : a.applicant ? (
+                <Link to="/user/$username" params={{ username: a.applicant.username }} className="text-sm font-semibold truncate hover:text-brand">
+                  {a.applicant.full_name || a.applicant.username}
+                </Link>
+              ) : (
+                <p className="text-sm font-semibold">Applicant</p>
+              )}
+              {a.message && <p className="text-xs text-foreground/75 mt-1 whitespace-pre-line">{a.message}</p>}
+              {a.portfolio_url && (
+                <a href={a.portfolio_url} target="_blank" rel="noreferrer" className="text-[11px] text-brand inline-flex items-center gap-1 mt-1 hover:underline">
+                  <ExternalLink className="w-3 h-3" /> Portfolio
+                </a>
+              )}
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border capitalize ${STATUS_STYLES[a.status] ?? STATUS_STYLES.withdrawn}`}>
+              {a.status}
+            </span>
+          </div>
+
+          {a.status === "pending" && (
+            <div className="flex gap-2 mt-3">
+              <button
+                disabled={busyId === a.id}
+                onClick={() => decide(a.id, "accepted")}
+                className="flex-1 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+              >
+                <Check className="w-3.5 h-3.5" /> Accept
+              </button>
+              <button
+                disabled={busyId === a.id}
+                onClick={() => decide(a.id, "rejected")}
+                className="flex-1 py-2 rounded-lg bg-muted text-foreground text-xs font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
+              >
+                <X className="w-3.5 h-3.5" /> Reject
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 /* ---------------------- Find Creators panel (clients only) ---------------------- */
 
