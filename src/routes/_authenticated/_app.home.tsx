@@ -144,7 +144,54 @@ function HomePage() {
     })();
   }, [user]);
 
+  // ---- Active stories (mine + people I follow), newest last inside each group
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const ids = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
+      const { data } = await supabase
+        .from("stories")
+        .select("*")
+        .in("user_id", ids)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: true });
+      if (cancelled) return;
+      const byUser = new Map<string, Story[]>();
+      ((data ?? []) as Story[]).forEach((s) => {
+        const arr = byUser.get(s.user_id) ?? [];
+        arr.push(s);
+        byUser.set(s.user_id, arr);
+      });
+      const profileFor = (id: string) =>
+        id === user.id
+          ? { username: profile?.username ?? "you", full_name: profile?.full_name ?? null, avatar_url: profile?.avatar_url ?? null }
+          : following.find((p) => p.id === id);
+      const groups: StoryGroup[] = ids
+        .filter((id) => (byUser.get(id) ?? []).length > 0)
+        .map((id) => {
+          const p = profileFor(id);
+          return {
+            userId: id,
+            username: p?.username ?? "",
+            fullName: p?.full_name ?? null,
+            avatarUrl: p?.avatar_url ?? null,
+            stories: byUser.get(id)!,
+          };
+        });
+      setStoryGroups(groups);
+    })();
+    return () => { cancelled = true; };
+  }, [user, following, profile?.username, profile?.full_name, profile?.avatar_url]);
+
+  const groupIndexFor = (userId: string) => storyGroups.findIndex((g) => g.userId === userId);
+  const openStories = (userId: string) => {
+    const idx = groupIndexFor(userId);
+    if (idx >= 0) setViewerIndex(idx);
+  };
+
   const isCreator = profile?.role === "creator";
+
 
   return (
     <div className="max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4">
