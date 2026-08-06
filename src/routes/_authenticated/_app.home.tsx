@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
+import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -57,6 +58,8 @@ function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [following, setFollowing] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
