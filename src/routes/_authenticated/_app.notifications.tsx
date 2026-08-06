@@ -35,7 +35,7 @@ function iconFor(type: string) {
   if (type === "like") return <Heart className="w-4 h-4 text-rose-500" />;
   if (type === "comment") return <MessageCircle className="w-4 h-4 text-blue-500" />;
   if (type === "follow") return <UserPlus className="w-4 h-4 text-emerald-500" />;
-  if (type.startsWith("hire")) return <Briefcase className="w-4 h-4 text-amber-500" />;
+  if (type.startsWith("hire") || type.startsWith("job")) return <Briefcase className="w-4 h-4 text-amber-500" />;
   return <Bell className="w-4 h-4 text-brand" />;
 }
 
