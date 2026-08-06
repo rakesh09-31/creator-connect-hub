@@ -14,7 +14,10 @@ export const Route = createFileRoute("/_authenticated/_app/create")({
 function CreatePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [type, setType] = useState<"photo" | "video" | "project">("photo");
+  const search = Route.useSearch();
+  const [type, setType] = useState<"photo" | "video" | "project" | "story">(
+    search.type === "story" ? "story" : "photo",
+  );
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
@@ -23,7 +26,9 @@ function CreatePage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
 
-  const acceptForType = type === "video" ? "video/*" : type === "photo" ? "image/*" : "image/*,video/*";
+  const acceptForType =
+    type === "video" ? "video/*" : type === "photo" ? "image/*" : "image/*,video/*";
+
 
   const handleFile = (f: File | null) => {
     if (!f) return;
