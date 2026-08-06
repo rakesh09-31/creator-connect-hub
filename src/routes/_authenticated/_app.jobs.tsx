@@ -806,8 +806,14 @@ function ApplyJobModal({ job, onClose, onApplied }: { job: Job; onClose: () => v
       message: message.trim() || null,
     });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      // unique index on (job_id, applicant_id) / (job_id, squad_id)
+      toast.error(error.code === "23505" ? "You have already applied to this brief." : error.message);
+      if (error.code === "23505") onApplied?.();
+      return;
+    }
     toast.success("Application sent");
+    onApplied?.();
     onClose();
   };
 
