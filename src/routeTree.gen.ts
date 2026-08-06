@@ -9,48 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SplashRouteImport } from './routes/splash'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SplashRouteImport } from './routes/splash'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/_app'
-import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_authenticated/onboarding/specialty'
-import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
-import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
-import { Route as AuthenticatedAppSquadsRouteImport } from './routes/_authenticated/_app.squads'
-import { Route as AuthenticatedAppReelsRouteImport } from './routes/_authenticated/_app.reels'
-import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app.profile'
-import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app.notifications'
-import { Route as AuthenticatedAppMessagesRouteImport } from './routes/_authenticated/_app.messages'
-import { Route as AuthenticatedAppJobsRouteImport } from './routes/_authenticated/_app.jobs'
-import { Route as AuthenticatedAppHomeRouteImport } from './routes/_authenticated/_app.home'
-import { Route as AuthenticatedAppExploreRouteImport } from './routes/_authenticated/_app.explore'
 import { Route as AuthenticatedAppCreateRouteImport } from './routes/_authenticated/_app.create'
-import { Route as AuthenticatedAppUserUsernameRouteImport } from './routes/_authenticated/_app.user.$username'
-import { Route as AuthenticatedAppSquadsSquadIdRouteImport } from './routes/_authenticated/_app.squads.$squadId'
+import { Route as AuthenticatedAppExploreRouteImport } from './routes/_authenticated/_app.explore'
+import { Route as AuthenticatedAppHomeRouteImport } from './routes/_authenticated/_app.home'
+import { Route as AuthenticatedAppJobsRouteImport } from './routes/_authenticated/_app.jobs'
+import { Route as AuthenticatedAppMessagesRouteImport } from './routes/_authenticated/_app.messages'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app.notifications'
+import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app.profile'
+import { Route as AuthenticatedAppReelsRouteImport } from './routes/_authenticated/_app.reels'
+import { Route as AuthenticatedAppSquadsRouteImport } from './routes/_authenticated/_app.squads'
+import { Route as AuthenticatedOnboardingClientRouteImport } from './routes/_authenticated/onboarding/client'
+import { Route as AuthenticatedOnboardingRoleRouteImport } from './routes/_authenticated/onboarding/role'
+import { Route as AuthenticatedOnboardingSpecialtyRouteImport } from './routes/_authenticated/onboarding/specialty'
 import { Route as AuthenticatedAppConnectionsUsernameRouteImport } from './routes/_authenticated/_app.connections.$username'
+import { Route as AuthenticatedAppSquadsSquadIdRouteImport } from './routes/_authenticated/_app.squads.$squadId'
+import { Route as AuthenticatedAppUserUsernameRouteImport } from './routes/_authenticated/_app.user.$username'
 
-const SplashRoute = SplashRouteImport.update({
-  id: '/splash',
-  path: '/splash',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -58,23 +47,81 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplashRoute = SplashRouteImport.update({
+  id: '/splash',
+  path: '/splash',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   id: '/_app',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedOnboardingSpecialtyRoute =
-  AuthenticatedOnboardingSpecialtyRouteImport.update({
-    id: '/onboarding/specialty',
-    path: '/onboarding/specialty',
+const AuthenticatedAppCreateRoute = AuthenticatedAppCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppExploreRoute = AuthenticatedAppExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppHomeRoute = AuthenticatedAppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppJobsRoute = AuthenticatedAppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppMessagesRoute =
+  AuthenticatedAppMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppReelsRoute = AuthenticatedAppReelsRouteImport.update({
+  id: '/reels',
+  path: '/reels',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedAppSquadsRoute = AuthenticatedAppSquadsRouteImport.update({
+  id: '/squads',
+  path: '/squads',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
+const AuthenticatedOnboardingClientRoute =
+  AuthenticatedOnboardingClientRouteImport.update({
+    id: '/onboarding/client',
+    path: '/onboarding/client',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedOnboardingRoleRoute =
@@ -83,63 +130,16 @@ const AuthenticatedOnboardingRoleRoute =
     path: '/onboarding/role',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedOnboardingClientRoute =
-  AuthenticatedOnboardingClientRouteImport.update({
-    id: '/onboarding/client',
-    path: '/onboarding/client',
+const AuthenticatedOnboardingSpecialtyRoute =
+  AuthenticatedOnboardingSpecialtyRouteImport.update({
+    id: '/onboarding/specialty',
+    path: '/onboarding/specialty',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAppSquadsRoute = AuthenticatedAppSquadsRouteImport.update({
-  id: '/squads',
-  path: '/squads',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppReelsRoute = AuthenticatedAppReelsRouteImport.update({
-  id: '/reels',
-  path: '/reels',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppNotificationsRoute =
-  AuthenticatedAppNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedAppRoute,
-  } as any)
-const AuthenticatedAppMessagesRoute =
-  AuthenticatedAppMessagesRouteImport.update({
-    id: '/messages',
-    path: '/messages',
-    getParentRoute: () => AuthenticatedAppRoute,
-  } as any)
-const AuthenticatedAppJobsRoute = AuthenticatedAppJobsRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppHomeRoute = AuthenticatedAppHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppExploreRoute = AuthenticatedAppExploreRouteImport.update({
-  id: '/explore',
-  path: '/explore',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppCreateRoute = AuthenticatedAppCreateRouteImport.update({
-  id: '/create',
-  path: '/create',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
-const AuthenticatedAppUserUsernameRoute =
-  AuthenticatedAppUserUsernameRouteImport.update({
-    id: '/user/$username',
-    path: '/user/$username',
+const AuthenticatedAppConnectionsUsernameRoute =
+  AuthenticatedAppConnectionsUsernameRouteImport.update({
+    id: '/connections/$username',
+    path: '/connections/$username',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppSquadsSquadIdRoute =
@@ -148,10 +148,10 @@ const AuthenticatedAppSquadsSquadIdRoute =
     path: '/$squadId',
     getParentRoute: () => AuthenticatedAppSquadsRoute,
   } as any)
-const AuthenticatedAppConnectionsUsernameRoute =
-  AuthenticatedAppConnectionsUsernameRouteImport.update({
-    id: '/connections/$username',
-    path: '/connections/$username',
+const AuthenticatedAppUserUsernameRoute =
+  AuthenticatedAppUserUsernameRouteImport.update({
+    id: '/user/$username',
+    path: '/user/$username',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 
@@ -313,39 +313,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/splash': {
-      id: '/splash'
-      path: '/splash'
-      fullPath: '/splash'
-      preLoaderRoute: typeof SplashRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -355,11 +327,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/splash': {
+      id: '/splash'
+      path: '/splash'
+      fullPath: '/splash'
+      preLoaderRoute: typeof SplashRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_app': {
@@ -369,74 +369,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/onboarding/specialty': {
-      id: '/_authenticated/onboarding/specialty'
-      path: '/onboarding/specialty'
-      fullPath: '/onboarding/specialty'
-      preLoaderRoute: typeof AuthenticatedOnboardingSpecialtyRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/onboarding/role': {
-      id: '/_authenticated/onboarding/role'
-      path: '/onboarding/role'
-      fullPath: '/onboarding/role'
-      preLoaderRoute: typeof AuthenticatedOnboardingRoleRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/onboarding/client': {
-      id: '/_authenticated/onboarding/client'
-      path: '/onboarding/client'
-      fullPath: '/onboarding/client'
-      preLoaderRoute: typeof AuthenticatedOnboardingClientRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/_app/squads': {
-      id: '/_authenticated/_app/squads'
-      path: '/squads'
-      fullPath: '/squads'
-      preLoaderRoute: typeof AuthenticatedAppSquadsRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/_app/reels': {
-      id: '/_authenticated/_app/reels'
-      path: '/reels'
-      fullPath: '/reels'
-      preLoaderRoute: typeof AuthenticatedAppReelsRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/_app/profile': {
-      id: '/_authenticated/_app/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedAppProfileRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/_app/notifications': {
-      id: '/_authenticated/_app/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/_app/messages': {
-      id: '/_authenticated/_app/messages'
-      path: '/messages'
-      fullPath: '/messages'
-      preLoaderRoute: typeof AuthenticatedAppMessagesRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/_app/jobs': {
-      id: '/_authenticated/_app/jobs'
-      path: '/jobs'
-      fullPath: '/jobs'
-      preLoaderRoute: typeof AuthenticatedAppJobsRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
-    '/_authenticated/_app/home': {
-      id: '/_authenticated/_app/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof AuthenticatedAppHomeRouteImport
+    '/_authenticated/_app/create': {
+      id: '/_authenticated/_app/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof AuthenticatedAppCreateRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/_app/explore': {
@@ -446,18 +383,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppExploreRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
-    '/_authenticated/_app/create': {
-      id: '/_authenticated/_app/create'
-      path: '/create'
-      fullPath: '/create'
-      preLoaderRoute: typeof AuthenticatedAppCreateRouteImport
+    '/_authenticated/_app/home': {
+      id: '/_authenticated/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedAppHomeRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
-    '/_authenticated/_app/user/$username': {
-      id: '/_authenticated/_app/user/$username'
-      path: '/user/$username'
-      fullPath: '/user/$username'
-      preLoaderRoute: typeof AuthenticatedAppUserUsernameRouteImport
+    '/_authenticated/_app/jobs': {
+      id: '/_authenticated/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AuthenticatedAppJobsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/messages': {
+      id: '/_authenticated/_app/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof AuthenticatedAppMessagesRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/notifications': {
+      id: '/_authenticated/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/profile': {
+      id: '/_authenticated/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedAppProfileRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/reels': {
+      id: '/_authenticated/_app/reels'
+      path: '/reels'
+      fullPath: '/reels'
+      preLoaderRoute: typeof AuthenticatedAppReelsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/_app/squads': {
+      id: '/_authenticated/_app/squads'
+      path: '/squads'
+      fullPath: '/squads'
+      preLoaderRoute: typeof AuthenticatedAppSquadsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/onboarding/client': {
+      id: '/_authenticated/onboarding/client'
+      path: '/onboarding/client'
+      fullPath: '/onboarding/client'
+      preLoaderRoute: typeof AuthenticatedOnboardingClientRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding/role': {
+      id: '/_authenticated/onboarding/role'
+      path: '/onboarding/role'
+      fullPath: '/onboarding/role'
+      preLoaderRoute: typeof AuthenticatedOnboardingRoleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding/specialty': {
+      id: '/_authenticated/onboarding/specialty'
+      path: '/onboarding/specialty'
+      fullPath: '/onboarding/specialty'
+      preLoaderRoute: typeof AuthenticatedOnboardingSpecialtyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/_app/connections/$username': {
+      id: '/_authenticated/_app/connections/$username'
+      path: '/connections/$username'
+      fullPath: '/connections/$username'
+      preLoaderRoute: typeof AuthenticatedAppConnectionsUsernameRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/_app/squads/$squadId': {
@@ -467,11 +467,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSquadsSquadIdRouteImport
       parentRoute: typeof AuthenticatedAppSquadsRoute
     }
-    '/_authenticated/_app/connections/$username': {
-      id: '/_authenticated/_app/connections/$username'
-      path: '/connections/$username'
-      fullPath: '/connections/$username'
-      preLoaderRoute: typeof AuthenticatedAppConnectionsUsernameRouteImport
+    '/_authenticated/_app/user/$username': {
+      id: '/_authenticated/_app/user/$username'
+      path: '/user/$username'
+      fullPath: '/user/$username'
+      preLoaderRoute: typeof AuthenticatedAppUserUsernameRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
   }
