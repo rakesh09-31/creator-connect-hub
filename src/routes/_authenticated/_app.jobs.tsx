@@ -81,10 +81,32 @@ function BriefsPanel() {
   const isClient = profile?.role === "client";
   const [jobs, setJobs] = useState<Job[]>([]);
   const [mySpecialties, setMySpecialties] = useState<string[]>([]);
+  const [myApps, setMyApps] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showPost, setShowPost] = useState(false);
   const [applyJob, setApplyJob] = useState<Job | null>(null);
   const [searchQ, setSearchQ] = useState("");
+
+  // job_id -> status for every application this creator (or their squads) sent
+  const loadMyApps = async () => {
+    if (!user || isClient) return;
+    const { data: squads } = await supabase.from("squads").select("id").eq("owner_id", user.id);
+    const squadIds = (squads ?? []).map((s: any) => s.id);
+    const filters = [`applicant_id.eq.${user.id}`];
+    if (squadIds.length) filters.push(`squad_id.in.(${squadIds.join(",")})`);
+    const { data } = await supabase
+      .from("job_applications")
+      .select("job_id, status")
+      .or(filters.join(","));
+    const map: Record<string, string> = {};
+    (data ?? []).forEach((a: any) => {
+      // accepted wins over pending wins over rejected when both a squad and a
+      // personal application exist for the same brief
+      const rank = (s: string) => (s === "accepted" ? 3 : s === "pending" ? 2 : 1);
+      if (!map[a.job_id] || rank(a.status) > rank(map[a.job_id])) map[a.job_id] = a.status;
+    });
+    setMyApps(map);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -107,6 +129,7 @@ function BriefsPanel() {
       if (user && !isClient) {
         const { data } = await supabase.from("creator_specialties").select("specialty").eq("user_id", user.id);
         setMySpecialties((data ?? []).map((x: any) => x.specialty.toLowerCase()));
+        await loadMyApps();
       }
       load();
     })();
@@ -177,16 +200,45 @@ function BriefsPanel() {
       ) : (
         <div className="space-y-3">
           {visibleJobs.map((j) => (
-            <JobCard key={j.id} job={j} canApply={!isClient && j.client_id !== user?.id} onApply={() => setApplyJob(j)} />
+            <JobCard
+              key={j.id}
+              job={j}
+              canApply={!isClient && j.client_id !== user?.id}
+              appStatus={myApps[j.id]}
+              isOwner={!!user && j.client_id === user.id}
+              onApply={() => setApplyJob(j)}
+            />
           ))}
         </div>
       )}
 
       {showPost && <PostJobModal onClose={() => setShowPost(false)} onCreated={() => { setShowPost(false); load(); }} />}
-      {applyJob && <ApplyJobModal job={applyJob} onClose={() => setApplyJob(null)} />}
+      {applyJob && (
+        <ApplyJobModal
+          job={applyJob}
+          onClose={() => setApplyJob(null)}
+          onApplied={() => { setApplyJob(null); loadMyApps(); }}
+        />
+      )}
     </div>
   );
 }
+
+const STATUS_STYLES: Record<string, string> = {
+  pending: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  accepted: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+  rejected: "bg-rose-500/15 text-rose-600 border-rose-500/30",
+  withdrawn: "bg-muted text-muted-foreground border-border",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`px-3 py-1.5 rounded-lg text-sm font-semibold border capitalize ${STATUS_STYLES[status] ?? STATUS_STYLES.withdrawn}`}>
+      {status}
+    </span>
+  );
+}
+
 
 function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onApply: () => void }) {
   const deadlineLabel = job.deadline ? new Date(job.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
