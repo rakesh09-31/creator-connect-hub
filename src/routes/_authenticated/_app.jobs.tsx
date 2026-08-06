@@ -778,7 +778,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   );
 }
 
-function ApplyJobModal({ job, onClose }: { job: Job; onClose: () => void }) {
+function ApplyJobModal({ job, onClose, onApplied }: { job: Job; onClose: () => void; onApplied?: () => void }) {
   const { user, profile } = useAuth();
   const [portfolio, setPortfolio] = useState(profile?.portfolio_url ?? "");
   const [message, setMessage] = useState("");
