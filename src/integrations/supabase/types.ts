@@ -221,8 +221,11 @@ export type Database = {
           message: string | null
           portfolio_url: string | null
           resume_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           squad_id: string | null
           status: string
+          updated_at: string
         }
         Insert: {
           applicant_id?: string | null
@@ -233,8 +236,11 @@ export type Database = {
           message?: string | null
           portfolio_url?: string | null
           resume_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           squad_id?: string | null
           status?: string
+          updated_at?: string
         }
         Update: {
           applicant_id?: string | null
@@ -245,8 +251,11 @@ export type Database = {
           message?: string | null
           portfolio_url?: string | null
           resume_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           squad_id?: string | null
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -973,6 +982,30 @@ export type Database = {
           _user_id: string
         }
         Returns: undefined
+      }
+      decide_job_application: {
+        Args: { _application_id: string; _status: string }
+        Returns: {
+          applicant_id: string | null
+          cover_letter: string | null
+          created_at: string
+          id: string
+          job_id: string
+          message: string | null
+          portfolio_url: string | null
+          resume_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          squad_id: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "job_applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       get_or_create_dm: { Args: { _other: string }; Returns: string }
       get_or_create_squad_conversation: {
