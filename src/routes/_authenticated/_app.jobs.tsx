@@ -240,7 +240,10 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 
-function JobCard({ job, canApply, onApply }: { job: Job; canApply: boolean; onApply: () => void }) {
+function JobCard({ job, canApply, onApply, appStatus, isOwner }: {
+  job: Job; canApply: boolean; onApply: () => void; appStatus?: string; isOwner?: boolean;
+}) {
+  const [showApplicants, setShowApplicants] = useState(false);
   const deadlineLabel = job.deadline ? new Date(job.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
   return (
     <div className="bg-surface rounded-2xl p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
