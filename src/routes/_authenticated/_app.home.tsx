@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
+import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -57,6 +58,8 @@ function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [following, setFollowing] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -144,7 +147,54 @@ function HomePage() {
     })();
   }, [user]);
 
+  // ---- Active stories (mine + people I follow), newest last inside each group
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const ids = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
+      const { data } = await supabase
+        .from("stories")
+        .select("*")
+        .in("user_id", ids)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: true });
+      if (cancelled) return;
+      const byUser = new Map<string, Story[]>();
+      ((data ?? []) as Story[]).forEach((s) => {
+        const arr = byUser.get(s.user_id) ?? [];
+        arr.push(s);
+        byUser.set(s.user_id, arr);
+      });
+      const profileFor = (id: string) =>
+        id === user.id
+          ? { username: profile?.username ?? "you", full_name: profile?.full_name ?? null, avatar_url: profile?.avatar_url ?? null }
+          : following.find((p) => p.id === id);
+      const groups: StoryGroup[] = ids
+        .filter((id) => (byUser.get(id) ?? []).length > 0)
+        .map((id) => {
+          const p = profileFor(id);
+          return {
+            userId: id,
+            username: p?.username ?? "",
+            fullName: p?.full_name ?? null,
+            avatarUrl: p?.avatar_url ?? null,
+            stories: byUser.get(id)!,
+          };
+        });
+      setStoryGroups(groups);
+    })();
+    return () => { cancelled = true; };
+  }, [user, following, profile?.username, profile?.full_name, profile?.avatar_url]);
+
+  const groupIndexFor = (userId: string) => storyGroups.findIndex((g) => g.userId === userId);
+  const openStories = (userId: string) => {
+    const idx = groupIndexFor(userId);
+    if (idx >= 0) setViewerIndex(idx);
+  };
+
   const isCreator = profile?.role === "creator";
+
 
   return (
     <div className="max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4">
@@ -184,16 +234,25 @@ function HomePage() {
             username={profile?.username ?? ""}
             avatarUrl={profile?.avatar_url ?? null}
             you
-            linkTo="/create"
+            hasStory={groupIndexFor(user?.id ?? "") >= 0}
+            onOpen={groupIndexFor(user?.id ?? "") >= 0 ? () => openStories(user!.id) : undefined}
+            linkTo={groupIndexFor(user?.id ?? "") >= 0 ? undefined : "/create?type=story"}
           />
-          {following.map((p) => (
-            <StoryItem
-              key={p.id}
-              label={p.full_name || p.username}
-              username={p.username}
-              avatarUrl={p.avatar_url}
-            />
-          ))}
+          {[...following]
+            .sort((a, b) => (groupIndexFor(b.id) >= 0 ? 1 : 0) - (groupIndexFor(a.id) >= 0 ? 1 : 0))
+            .map((p) => {
+              const hasStory = groupIndexFor(p.id) >= 0;
+              return (
+                <StoryItem
+                  key={p.id}
+                  label={p.full_name || p.username}
+                  username={p.username}
+                  avatarUrl={p.avatar_url}
+                  hasStory={hasStory}
+                  onOpen={hasStory ? () => openStories(p.id) : undefined}
+                />
+              );
+            })}
           {following.length === 0 && (
             <Link to="/explore" className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
               <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground bg-surface-muted">
@@ -203,6 +262,7 @@ function HomePage() {
             </Link>
           )}
         </div>
+
       </section>
 
       {/* Feed */}
@@ -232,17 +292,32 @@ function HomePage() {
           {posts.map((p) => <PostCard key={p.id} post={p} />)}
         </div>
       )}
+
+      {viewerIndex !== null && storyGroups.length > 0 && (
+        <StoryViewer
+          groups={storyGroups}
+          startIndex={viewerIndex}
+          viewerId={user?.id}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </div>
   );
 }
 
-function StoryItem({ label, username, avatarUrl, you, linkTo }: {
-  label: string; username: string; avatarUrl: string | null; you?: boolean; linkTo?: string;
+function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, onOpen }: {
+  label: string; username: string; avatarUrl: string | null; you?: boolean;
+  linkTo?: string; hasStory?: boolean; onOpen?: () => void;
 }) {
   const initial = (username || "?").slice(0, 1).toUpperCase();
+  const ring = hasStory
+    ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand"
+    : you
+      ? "bg-muted"
+      : "bg-gradient-to-tr from-brand to-primary";
   const inner = (
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
-      <div className={`relative w-14 h-14 rounded-full p-[2px] ${you ? "bg-muted" : "bg-gradient-to-tr from-brand to-primary"}`}>
+      <div className={`relative w-14 h-14 rounded-full p-[2px] ${ring}`}>
         <div className="w-full h-full rounded-full bg-surface p-[2px]">
           {avatarUrl ? (
             <img src={avatarUrl} className="w-full h-full rounded-full object-cover" />
@@ -252,7 +327,7 @@ function StoryItem({ label, username, avatarUrl, you, linkTo }: {
             </div>
           )}
         </div>
-        {you && (
+        {you && !hasStory && (
           <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand border-2 border-surface flex items-center justify-center">
             <Plus className="w-2.5 h-2.5 text-brand-foreground" />
           </div>
@@ -261,7 +336,9 @@ function StoryItem({ label, username, avatarUrl, you, linkTo }: {
       <span className="text-[11px] text-foreground/80 max-w-[80px] truncate font-medium">{label}</span>
     </div>
   );
+  if (onOpen) return <button type="button" onClick={onOpen}>{inner}</button>;
   if (linkTo) return <Link to={linkTo}>{inner}</Link>;
   return <Link to="/user/$username" params={{ username }}>{inner}</Link>;
+
 }
 

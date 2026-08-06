@@ -35,7 +35,7 @@ function iconFor(type: string) {
   if (type === "like") return <Heart className="w-4 h-4 text-rose-500" />;
   if (type === "comment") return <MessageCircle className="w-4 h-4 text-blue-500" />;
   if (type === "follow") return <UserPlus className="w-4 h-4 text-emerald-500" />;
-  if (type.startsWith("hire")) return <Briefcase className="w-4 h-4 text-amber-500" />;
+  if (type.startsWith("hire") || type.startsWith("job")) return <Briefcase className="w-4 h-4 text-amber-500" />;
   return <Bell className="w-4 h-4 text-brand" />;
 }
 
@@ -64,16 +64,24 @@ function labelFor(n: Notif) {
       return `Your request to join ${n.data?.squad_name ?? "the squad"} was accepted`;
     case "squad_join_rejected":
       return `Your request to join ${n.data?.squad_name ?? "the squad"} was rejected`;
+    case "job_application":
+      return `${name} applied to your brief${n.data?.job_title ? `: ${n.data.job_title}` : ""}`;
+    case "job_application_accepted":
+      return `Your application for ${n.data?.job_title ?? "a brief"} was accepted 🎉`;
+    case "job_application_rejected":
+      return `Your application for ${n.data?.job_title ?? "a brief"} was not selected`;
     default:
       return `${name} · ${n.type}`;
   }
 }
+
 
 function linkFor(n: Notif): string {
   if (n.type === "follow" && n.actor?.username) return `/user/${n.actor.username}`;
   if (n.type === "message" && n.entity_id) return `/messages?c=${n.entity_id}`;
   if (n.entity_type === "post" && n.entity_id) return `/home`;
   if (n.entity_type === "creator_request") return `/messages`;
+  if (n.entity_type === "job") return `/jobs`;
   if (n.entity_type === "squad" && n.entity_id) return `/squads/${n.entity_id}`;
   return "/notifications";
 }

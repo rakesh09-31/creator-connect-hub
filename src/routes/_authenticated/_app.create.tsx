@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X } from "lucide-react";
+import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
+  validateSearch: (s: Record<string, unknown>) => ({ type: typeof s.type === "string" ? s.type : undefined }),
   head: () => ({ meta: [{ title: "Create — Omnicraft" }] }),
   component: CreatePage,
 });
@@ -14,7 +15,10 @@ export const Route = createFileRoute("/_authenticated/_app/create")({
 function CreatePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [type, setType] = useState<"photo" | "video" | "project">("photo");
+  const search = Route.useSearch();
+  const [type, setType] = useState<"photo" | "video" | "project" | "story">(
+    search.type === "story" ? "story" : "photo",
+  );
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
@@ -23,7 +27,9 @@ function CreatePage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
 
-  const acceptForType = type === "video" ? "video/*" : type === "photo" ? "image/*" : "image/*,video/*";
+  const acceptForType =
+    type === "video" ? "video/*" : type === "photo" ? "image/*" : "image/*,video/*";
+
 
   const handleFile = (f: File | null) => {
     if (!f) return;
@@ -41,6 +47,10 @@ function CreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (type === "story" && !file) {
+      toast.error("Pick a photo or video for your story");
+      return;
+    }
     if (!file && !caption.trim()) {
       toast.error("Add a file or caption");
       return;
@@ -54,6 +64,29 @@ function CreatePage() {
 
     setSubmitting(true);
     try {
+      // ---------- Stories: own bucket + own table, auto-expiring in 24h ----------
+      if (type === "story") {
+        const prepared = file!.type.startsWith("image/") ? await optimizeImage(file!) : file!;
+        const uploaded = await uploadFile({
+          feature: "story",
+          file: prepared,
+          userId: user.id,
+          entityType: "story",
+          onProgress: setProgress,
+        });
+        const { error } = await supabase.from("stories").insert({
+          user_id: user.id,
+          media_url: uploaded.url,
+          media_type: file!.type.startsWith("video/") ? "video" : "image",
+          caption: caption.trim() || null,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        });
+        if (error) throw error;
+        toast.success("Story shared — it disappears in 24 hours");
+        navigate({ to: "/home" });
+        return;
+      }
+
       let mediaUrl: string | null = null;
       if (file) {
         const feature = featureForMedia(file, "post");
@@ -96,7 +129,9 @@ function CreatePage() {
     { id: "photo" as const, label: "Photo", icon: ImageIcon },
     { id: "video" as const, label: "Video", icon: Video },
     { id: "project" as const, label: "Project", icon: Briefcase },
+    { id: "story" as const, label: "Story", icon: Sparkles },
   ];
+
 
   const isVideoPreview = file?.type.startsWith("video/");
 
@@ -104,7 +139,7 @@ function CreatePage() {
     <div className="max-w-2xl mx-auto px-4 py-6">
       <h1 className="text-3xl font-bold mb-6">Create a Post</h1>
 
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {types.map((t) => {
           const Icon = t.icon;
           const active = type === t.id;
