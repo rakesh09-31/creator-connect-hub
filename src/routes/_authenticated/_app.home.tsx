@@ -292,17 +292,32 @@ function HomePage() {
           {posts.map((p) => <PostCard key={p.id} post={p} />)}
         </div>
       )}
+
+      {viewerIndex !== null && storyGroups.length > 0 && (
+        <StoryViewer
+          groups={storyGroups}
+          startIndex={viewerIndex}
+          viewerId={user?.id}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
     </div>
   );
 }
 
-function StoryItem({ label, username, avatarUrl, you, linkTo }: {
-  label: string; username: string; avatarUrl: string | null; you?: boolean; linkTo?: string;
+function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, onOpen }: {
+  label: string; username: string; avatarUrl: string | null; you?: boolean;
+  linkTo?: string; hasStory?: boolean; onOpen?: () => void;
 }) {
   const initial = (username || "?").slice(0, 1).toUpperCase();
+  const ring = hasStory
+    ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand"
+    : you
+      ? "bg-muted"
+      : "bg-gradient-to-tr from-brand to-primary";
   const inner = (
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
-      <div className={`relative w-14 h-14 rounded-full p-[2px] ${you ? "bg-muted" : "bg-gradient-to-tr from-brand to-primary"}`}>
+      <div className={`relative w-14 h-14 rounded-full p-[2px] ${ring}`}>
         <div className="w-full h-full rounded-full bg-surface p-[2px]">
           {avatarUrl ? (
             <img src={avatarUrl} className="w-full h-full rounded-full object-cover" />
@@ -312,7 +327,7 @@ function StoryItem({ label, username, avatarUrl, you, linkTo }: {
             </div>
           )}
         </div>
-        {you && (
+        {you && !hasStory && (
           <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand border-2 border-surface flex items-center justify-center">
             <Plus className="w-2.5 h-2.5 text-brand-foreground" />
           </div>
@@ -321,7 +336,9 @@ function StoryItem({ label, username, avatarUrl, you, linkTo }: {
       <span className="text-[11px] text-foreground/80 max-w-[80px] truncate font-medium">{label}</span>
     </div>
   );
+  if (onOpen) return <button type="button" onClick={onOpen}>{inner}</button>;
   if (linkTo) return <Link to={linkTo}>{inner}</Link>;
   return <Link to="/user/$username" params={{ username }}>{inner}</Link>;
+
 }
 
