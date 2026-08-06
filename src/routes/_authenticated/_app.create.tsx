@@ -46,6 +46,10 @@ function CreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (type === "story" && !file) {
+      toast.error("Pick a photo or video for your story");
+      return;
+    }
     if (!file && !caption.trim()) {
       toast.error("Add a file or caption");
       return;
@@ -59,6 +63,29 @@ function CreatePage() {
 
     setSubmitting(true);
     try {
+      // ---------- Stories: own bucket + own table, auto-expiring in 24h ----------
+      if (type === "story") {
+        const prepared = file!.type.startsWith("image/") ? await optimizeImage(file!) : file!;
+        const uploaded = await uploadFile({
+          feature: "story",
+          file: prepared,
+          userId: user.id,
+          entityType: "story",
+          onProgress: setProgress,
+        });
+        const { error } = await supabase.from("stories").insert({
+          user_id: user.id,
+          media_url: uploaded.url,
+          media_type: file!.type.startsWith("video/") ? "video" : "image",
+          caption: caption.trim() || null,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        });
+        if (error) throw error;
+        toast.success("Story shared — it disappears in 24 hours");
+        navigate({ to: "/home" });
+        return;
+      }
+
       let mediaUrl: string | null = null;
       if (file) {
         const feature = featureForMedia(file, "post");
@@ -101,7 +128,9 @@ function CreatePage() {
     { id: "photo" as const, label: "Photo", icon: ImageIcon },
     { id: "video" as const, label: "Video", icon: Video },
     { id: "project" as const, label: "Project", icon: Briefcase },
+    { id: "story" as const, label: "Story", icon: Sparkles },
   ];
+
 
   const isVideoPreview = file?.type.startsWith("video/");
 
