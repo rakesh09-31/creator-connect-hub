@@ -234,16 +234,25 @@ function HomePage() {
             username={profile?.username ?? ""}
             avatarUrl={profile?.avatar_url ?? null}
             you
-            linkTo="/create"
+            hasStory={groupIndexFor(user?.id ?? "") >= 0}
+            onOpen={groupIndexFor(user?.id ?? "") >= 0 ? () => openStories(user!.id) : undefined}
+            linkTo={groupIndexFor(user?.id ?? "") >= 0 ? undefined : "/create?type=story"}
           />
-          {following.map((p) => (
-            <StoryItem
-              key={p.id}
-              label={p.full_name || p.username}
-              username={p.username}
-              avatarUrl={p.avatar_url}
-            />
-          ))}
+          {[...following]
+            .sort((a, b) => (groupIndexFor(b.id) >= 0 ? 1 : 0) - (groupIndexFor(a.id) >= 0 ? 1 : 0))
+            .map((p) => {
+              const hasStory = groupIndexFor(p.id) >= 0;
+              return (
+                <StoryItem
+                  key={p.id}
+                  label={p.full_name || p.username}
+                  username={p.username}
+                  avatarUrl={p.avatar_url}
+                  hasStory={hasStory}
+                  onOpen={hasStory ? () => openStories(p.id) : undefined}
+                />
+              );
+            })}
           {following.length === 0 && (
             <Link to="/explore" className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
               <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground bg-surface-muted">
@@ -253,6 +262,7 @@ function HomePage() {
             </Link>
           )}
         </div>
+
       </section>
 
       {/* Feed */}
