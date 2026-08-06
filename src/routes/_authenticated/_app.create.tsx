@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X } from "lucide-react";
+import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
+  validateSearch: (s: Record<string, unknown>) => ({ type: typeof s.type === "string" ? s.type : undefined }),
   head: () => ({ meta: [{ title: "Create — Omnicraft" }] }),
   component: CreatePage,
 });
@@ -138,7 +139,7 @@ function CreatePage() {
     <div className="max-w-2xl mx-auto px-4 py-6">
       <h1 className="text-3xl font-bold mb-6">Create a Post</h1>
 
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-3 mb-6">
         {types.map((t) => {
           const Icon = t.icon;
           const active = type === t.id;
