@@ -81,6 +81,7 @@ function linkFor(n: Notif): string {
   if (n.type === "message" && n.entity_id) return `/messages?c=${n.entity_id}`;
   if (n.entity_type === "post" && n.entity_id) return `/home`;
   if (n.entity_type === "creator_request") return `/messages`;
+  if (n.entity_type === "job") return `/jobs`;
   if (n.entity_type === "squad" && n.entity_id) return `/squads/${n.entity_id}`;
   return "/notifications";
 }
