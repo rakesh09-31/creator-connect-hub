@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadFile, optimizeImage } from "@/lib/storage";
+import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
   head: () => ({ meta: [{ title: "Profile — Omnicraft" }] }),
@@ -23,23 +24,27 @@ function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [postsLoading, setPostsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
+  const [activeStories, setActiveStories] = useState<Story[]>([]);
+  const [storyOpen, setStoryOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       setPostsLoading(true);
-      const [{ data: p }, { data: s }, { data: mems }, { count: fc }, { count: gc }] = await Promise.all([
+      const [{ data: p }, { data: s }, { data: mems }, { count: fc }, { count: gc }, { data: storyRows }] = await Promise.all([
         supabase.from("posts").select("*").eq("author_id", user.id).order("created_at", { ascending: false }),
         supabase.from("creator_specialties").select("specialty").eq("user_id", user.id),
         supabase.from("squad_members").select("squad_id, squads:squad_id(id, name, description, specialty, avatar_url)").eq("user_id", user.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id),
+        supabase.from("stories").select("*").eq("user_id", user.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: true }),
       ]);
       setPosts(p ?? []);
       setSpecialties((s ?? []).map((x: any) => x.specialty));
       const sq = (mems ?? []).map((m: any) => m.squads).filter(Boolean);
       setSquads(sq as Squad[]);
       setCounts({ followers: fc ?? 0, following: gc ?? 0 });
+      setActiveStories((storyRows ?? []) as Story[]);
       setPostsLoading(false);
     })();
   }, [user]);
@@ -51,11 +56,18 @@ function ProfilePage() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm">
         <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold overflow-hidden ring-2 ring-border">
-            {profile.avatar_url
-              ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" />
-              : profile.username.slice(0, 1).toUpperCase()}
-          </div>
+          <button
+            type="button"
+            onClick={() => activeStories.length > 0 && setStoryOpen(true)}
+            className={`w-20 h-20 rounded-full p-[3px] flex-shrink-0 ${activeStories.length > 0 ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand cursor-pointer" : "bg-border cursor-default"}`}
+            aria-label={activeStories.length > 0 ? "View active story" : "No active story"}
+          >
+            <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-2xl font-semibold overflow-hidden">
+              {profile.avatar_url
+                ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" alt="" />
+                : profile.username.slice(0, 1).toUpperCase()}
+            </span>
+          </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -196,6 +208,13 @@ function ProfilePage() {
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
       {selectedPost && <PostMediaViewer post={selectedPost} onClose={() => setSelectedPost(null)} />}
+      {storyOpen && activeStories.length > 0 && user && (
+        <StoryViewer
+          groups={[{ userId: user.id, username: profile.username, fullName: profile.full_name, avatarUrl: profile.avatar_url, stories: activeStories } satisfies StoryGroup]}
+          viewerId={user.id}
+          onClose={() => setStoryOpen(false)}
+        />
+      )}
     </div>
   );
 }
