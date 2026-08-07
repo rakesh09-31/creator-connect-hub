@@ -4,7 +4,7 @@ import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X, Sparkles
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
+import { deleteFile, uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   validateSearch: (s: Record<string, unknown>) => ({ type: typeof s.type === "string" ? s.type : undefined }),
@@ -66,7 +66,8 @@ function CreatePage() {
     try {
       // ---------- Stories: own bucket + own table, auto-expiring in 24h ----------
       if (type === "story") {
-        const prepared = file!.type.startsWith("image/") ? await optimizeImage(file!) : file!;
+        if (!file) return;
+        const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
         const uploaded = await uploadFile({
           feature: "story",
           file: prepared,
@@ -77,11 +78,14 @@ function CreatePage() {
         const { error } = await supabase.from("stories").insert({
           user_id: user.id,
           media_url: uploaded.url,
-          media_type: file!.type.startsWith("video/") ? "video" : "image",
+          media_type: file.type.startsWith("video/") ? "video" : "image",
           caption: caption.trim() || null,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
-        if (error) throw error;
+        if (error) {
+          await deleteFile("story", uploaded.path).catch(() => undefined);
+          throw new Error(`Story record failed: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+        }
         toast.success("Story shared — it disappears in 24 hours");
         navigate({ to: "/home" });
         return;
@@ -117,8 +121,10 @@ function CreatePage() {
       if (error) throw error;
       toast.success("Posted!");
       navigate({ to: "/home" });
-    } catch (err: any) {
-      toast.error(err.message ?? "Failed to publish");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Story/post publish failed:", err);
+      toast.error(message);
     } finally {
       setSubmitting(false);
       setProgress(0);

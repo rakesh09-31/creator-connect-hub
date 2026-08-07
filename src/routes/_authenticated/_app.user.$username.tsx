@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 
 export const Route = createFileRoute("/_authenticated/_app/user/$username")({
   component: UserProfilePage,
@@ -17,6 +18,8 @@ function UserProfilePage() {
   const [following, setFollowing] = useState(false);
   const [followCount, setFollowCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [activeStories, setActiveStories] = useState<Story[]>([]);
+  const [storyOpen, setStoryOpen] = useState(false);
 
   const refreshFollow = async (targetId: string) => {
     if (!user) return;
@@ -33,12 +36,14 @@ function UserProfilePage() {
       const { data: p } = await supabase.from("profiles").select("*").eq("username", username).maybeSingle();
       setProfile(p);
       if (p) {
-        const [{ data: postsData }, { data: s }] = await Promise.all([
+        const [{ data: postsData }, { data: s }, { data: storyRows }] = await Promise.all([
           supabase.from("posts").select("*").eq("author_id", p.id).order("created_at", { ascending: false }),
           supabase.from("creator_specialties").select("specialty").eq("user_id", p.id),
+          supabase.from("stories").select("*").eq("user_id", p.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: true }),
         ]);
         setPosts(postsData ?? []);
         setSpecialties((s ?? []).map((x: any) => x.specialty));
+        setActiveStories((storyRows ?? []) as Story[]);
         await refreshFollow(p.id);
       }
       setLoading(false);
@@ -68,9 +73,16 @@ function UserProfilePage() {
         ? "bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600"
         : "bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600"}`}>
         <div className="flex items-start gap-5">
-          <div className="w-24 h-24 rounded-full bg-white/30 flex items-center justify-center text-4xl font-bold border-4 border-white/40 overflow-hidden">
-            {profile.avatar_url ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" /> : profile.username.slice(0, 1).toUpperCase()}
-          </div>
+          <button
+            type="button"
+            onClick={() => activeStories.length > 0 && setStoryOpen(true)}
+            className={`w-24 h-24 rounded-full p-1 flex-shrink-0 ${activeStories.length > 0 ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-white cursor-pointer" : "bg-white/40 cursor-default"}`}
+            aria-label={activeStories.length > 0 ? `View ${profile.username}'s story` : "No active story"}
+          >
+            <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-4xl font-bold overflow-hidden">
+              {profile.avatar_url ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" alt="" /> : profile.username.slice(0, 1).toUpperCase()}
+            </span>
+          </button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">{profile.full_name || profile.username}</h1>
             <p className="text-white/80">@{profile.username}</p>
@@ -115,6 +127,13 @@ function UserProfilePage() {
           );
         })}
       </div>
+      {storyOpen && activeStories.length > 0 && (
+        <StoryViewer
+          groups={[{ userId: profile.id, username: profile.username, fullName: profile.full_name, avatarUrl: profile.avatar_url, stories: activeStories } satisfies StoryGroup]}
+          viewerId={user?.id}
+          onClose={() => setStoryOpen(false)}
+        />
+      )}
     </div>
   );
 }
