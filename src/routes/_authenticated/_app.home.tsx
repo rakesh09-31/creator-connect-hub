@@ -153,12 +153,16 @@ function HomePage() {
     let cancelled = false;
     (async () => {
       const ids = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("stories")
         .select("*")
         .in("user_id", ids)
         .gt("expires_at", new Date().toISOString())
         .order("created_at", { ascending: true });
+      if (error) {
+        console.error("Active stories query failed:", error);
+        return;
+      }
       if (cancelled) return;
       const byUser = new Map<string, Story[]>();
       ((data ?? []) as Story[]).forEach((s) => {

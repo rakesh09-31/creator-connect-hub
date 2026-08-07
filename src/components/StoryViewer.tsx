@@ -90,7 +90,12 @@ export function StoryViewer({
   // Record a view once per story.
   useEffect(() => {
     if (!story || !viewerId || viewerId === story.user_id) return;
-    void supabase.from("story_views").insert({ story_id: story.id, viewer_id: viewerId });
+    void supabase
+      .from("story_views")
+      .insert({ story_id: story.id, viewer_id: viewerId })
+      .then(({ error }) => {
+        if (error && error.code !== "23505") console.error("Story view recording failed:", error);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.id, viewerId]);
 

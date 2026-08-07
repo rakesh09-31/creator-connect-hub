@@ -370,12 +370,21 @@ function ApplicantsPanel({ jobId }: { jobId: string }) {
 
   const decide = async (id: string, status: "accepted" | "rejected") => {
     setBusyId(id);
-    const { error } = await supabase.rpc("decide_job_application", {
+    const { data, error } = await supabase.rpc("decide_job_application", {
       _application_id: id,
       _status: status,
     });
     setBusyId(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      console.error("Application decision failed:", error);
+      toast.error(`${error.message}${error.code ? ` (${error.code})` : ""}`);
+      return;
+    }
+    if (!data || data.status !== status) {
+      toast.error("The application status was not updated. Please refresh and try again.");
+      await load();
+      return;
+    }
     toast.success(status === "accepted" ? "Application accepted" : "Application rejected");
     setApps((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
   };
@@ -808,7 +817,8 @@ function ApplyJobModal({ job, onClose, onApplied }: { job: Job; onClose: () => v
     setBusy(false);
     if (error) {
       // unique index on (job_id, applicant_id) / (job_id, squad_id)
-      toast.error(error.code === "23505" ? "You have already applied to this brief." : error.message);
+      console.error("Job application failed:", error);
+      toast.error(error.code === "23505" ? "You have already applied to this brief." : `${error.message}${error.code ? ` (${error.code})` : ""}`);
       if (error.code === "23505") onApplied?.();
       return;
     }

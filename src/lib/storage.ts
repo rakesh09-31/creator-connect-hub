@@ -328,7 +328,7 @@ async function putWithProgress(
     xhr.onload = () =>
       xhr.status >= 200 && xhr.status < 300
         ? resolve()
-        : reject(new Error(safeMessage(xhr.responseText) ?? `Upload failed (${xhr.status})`));
+        : reject(new Error(formatUploadError(xhr.status, xhr.responseText)));
     xhr.onerror = () => reject(new Error("Network error during upload."));
     xhr.onabort = () => reject(new StorageError("UPLOAD", "Upload cancelled."));
     signal?.addEventListener("abort", () => xhr.abort(), { once: true });
@@ -342,6 +342,12 @@ const safeMessage = (text: string) => {
   } catch {
     return undefined;
   }
+};
+
+const formatUploadError = (status: number, responseText: string) => {
+  const message = safeMessage(responseText);
+  const detail = responseText.trim();
+  return `Storage upload failed (${status}): ${message ?? detail ?? "Unknown storage error"}`;
 };
 
 async function recordMetadata(result: UploadResult, opts: UploadOptions, feature: StorageFeature) {
