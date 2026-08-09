@@ -4,7 +4,7 @@ import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X, Sparkles
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { deleteFile, uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
+import { deleteFile, uploadFile, uploadVideo, featureForMedia, optimizeImage } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   validateSearch: (s: Record<string, unknown>) => ({ type: typeof s.type === "string" ? s.type : undefined }),
@@ -67,18 +67,16 @@ function CreatePage() {
       // ---------- Stories: own bucket + own table, auto-expiring in 24h ----------
       if (type === "story") {
         if (!file) return;
-        const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
-        const uploaded = await uploadFile({
-          feature: "story",
-          file: prepared,
-          userId: user.id,
-          entityType: "story",
-          onProgress: setProgress,
-        });
+        const isVideo = file.type.startsWith("video/");
+        const prepared = isVideo ? file : await optimizeImage(file);
+        const uploaded = isVideo
+          ? await uploadVideo({ feature: "story", file, userId: user.id, entityType: "story", onProgress: setProgress })
+          : { ...(await uploadFile({ feature: "story", file: prepared, userId: user.id, entityType: "story", onProgress: setProgress })), thumbnailUrl: null };
         const { error } = await supabase.from("stories").insert({
           user_id: user.id,
           media_url: uploaded.url,
-          media_type: file.type.startsWith("video/") ? "video" : "image",
+          media_type: isVideo ? "video" : "image",
+          thumbnail_url: uploaded.thumbnailUrl,
           caption: caption.trim() || null,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
@@ -92,24 +90,29 @@ function CreatePage() {
       }
 
       let mediaUrl: string | null = null;
+      let thumbnailUrl: string | null = null;
       if (file) {
         const feature = featureForMedia(file, "post");
-        const prepared = file.type.startsWith("image/") ? await optimizeImage(file) : file;
-        const uploaded = await uploadFile({
-          feature,
-          file: prepared,
-          userId: user.id,
-          entityType: "post",
-          onProgress: setProgress,
-        });
-        mediaUrl = uploaded.url;
-
-        // Auto-generate a poster frame for videos.
         if (file.type.startsWith("video/")) {
-          const poster = await generateVideoThumbnail(file);
-          if (poster) {
-            await uploadFile({ feature: "thumbnail", file: poster, userId: user.id, entityType: "post" }).catch(() => null);
-          }
+          const uploaded = await uploadVideo({
+            feature,
+            file,
+            userId: user.id,
+            entityType: "post",
+            onProgress: setProgress,
+          });
+          mediaUrl = uploaded.url;
+          thumbnailUrl = uploaded.thumbnailUrl;
+        } else {
+          const prepared = await optimizeImage(file);
+          const uploaded = await uploadFile({
+            feature,
+            file: prepared,
+            userId: user.id,
+            entityType: "post",
+            onProgress: setProgress,
+          });
+          mediaUrl = uploaded.url;
         }
       }
       const { error } = await supabase.from("posts").insert({
@@ -117,8 +120,10 @@ function CreatePage() {
         post_type: type,
         caption: caption.trim() || null,
         media_url: mediaUrl,
+        thumbnail_url: thumbnailUrl,
       });
       if (error) throw error;
+
       toast.success("Posted!");
       navigate({ to: "/home" });
     } catch (err: unknown) {

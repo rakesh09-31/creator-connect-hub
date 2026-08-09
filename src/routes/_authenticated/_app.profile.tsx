@@ -4,7 +4,9 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, optimizeImage } from "@/lib/storage";
+import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl } from "@/lib/storage";
+import { VideoPlayer } from "@/components/VideoPlayer";
+import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
@@ -26,6 +28,42 @@ function ProfilePage() {
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [activeStories, setActiveStories] = useState<Story[]>([]);
   const [storyOpen, setStoryOpen] = useState(false);
+  const [videoIndex, setVideoIndex] = useState<number | null>(null);
+
+  /** Videos owned by me, in grid order — powers the reels-style viewer. */
+  const myVideos: VideoItem[] = useMemo(
+    () =>
+      posts
+        .filter((p) => isVideoMedia(p))
+        .map((p) => ({
+          id: p.id,
+          url: p.media_url as string,
+          poster: p.thumbnail_url ?? null,
+          title: p.caption ?? null,
+          authorName: profile?.full_name || profile?.username || null,
+          canDelete: true,
+        })),
+    [posts, profile],
+  );
+
+  /** Owner-only delete: DB row first, then the storage object + poster. */
+  const deleteVideo = async (item: VideoItem) => {
+    if (!user) return;
+    const post = posts.find((p) => p.id === item.id);
+    const { error } = await supabase.from("posts").delete().eq("id", item.id).eq("author_id", user.id);
+    if (error) {
+      toast.error(`Could not delete: ${error.message}`);
+      return;
+    }
+    try {
+      await deleteMediaByUrl(post?.media_url, post?.thumbnail_url);
+    } catch (err: any) {
+      toast.warning(`Post removed, but the stored file could not be deleted: ${err?.message ?? "unknown error"}`);
+    }
+    setPosts((prev) => prev.filter((p) => p.id !== item.id));
+    setVideoIndex(null);
+    toast.success("Video deleted");
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -149,11 +187,11 @@ function ProfilePage() {
               {posts.map((p) => {
                 const isVid = isVideoMedia(p);
                 return (
-                  <button key={p.id} onClick={() => setSelectedPost(p)} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                  <button key={p.id} onClick={() => (isVid ? setVideoIndex(myVideos.findIndex((v) => v.id === p.id)) : setSelectedPost(p))} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <div className="aspect-[4/5] bg-muted">
                       {p.media_url ? (
                         isVid ? (
-                          <video src={p.media_url} controls className="h-full w-full object-cover" preload="metadata" />
+                          <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="h-full w-full" />
                         ) : (
                           <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Post media"} />
                         )
@@ -208,6 +246,14 @@ function ProfilePage() {
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
       {selectedPost && <PostMediaViewer post={selectedPost} onClose={() => setSelectedPost(null)} />}
+      {videoIndex !== null && myVideos[videoIndex] && (
+        <VideoViewer
+          items={myVideos}
+          startIndex={videoIndex}
+          onClose={() => setVideoIndex(null)}
+          onDelete={deleteVideo}
+        />
+      )}
       {storyOpen && activeStories.length > 0 && user && (
         <StoryViewer
           groups={[{ userId: user.id, username: profile.username, fullName: profile.full_name, avatarUrl: profile.avatar_url, stories: activeStories } satisfies StoryGroup]}
@@ -550,6 +596,8 @@ type PortfolioItem = {
   portfolio_url: string | null;
   technologies: string[] | null;
   thumbnail_url: string | null;
+  media_url: string | null;
+  media_type: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -579,6 +627,11 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<PortfolioItem | null>(null);
+  const [videoIndex, setVideoIndex] = useState<number | null>(null);
+
+  const videos: VideoItem[] = items
+    .filter((i) => i.media_type === "video" && i.media_url)
+    .map((i) => ({ id: i.id, url: i.media_url as string, poster: i.thumbnail_url, title: i.title, canDelete: !!isSelf }));
 
   const load = async () => {
     if (!userId) return;
@@ -592,7 +645,9 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
         description: row.description,
         portfolio_url: row.project_link ?? row.website_url ?? null,
         technologies: row.tech ?? [],
-        thumbnail_url: row.cover_url ?? row.media_url ?? null,
+        thumbnail_url: row.cover_url ?? (row.media_type === "video" ? null : row.media_url) ?? null,
+        media_url: row.media_url ?? null,
+        media_type: row.media_type ?? null,
         created_at: row.created_at,
         updated_at: row.updated_at,
       })),
@@ -604,9 +659,21 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 
   const remove = async (item: PortfolioItem) => {
     if (!confirm("Delete Portfolio?")) return;
-    await supabase.from("portfolios").delete().eq("id", item.id);
+    const { error } = await supabase.from("portfolios").delete().eq("id", item.id).eq("user_id", userId);
+    if (error) { toast.error(error.message); return; }
+    try {
+      await deleteMediaByUrl(item.media_type === "video" ? item.media_url : null, item.thumbnail_url);
+    } catch (err: any) {
+      toast.warning(`Removed, but the stored file could not be deleted: ${err?.message ?? "unknown error"}`);
+    }
     toast.success("Portfolio removed");
+    setVideoIndex(null);
     load();
+  };
+
+  const removeById = async (id: string) => {
+    const target = items.find((i) => i.id === id);
+    if (target) await remove(target);
   };
 
   return (
@@ -640,9 +707,18 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
             <div key={item.id} className="group overflow-hidden rounded-[20px] border border-border bg-surface/80 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
-              <button onClick={() => item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")} className="block w-full text-left">
+              <button
+                onClick={() =>
+                  item.media_type === "video" && item.media_url
+                    ? setVideoIndex(videos.findIndex((v) => v.id === item.id))
+                    : item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")
+                }
+                className="block w-full text-left"
+              >
                 <div className="relative h-40 overflow-hidden bg-muted">
-                  {item.thumbnail_url ? (
+                  {item.media_type === "video" && item.media_url ? (
+                    <VideoPlayer src={item.media_url} poster={item.thumbnail_url} controls={false} className="h-full w-full" />
+                  ) : item.thumbnail_url ? (
                     <img src={item.thumbnail_url} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" alt={item.title} />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-gradient-to-br from-brand/15 to-primary/10 p-4 text-center text-sm font-semibold text-foreground/70">
@@ -680,6 +756,14 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
         </div>
       )}
 
+      {videoIndex !== null && videos[videoIndex] && (
+        <VideoViewer
+          items={videos}
+          startIndex={videoIndex}
+          onClose={() => setVideoIndex(null)}
+          onDelete={(v) => removeById(v.id)}
+        />
+      )}
       {showAdd && <PortfolioModal userId={userId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />}
       {editing && <PortfolioModal item={editing} userId={userId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>
@@ -694,19 +778,32 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
   const [thumbnailUrl, setThumbnailUrl] = useState(item?.thumbnail_url ?? "");
   const [busy, setBusy] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [videoUrl, setVideoUrl] = useState(item?.media_type === "video" ? item?.media_url ?? "" : "");
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || uploadingThumbnail) return; // guards duplicate uploads
     setUploadingThumbnail(true);
+    setUploadPct(0);
     try {
-      const { url } = await uploadFile({ feature: "thumbnail", file, userId });
-      setThumbnailUrl(url);
-      toast.success("Thumbnail uploaded");
-    } catch {
-      toast.error("Unable to upload thumbnail");
+      if (file.type.startsWith("video/")) {
+        const res = await uploadVideo({ feature: "portfolioVideo", file, userId, entityType: "portfolio", onProgress: setUploadPct });
+        setVideoUrl(res.url);
+        if (res.thumbnailUrl) setThumbnailUrl(res.thumbnailUrl);
+        toast.success("Video uploaded");
+      } else {
+        const prepared = await optimizeImage(file);
+        const { url } = await uploadFile({ feature: "thumbnail", file: prepared, userId, onProgress: setUploadPct });
+        setThumbnailUrl(url);
+        setVideoUrl("");
+        toast.success("Thumbnail uploaded");
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Unable to upload file");
     } finally {
       setUploadingThumbnail(false);
+      setUploadPct(0);
     }
   };
 
@@ -734,7 +831,8 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
       project_link: trimmedUrl,
       tech: techList,
       cover_url: thumbnailUrl || null,
-      media_url: thumbnailUrl || null,
+      media_url: videoUrl || thumbnailUrl || null,
+      media_type: videoUrl ? "video" : "image",
       updated_at: new Date().toISOString(),
     };
 
@@ -777,7 +875,8 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Thumbnail Image (optional)</label>
-            <input type="file" accept="image/*" onChange={handleUpload} className="w-full rounded-2xl border border-dashed border-border bg-surface px-3 py-2.5 text-sm" />
+            <input type="file" accept="image/*,video/*" onChange={handleUpload} disabled={uploadingThumbnail} className="w-full rounded-2xl border border-dashed border-border bg-surface px-3 py-2.5 text-sm" />
+            {uploadingThumbnail && <p className="mt-1 text-xs text-muted-foreground">Uploading… {uploadPct}%</p>}
             {uploadingThumbnail && <p className="mt-2 text-xs text-muted-foreground">Uploading thumbnail…</p>}
             {thumbnailUrl && <img src={thumbnailUrl} className="mt-3 h-32 w-full rounded-2xl object-cover" alt="Portfolio thumbnail" />}
           </div>
@@ -842,7 +941,7 @@ function SavedPanel() {
               <div key={p.id} className="overflow-hidden rounded-3xl border border-border bg-surface">
                 <div className="aspect-[4/5] bg-muted">
                   {p.media_url ? (
-                    isVid ? <video src={p.media_url} className="h-full w-full object-cover" controls preload="metadata" /> : <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Saved media"} />
+                    isVid ? <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="h-full w-full" /> : <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Saved media"} />
                   ) : (
                     <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{p.caption || "Saved media"}</div>
                   )}

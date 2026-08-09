@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Users, UserPlus, Trash2, ArrowLeft, X, Check, Clock, Shield, ShieldOff } from "lucide-react";
+import { Users, UserPlus, Trash2, ArrowLeft, X, Check, Clock, Shield, ShieldOff, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -19,7 +19,7 @@ const sb: any = supabase;
 
 function SquadDetailPage() {
   const { squadId } = Route.useParams();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [squad, setSquad] = useState<Squad | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -114,6 +114,23 @@ function SquadDetailPage() {
     load();
   };
 
+  const isClient = (profile as any)?.role === "client";
+
+  /** Opens (or creates) the single squad group conversation and jumps to it. */
+  const openSquadChat = async () => {
+    if (!user) return;
+    try {
+      const rpc = isClient && !isMember
+        ? sb.rpc("add_client_to_squad_conversation", { _squad_id: squadId, _client_id: user.id })
+        : sb.rpc("get_or_create_squad_conversation", { _squad_id: squadId });
+      const { data, error } = await rpc;
+      if (error) throw error;
+      navigate({ to: "/messages", search: { c: data as string } });
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not open the squad chat.");
+    }
+  };
+
   const deleteSquad = async () => {
     if (!confirm("Delete this squad? This cannot be undone.")) return;
     await supabase.from("squads").delete().eq("id", squadId);
@@ -152,7 +169,13 @@ function SquadDetailPage() {
               {!isMember && myRequest && (
                 <button onClick={cancelRequest} className="px-4 py-1.5 bg-white/20 text-white rounded-xl text-sm font-bold flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Request pending — cancel</button>
               )}
+              {(isMember || isClient) && (
+                <button onClick={openSquadChat} className="px-4 py-1.5 bg-white text-pink-700 rounded-xl text-sm font-bold flex items-center gap-1">
+                  <MessageCircle className="w-3.5 h-3.5" /> Message
+                </button>
+              )}
               {isMember && !isOwner && <button onClick={leave} className="px-4 py-1.5 bg-white/20 text-white rounded-xl text-sm font-bold">Leave</button>}
+
               {isOwner && <button onClick={deleteSquad} className="px-4 py-1.5 bg-white/20 text-white rounded-xl text-sm font-bold flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Delete</button>}
             </div>
           </div>

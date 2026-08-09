@@ -251,10 +251,12 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
         <video
           ref={videoRef}
           src={reel.media_url}
+          poster={(reel as any).thumbnail_url ?? undefined}
           className="max-h-full max-w-full object-contain cursor-pointer"
-          loop muted playsInline
+          loop muted playsInline preload="metadata"
           onClick={togglePlay}
         />
+
       ) : reel.media_url ? (
         <img src={reel.media_url} className="max-h-full max-w-full object-contain" alt="" />
       ) : (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search, Play } from "lucide-react";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { PostViewer } from "@/components/PostViewer";
 
@@ -192,7 +193,7 @@ function ExploreTile({ tile, big, onReelClick, onPostClick }: {
     return (
       <button onClick={() => onReelClick(tile.id)}
         className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
-        <video src={tile.media_url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+        <VideoPlayer src={tile.media_url} poster={(tile as any).thumbnail_url} controls={false} className="w-full h-full" />
         <div className="absolute top-1.5 right-1.5 text-white drop-shadow"><Play className="w-4 h-4 fill-white" /></div>
       </button>
     );

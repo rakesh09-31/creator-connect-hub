@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send, X } from "lucide-react";
 import { toast } from "sonner";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -112,7 +113,7 @@ export function PostCard({ post }: { post: PostLike }) {
       {post.media_url && (
         <div className="bg-black relative select-none" onClick={onMediaTap}>
           {isVideo ? (
-            <video src={post.media_url} className="w-full max-h-[600px] object-contain" controls playsInline preload="metadata" />
+            <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} className="w-full max-h-[600px]" objectFit="contain" />
           ) : (
             <img src={post.media_url} alt="" className="w-full max-h-[600px] object-cover" loading="lazy" />
           )}
