@@ -4,7 +4,7 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, optimizeImage, deleteMediaByUrl } from "@/lib/storage";
+import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl } from "@/lib/storage";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
@@ -756,6 +756,14 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
         </div>
       )}
 
+      {videoIndex !== null && videos[videoIndex] && (
+        <VideoViewer
+          items={videos}
+          startIndex={videoIndex}
+          onClose={() => setVideoIndex(null)}
+          onDelete={(v) => removeById(v.id)}
+        />
+      )}
       {showAdd && <PortfolioModal userId={userId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />}
       {editing && <PortfolioModal item={editing} userId={userId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>
@@ -770,19 +778,32 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
   const [thumbnailUrl, setThumbnailUrl] = useState(item?.thumbnail_url ?? "");
   const [busy, setBusy] = useState(false);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [videoUrl, setVideoUrl] = useState(item?.media_type === "video" ? item?.media_url ?? "" : "");
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || uploadingThumbnail) return; // guards duplicate uploads
     setUploadingThumbnail(true);
+    setUploadPct(0);
     try {
-      const { url } = await uploadFile({ feature: "thumbnail", file, userId });
-      setThumbnailUrl(url);
-      toast.success("Thumbnail uploaded");
-    } catch {
-      toast.error("Unable to upload thumbnail");
+      if (file.type.startsWith("video/")) {
+        const res = await uploadVideo({ feature: "portfolioVideo", file, userId, entityType: "portfolio", onProgress: setUploadPct });
+        setVideoUrl(res.url);
+        if (res.thumbnailUrl) setThumbnailUrl(res.thumbnailUrl);
+        toast.success("Video uploaded");
+      } else {
+        const prepared = await optimizeImage(file);
+        const { url } = await uploadFile({ feature: "thumbnail", file: prepared, userId, onProgress: setUploadPct });
+        setThumbnailUrl(url);
+        setVideoUrl("");
+        toast.success("Thumbnail uploaded");
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Unable to upload file");
     } finally {
       setUploadingThumbnail(false);
+      setUploadPct(0);
     }
   };
 
@@ -810,7 +831,8 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
       project_link: trimmedUrl,
       tech: techList,
       cover_url: thumbnailUrl || null,
-      media_url: thumbnailUrl || null,
+      media_url: videoUrl || thumbnailUrl || null,
+      media_type: videoUrl ? "video" : "image",
       updated_at: new Date().toISOString(),
     };
 
@@ -853,7 +875,8 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">Thumbnail Image (optional)</label>
-            <input type="file" accept="image/*" onChange={handleUpload} className="w-full rounded-2xl border border-dashed border-border bg-surface px-3 py-2.5 text-sm" />
+            <input type="file" accept="image/*,video/*" onChange={handleUpload} disabled={uploadingThumbnail} className="w-full rounded-2xl border border-dashed border-border bg-surface px-3 py-2.5 text-sm" />
+            {uploadingThumbnail && <p className="mt-1 text-xs text-muted-foreground">Uploading… {uploadPct}%</p>}
             {uploadingThumbnail && <p className="mt-2 text-xs text-muted-foreground">Uploading thumbnail…</p>}
             {thumbnailUrl && <img src={thumbnailUrl} className="mt-3 h-32 w-full rounded-2xl object-cover" alt="Portfolio thumbnail" />}
           </div>
