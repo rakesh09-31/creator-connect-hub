@@ -10,6 +10,7 @@ export type Story = {
   caption: string | null;
   created_at: string | null;
   expires_at: string | null;
+  thumbnail_url?: string | null;
 };
 
 export type StoryGroup = {
@@ -147,8 +148,11 @@ export function StoryViewer({
           <video
             key={story.id}
             src={story.media_url}
+            poster={story.thumbnail_url ?? undefined}
             className="w-full h-full object-contain"
             autoPlay
+            muted
+            preload="auto"
             playsInline
             controls={false}
             onTimeUpdate={(e) => {

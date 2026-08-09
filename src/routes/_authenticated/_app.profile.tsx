@@ -941,7 +941,7 @@ function SavedPanel() {
               <div key={p.id} className="overflow-hidden rounded-3xl border border-border bg-surface">
                 <div className="aspect-[4/5] bg-muted">
                   {p.media_url ? (
-                    isVid ? <video src={p.media_url} className="h-full w-full object-cover" controls preload="metadata" /> : <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Saved media"} />
+                    isVid ? <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="h-full w-full" /> : <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Saved media"} />
                   ) : (
                     <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{p.caption || "Saved media"}</div>
                   )}

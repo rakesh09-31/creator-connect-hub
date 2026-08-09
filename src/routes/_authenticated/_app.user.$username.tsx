@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
@@ -119,7 +120,7 @@ function UserProfilePage() {
           return (
             <div key={p.id} className="aspect-square bg-gray-100 overflow-hidden">
               {p.media_url ? (
-                isVid ? <video src={p.media_url} className="w-full h-full object-cover" muted /> : <img src={p.media_url} className="w-full h-full object-cover" />
+                isVid ? <VideoPlayer src={p.media_url} poster={(p as any).thumbnail_url} controls={false} className="w-full h-full" /> : <img src={p.media_url} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center p-3 text-xs text-gray-600 text-center">{p.caption}</div>
               )}
