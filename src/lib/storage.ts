@@ -116,6 +116,8 @@ export const STORAGE_BUCKETS: Record<StorageFeature, BucketConfig> = {
  *  so display URLs are long-lived signed URLs. Flip to `true` once the
  *  buckets are made public and `getPublicUrl` is used instead. */
 const SHARED_BUCKETS_ARE_PUBLIC = false;
+/** uploaded objects are immutable (unique path per upload) — cache them hard. */
+const IMMUTABLE_CACHE = "31536000";
 const LONG_SIGNED_TTL = 60 * 60 * 24 * 365; // 1 year
 
 export type UploadOptions = {
@@ -306,7 +308,7 @@ async function putWithProgress(
   // XHR gives real progress events; fall back to the SDK when unavailable.
   if (!token || !baseUrl || !apiKey || typeof XMLHttpRequest === "undefined") {
     const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: "3600",
+      cacheControl: IMMUTABLE_CACHE,
       upsert,
       contentType: file.type || undefined,
     });
@@ -320,7 +322,7 @@ async function putWithProgress(
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.setRequestHeader("apikey", apiKey);
     xhr.setRequestHeader("x-upsert", String(upsert));
-    xhr.setRequestHeader("cache-control", "max-age=3600");
+    xhr.setRequestHeader("cache-control", `max-age=${IMMUTABLE_CACHE}, immutable`);
     if (file.type) xhr.setRequestHeader("content-type", file.type);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress?.(Math.min(95, Math.round((e.loaded / e.total) * 90) + 5));
@@ -527,4 +529,57 @@ export async function generateVideoThumbnail(file: File | Blob): Promise<Blob | 
       resolve(null);
     };
   });
+}
+
+/* -------------------------------------------------- video pipeline */
+
+export type VideoUploadResult = UploadResult & { thumbnailUrl: string | null; thumbnailPath: string | null };
+
+/**
+ * The single entry point for EVERY video upload in the app.
+ * Validates -> uploads with progress -> generates and uploads a poster frame.
+ * Only the storage path/URL ever reaches Postgres; binaries never do.
+ */
+export async function uploadVideo(
+  opts: Omit<UploadOptions, "feature"> & { feature: StorageFeature; withThumbnail?: boolean },
+): Promise<VideoUploadResult> {
+  const { file, userId, withThumbnail = true } = opts;
+  if (!file.type.startsWith("video/")) throw new StorageError("MIME", "That file is not a video.");
+  validateFile(opts.feature, file);
+
+  // Poster first (cheap, local) so playback has something to show immediately.
+  let thumbnailUrl: string | null = null;
+  let thumbnailPath: string | null = null;
+  if (withThumbnail) {
+    try {
+      const poster = await generateVideoThumbnail(file);
+      if (poster) {
+        const up = await uploadFile({
+          feature: "thumbnail",
+          file: poster,
+          userId,
+          entityType: opts.entityType,
+          entityId: opts.entityId,
+          fileName: `poster_${uuid()}.jpg`,
+        });
+        thumbnailUrl = up.url;
+        thumbnailPath = up.path;
+      }
+    } catch {
+      /* a missing poster must never block the video upload */
+    }
+  }
+
+  const uploaded = await uploadFile(opts);
+  return { ...uploaded, thumbnailUrl, thumbnailPath };
+}
+
+/** Remove a media file (and its poster) from Storage + file_uploads by URL. */
+export async function deleteMediaByUrl(url?: string | null, thumbnailUrl?: string | null): Promise<void> {
+  const jobs: Promise<void>[] = [];
+  if (url) jobs.push(deleteByUrl(url));
+  if (thumbnailUrl) jobs.push(deleteByUrl(thumbnailUrl));
+  const results = await Promise.allSettled(jobs);
+  const failed = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+  if (failed) throw new StorageError("UPLOAD", (failed.reason as Error)?.message ?? "Could not delete the stored file.");
 }
