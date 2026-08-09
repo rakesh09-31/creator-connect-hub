@@ -596,6 +596,8 @@ type PortfolioItem = {
   portfolio_url: string | null;
   technologies: string[] | null;
   thumbnail_url: string | null;
+  media_url: string | null;
+  media_type: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -625,6 +627,11 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<PortfolioItem | null>(null);
+  const [videoIndex, setVideoIndex] = useState<number | null>(null);
+
+  const videos: VideoItem[] = items
+    .filter((i) => i.media_type === "video" && i.media_url)
+    .map((i) => ({ id: i.id, url: i.media_url as string, poster: i.thumbnail_url, title: i.title, canDelete: !!isSelf }));
 
   const load = async () => {
     if (!userId) return;
@@ -638,7 +645,9 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
         description: row.description,
         portfolio_url: row.project_link ?? row.website_url ?? null,
         technologies: row.tech ?? [],
-        thumbnail_url: row.cover_url ?? row.media_url ?? null,
+        thumbnail_url: row.cover_url ?? (row.media_type === "video" ? null : row.media_url) ?? null,
+        media_url: row.media_url ?? null,
+        media_type: row.media_type ?? null,
         created_at: row.created_at,
         updated_at: row.updated_at,
       })),
@@ -650,9 +659,21 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
 
   const remove = async (item: PortfolioItem) => {
     if (!confirm("Delete Portfolio?")) return;
-    await supabase.from("portfolios").delete().eq("id", item.id);
+    const { error } = await supabase.from("portfolios").delete().eq("id", item.id).eq("user_id", userId);
+    if (error) { toast.error(error.message); return; }
+    try {
+      await deleteMediaByUrl(item.media_type === "video" ? item.media_url : null, item.thumbnail_url);
+    } catch (err: any) {
+      toast.warning(`Removed, but the stored file could not be deleted: ${err?.message ?? "unknown error"}`);
+    }
     toast.success("Portfolio removed");
+    setVideoIndex(null);
     load();
+  };
+
+  const removeById = async (id: string) => {
+    const target = items.find((i) => i.id === id);
+    if (target) await remove(target);
   };
 
   return (
@@ -686,9 +707,18 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
             <div key={item.id} className="group overflow-hidden rounded-[20px] border border-border bg-surface/80 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
-              <button onClick={() => item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")} className="block w-full text-left">
+              <button
+                onClick={() =>
+                  item.media_type === "video" && item.media_url
+                    ? setVideoIndex(videos.findIndex((v) => v.id === item.id))
+                    : item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")
+                }
+                className="block w-full text-left"
+              >
                 <div className="relative h-40 overflow-hidden bg-muted">
-                  {item.thumbnail_url ? (
+                  {item.media_type === "video" && item.media_url ? (
+                    <VideoPlayer src={item.media_url} poster={item.thumbnail_url} controls={false} className="h-full w-full" />
+                  ) : item.thumbnail_url ? (
                     <img src={item.thumbnail_url} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" alt={item.title} />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-gradient-to-br from-brand/15 to-primary/10 p-4 text-center text-sm font-semibold text-foreground/70">
