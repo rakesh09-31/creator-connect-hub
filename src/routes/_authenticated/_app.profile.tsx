@@ -4,7 +4,9 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, optimizeImage } from "@/lib/storage";
+import { uploadFile, optimizeImage, deleteMediaByUrl } from "@/lib/storage";
+import { VideoPlayer } from "@/components/VideoPlayer";
+import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
@@ -26,6 +28,7 @@ function ProfilePage() {
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [activeStories, setActiveStories] = useState<Story[]>([]);
   const [storyOpen, setStoryOpen] = useState(false);
+  const [videoIndex, setVideoIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -149,11 +152,11 @@ function ProfilePage() {
               {posts.map((p) => {
                 const isVid = isVideoMedia(p);
                 return (
-                  <button key={p.id} onClick={() => setSelectedPost(p)} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                  <button key={p.id} onClick={() => (isVid ? setVideoIndex(myVideos.findIndex((v) => v.id === p.id)) : setSelectedPost(p))} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                     <div className="aspect-[4/5] bg-muted">
                       {p.media_url ? (
                         isVid ? (
-                          <video src={p.media_url} controls className="h-full w-full object-cover" preload="metadata" />
+                          <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="h-full w-full" />
                         ) : (
                           <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Post media"} />
                         )
