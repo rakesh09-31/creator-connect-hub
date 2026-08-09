@@ -152,7 +152,13 @@ function SquadDetailPage() {
               {!isMember && myRequest && (
                 <button onClick={cancelRequest} className="px-4 py-1.5 bg-white/20 text-white rounded-xl text-sm font-bold flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Request pending — cancel</button>
               )}
+              {(isMember || isClient) && (
+                <button onClick={openSquadChat} className="px-4 py-1.5 bg-white text-pink-700 rounded-xl text-sm font-bold flex items-center gap-1">
+                  <MessageCircle className="w-3.5 h-3.5" /> Message
+                </button>
+              )}
               {isMember && !isOwner && <button onClick={leave} className="px-4 py-1.5 bg-white/20 text-white rounded-xl text-sm font-bold">Leave</button>}
+
               {isOwner && <button onClick={deleteSquad} className="px-4 py-1.5 bg-white/20 text-white rounded-xl text-sm font-bold flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Delete</button>}
             </div>
           </div>
