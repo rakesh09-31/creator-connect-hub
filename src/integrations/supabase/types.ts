@@ -462,6 +462,7 @@ export type Database = {
           skills: string[]
           tags: string[]
           tech: string[]
+          thumbnail_url: string | null
           title: string
           updated_at: string
           user_id: string
@@ -481,6 +482,7 @@ export type Database = {
           skills?: string[]
           tags?: string[]
           tech?: string[]
+          thumbnail_url?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -500,6 +502,7 @@ export type Database = {
           skills?: string[]
           tags?: string[]
           tech?: string[]
+          thumbnail_url?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -581,6 +584,7 @@ export type Database = {
           id: string
           media_url: string | null
           post_type: string
+          thumbnail_url: string | null
         }
         Insert: {
           author_id: string
@@ -589,6 +593,7 @@ export type Database = {
           id?: string
           media_url?: string | null
           post_type?: string
+          thumbnail_url?: string | null
         }
         Update: {
           author_id?: string
@@ -597,6 +602,7 @@ export type Database = {
           id?: string
           media_url?: string | null
           post_type?: string
+          thumbnail_url?: string | null
         }
         Relationships: []
       }
@@ -869,6 +875,7 @@ export type Database = {
           id: string
           media_type: string
           media_url: string
+          thumbnail_url: string | null
           user_id: string
         }
         Insert: {
@@ -878,6 +885,7 @@ export type Database = {
           id?: string
           media_type: string
           media_url: string
+          thumbnail_url?: string | null
           user_id: string
         }
         Update: {
@@ -887,6 +895,7 @@ export type Database = {
           id?: string
           media_type?: string
           media_url?: string
+          thumbnail_url?: string | null
           user_id?: string
         }
         Relationships: []
@@ -972,6 +981,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_client_to_squad_conversation: {
+        Args: { _client_id: string; _squad_id: string }
+        Returns: string
+      }
       create_notification: {
         Args: {
           _actor_id: string
