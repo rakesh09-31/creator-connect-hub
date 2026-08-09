@@ -4,7 +4,7 @@ import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X, Sparkles
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { deleteFile, uploadFile, featureForMedia, optimizeImage, generateVideoThumbnail } from "@/lib/storage";
+import { deleteFile, uploadFile, uploadVideo, featureForMedia, optimizeImage } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   validateSearch: (s: Record<string, unknown>) => ({ type: typeof s.type === "string" ? s.type : undefined }),
