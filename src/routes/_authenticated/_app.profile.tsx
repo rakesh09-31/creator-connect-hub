@@ -30,6 +30,41 @@ function ProfilePage() {
   const [storyOpen, setStoryOpen] = useState(false);
   const [videoIndex, setVideoIndex] = useState<number | null>(null);
 
+  /** Videos owned by me, in grid order — powers the reels-style viewer. */
+  const myVideos: VideoItem[] = useMemo(
+    () =>
+      posts
+        .filter((p) => isVideoMedia(p))
+        .map((p) => ({
+          id: p.id,
+          url: p.media_url as string,
+          poster: p.thumbnail_url ?? null,
+          title: p.caption ?? null,
+          authorName: profile?.full_name || profile?.username || null,
+          canDelete: true,
+        })),
+    [posts, profile],
+  );
+
+  /** Owner-only delete: DB row first, then the storage object + poster. */
+  const deleteVideo = async (item: VideoItem) => {
+    if (!user) return;
+    const post = posts.find((p) => p.id === item.id);
+    const { error } = await supabase.from("posts").delete().eq("id", item.id).eq("author_id", user.id);
+    if (error) {
+      toast.error(`Could not delete: ${error.message}`);
+      return;
+    }
+    try {
+      await deleteMediaByUrl(post?.media_url, post?.thumbnail_url);
+    } catch (err: any) {
+      toast.warning(`Post removed, but the stored file could not be deleted: ${err?.message ?? "unknown error"}`);
+    }
+    setPosts((prev) => prev.filter((p) => p.id !== item.id));
+    setVideoIndex(null);
+    toast.success("Video deleted");
+  };
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -211,6 +246,14 @@ function ProfilePage() {
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
       {selectedPost && <PostMediaViewer post={selectedPost} onClose={() => setSelectedPost(null)} />}
+      {videoIndex !== null && myVideos[videoIndex] && (
+        <VideoViewer
+          items={myVideos}
+          startIndex={videoIndex}
+          onClose={() => setVideoIndex(null)}
+          onDelete={deleteVideo}
+        />
+      )}
       {storyOpen && activeStories.length > 0 && user && (
         <StoryViewer
           groups={[{ userId: user.id, username: profile.username, fullName: profile.full_name, avatarUrl: profile.avatar_url, stories: activeStories } satisfies StoryGroup]}
