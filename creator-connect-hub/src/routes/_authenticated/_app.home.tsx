@@ -1,0 +1,311 @@
+import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
+import { PostCard } from "@/components/PostCard";
+import { PostViewer } from "@/components/PostViewer";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { StoryComposer, StoryStrip } from "@/components/Stories";
+
+export const Route = createFileRoute("/_authenticated/_app/home")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    post: typeof search.post === "string" ? search.post : undefined,
+  }),
+  head: () => ({ meta: [{ title: "Home — Omnicraft" }] }),
+  component: HomePage,
+});
+
+type Profile = {
+  id: string;
+  username: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+};
+type Post = {
+  id: string;
+  caption: string | null;
+  media_url: string | null;
+  post_type: string;
+  created_at: string;
+  author_id: string;
+  author?: Profile;
+};
+
+// Round-robin shuffle so consecutive posts come from different creators.
+function diversifyByAuthor(items: Post[]): Post[] {
+  const buckets = new Map<string, Post[]>();
+  for (const p of items) {
+    const arr = buckets.get(p.author_id) ?? [];
+    arr.push(p);
+    buckets.set(p.author_id, arr);
+  }
+  const out: Post[] = [];
+  let lastAuthor = "";
+  while (out.length < items.length) {
+    let progressed = false;
+    // sort keys by remaining count desc each pass for balanced spread
+    const keys = Array.from(buckets.keys())
+      .filter((k) => (buckets.get(k) ?? []).length > 0)
+      .sort((a, b) => (buckets.get(b)?.length ?? 0) - (buckets.get(a)?.length ?? 0));
+    for (const k of keys) {
+      if (k === lastAuthor && keys.length > 1) continue;
+      const arr = buckets.get(k)!;
+      out.push(arr.shift()!);
+      lastAuthor = k;
+      progressed = true;
+      break;
+    }
+    if (!progressed) {
+      // Only one author left
+      for (const k of keys) {
+        const arr = buckets.get(k)!;
+        while (arr.length) out.push(arr.shift()!);
+      }
+    }
+  }
+  return out;
+}
+
+function HomePage() {
+  const { profile, user } = useAuth();
+  const search = useSearch({ from: "/_authenticated/_app/home" });
+  const navigate = useNavigate();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [following, setFollowing] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(18);
+  const [storyComposerOpen, setStoryComposerOpen] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      setLoading(true);
+
+      // Determine the viewer's interests: creator specialties OR client field
+      const [{ data: me }, { data: mySpecs }] = await Promise.all([
+        supabase.from("profiles").select("role, client_field").eq("id", user.id).maybeSingle(),
+        supabase.from("creator_specialties").select("specialty").eq("user_id", user.id),
+      ]);
+      const myRole = (me as any)?.role as string | null;
+      const interests: string[] = [];
+      if (myRole === "creator") {
+        (mySpecs ?? []).forEach((s: any) => interests.push(String(s.specialty).toLowerCase()));
+      } else if (myRole === "client" && (me as any)?.client_field) {
+        interests.push(String((me as any).client_field).toLowerCase());
+      }
+
+      // Who I follow
+      const { data: f } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", user.id);
+      const followIds = (f ?? []).map((x: any) => x.following_id);
+      let followProfiles: Profile[] = [];
+      if (followIds.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, role")
+          .in("id", followIds);
+        followProfiles = (profs ?? []) as Profile[];
+      }
+      setFollowing(followProfiles);
+
+      // Find creators whose specialties match my interests
+      let relevantCreatorIds: string[] = [];
+      if (interests.length) {
+        const orFilter = interests.map((i) => `specialty.ilike.%${i}%`).join(",");
+        const { data: matchSpecs } = await supabase
+          .from("creator_specialties")
+          .select("user_id")
+          .or(orFilter)
+          .limit(120);
+        relevantCreatorIds = Array.from(new Set((matchSpecs ?? []).map((s: any) => s.user_id)));
+      }
+
+      const candidateIds = Array.from(new Set([...followIds, ...relevantCreatorIds, user.id]));
+
+      // Preferred pool: followed + interest-matched
+      const { data: preferredRows } = await supabase
+        .from("posts")
+        .select("*")
+        .in("author_id", candidateIds.length ? candidateIds : [user.id])
+        .order("created_at", { ascending: false })
+        .limit(40);
+
+      // Global discovery pool: latest posts from anyone (mixed creators)
+      const { data: globalRows } = await supabase
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      // Merge, dedupe by id
+      const seen = new Set<string>();
+      let list: Post[] = [];
+      for (const p of [...(preferredRows ?? []), ...(globalRows ?? [])] as Post[]) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        list.push(p);
+      }
+
+      // Rank: followed first, then interest-matched, then the rest
+      const followSet = new Set(followIds);
+      const matchSet = new Set(relevantCreatorIds);
+      list.sort((a, b) => {
+        const score = (p: Post) =>
+          (followSet.has(p.author_id) ? 2 : 0) + (matchSet.has(p.author_id) ? 1 : 0);
+        return score(b) - score(a);
+      });
+
+      // Diversity: avoid consecutive posts from the same creator, mix fields.
+      list = diversifyByAuthor(list);
+
+      const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
+      if (allAuthorIds.length) {
+        const { data: ap } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, role")
+          .in("id", allAuthorIds);
+        const map = new Map((ap ?? []).map((p: any) => [p.id, p]));
+        list.forEach((p) => (p.author = map.get(p.author_id)));
+      }
+      setPosts(list);
+      setLoading(false);
+    })();
+  }, [user]);
+
+  useEffect(() => {
+    setVisibleCount(18);
+  }, [posts.length]);
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || visibleCount >= posts.length) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setVisibleCount((count) => Math.min(count + 12, posts.length));
+      },
+      { rootMargin: "500px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [posts.length, visibleCount]);
+
+  const isCreator = profile?.role === "creator";
+
+  return (
+    <>
+    <div className="max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4">
+      {/* Vibrant welcome */}
+      <section className="relative overflow-hidden rounded-2xl p-5 shadow-brand bg-gradient-brand text-white">
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-widest text-white/80 font-semibold">
+              {isCreator ? "Creator workspace" : "Client workspace"}
+            </p>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-1 truncate">
+              Welcome back, {profile?.full_name || profile?.username} ✨
+            </h1>
+          </div>
+          <Link
+            to={isCreator ? "/create" : "/jobs"}
+            className="shrink-0 inline-flex items-center gap-1.5 bg-white text-primary hover:bg-white/90 rounded-xl px-4 py-2.5 text-sm font-bold transition shadow-lg"
+          >
+            {isCreator ? (
+              <>
+                <Plus className="w-4 h-4" /> New post
+              </>
+            ) : (
+              <>
+                <Briefcase className="w-4 h-4" /> Post a brief
+              </>
+            )}
+          </Link>
+        </div>
+      </section>
+
+      {/* Stories strip */}
+      <section className="relative overflow-hidden rounded-2xl p-4 border border-border bg-surface">
+        <div className="relative flex items-center justify-between mb-3 px-1">
+          <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            Your network
+          </h2>
+          <Link
+            to="/explore"
+            className="text-xs font-bold text-brand inline-flex items-center gap-0.5 hover:underline"
+          >
+            Discover <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+        <div className="relative">
+          <StoryStrip onCompose={() => setStoryComposerOpen(true)} />
+          {following.length === 0 && (
+            <Link
+              to="/explore"
+              className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20"
+            >
+              <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground bg-surface-muted">
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-semibold">Find people</span>
+            </Link>
+          )}
+        </div>
+      </section>
+
+      {/* Feed */}
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-2xl bg-surface border border-border overflow-hidden">
+              <div className="h-14 bg-muted animate-pulse" />
+              <div className="aspect-square bg-muted animate-pulse" />
+              <div className="h-16 bg-muted/60 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="bg-surface rounded-2xl p-12 text-center border border-border shadow-sm">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-brand-soft flex items-center justify-center">
+            <UserPlus className="w-6 h-6 text-brand" />
+          </div>
+          <h3 className="text-lg font-semibold mb-1">Your feed is quiet</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Follow creators and clients to see their latest work here.
+          </p>
+          <Link
+            to="/explore"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold"
+          >
+            Discover people <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {posts.slice(0, visibleCount).map((p) => (
+            <PostCard key={p.id} post={p} />
+          ))}
+          {visibleCount < posts.length && (
+            <div
+              ref={loadMoreRef}
+              className="h-12 flex items-center justify-center text-xs text-muted-foreground"
+            >
+              Loading more posts…
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+    {search.post && (
+      <PostViewer
+        startId={search.post}
+        onClose={() => navigate({ to: "/home", search: {}, replace: true })}
+      />
+    )}
+    {storyComposerOpen && <StoryComposer onClose={() => setStoryComposerOpen(false)} />}
+    </>
+  );
+}
