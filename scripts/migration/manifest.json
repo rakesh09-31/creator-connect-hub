@@ -1,0 +1,30 @@
+{
+  "note": "Tables listed in strict dependency order. Import top-to-bottom, delete bottom-to-top.",
+  "tables": [
+    { "name": "profiles",            "userRefs": ["id"] },
+    { "name": "profile_contacts",    "userRefs": ["id"] },
+    { "name": "user_roles",          "userRefs": ["user_id"] },
+    { "name": "creator_specialties", "userRefs": ["user_id"] },
+    { "name": "follows",             "userRefs": ["follower_id", "following_id"] },
+    { "name": "conversations",       "userRefs": ["created_by"] },
+    { "name": "conversation_members","userRefs": ["user_id"] },
+    { "name": "squads",              "userRefs": ["owner_id"] },
+    { "name": "squad_members",       "userRefs": ["user_id"] },
+    { "name": "squad_invites",       "userRefs": ["inviter_id", "invitee_id"] },
+    { "name": "squad_join_requests", "userRefs": ["user_id"] },
+    { "name": "jobs",                "userRefs": ["client_id"] },
+    { "name": "job_applications",    "userRefs": ["applicant_id"] },
+    { "name": "posts",               "userRefs": ["author_id"] },
+    { "name": "post_likes",          "userRefs": ["user_id"] },
+    { "name": "post_comments",       "userRefs": ["user_id"] },
+    { "name": "post_saves",          "userRefs": ["user_id"] },
+    { "name": "portfolios",          "userRefs": ["user_id"] },
+    { "name": "stories",             "userRefs": ["user_id"] },
+    { "name": "story_views",         "userRefs": ["viewer_id"] },
+    { "name": "messages",            "userRefs": ["sender_id"] },
+    { "name": "message_reactions",   "userRefs": ["user_id"] },
+    { "name": "typing_status",       "userRefs": ["user_id"] },
+    { "name": "creator_requests",    "userRefs": ["client_id", "creator_id"] },
+    { "name": "notifications",       "userRefs": ["user_id", "actor_id"] }
+  ]
+}
