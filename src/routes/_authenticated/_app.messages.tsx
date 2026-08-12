@@ -17,8 +17,8 @@ export const Route = createFileRoute("/_authenticated/_app/messages")({
   component: MessagesPage,
 });
 
-type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
-type Conv = {
+export type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
+export type Conv = {
   id: string;
   is_group: boolean;
   title: string | null;
@@ -28,7 +28,7 @@ type Conv = {
   last_body: string | null;
   unread: number;
 };
-type Msg = {
+export type Msg = {
   id: string;
   conversation_id: string;
   sender_id: string;
@@ -252,7 +252,7 @@ function MessagesPage() {
   );
 }
 
-function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; onBack: () => void; onRead: () => void }) {
+export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: string; onBack: () => void; onRead: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);

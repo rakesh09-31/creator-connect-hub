@@ -232,7 +232,7 @@ function ProfilePage() {
         </div>
       )}
 
-      {tab === "projects" && !isCreator && <ClientProjectsPanel />}
+      {tab === "projects" && !isCreator && <ClientProjectsPanel userId={user?.id ?? ""} isSelf />}
 
       {tab === "saved" && <SavedPanel />}
 
@@ -400,13 +400,13 @@ function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
   );
 }
 
-function isVideoMedia(post: any) {
+export function isVideoMedia(post: any) {
   if (!post?.media_url) return false;
   if (post.post_type === "video" || post.post_type === "reel") return true;
   return /\.(mp4|mov|webm|m3u8|avi)(\?.*)?$/i.test(post.media_url);
 }
 
-function PostMediaViewer({ post, onClose }: { post: any; onClose: () => void }) {
+export function PostMediaViewer({ post, onClose }: { post: any; onClose: () => void }) {
   const isVideo = isVideoMedia(post);
   const { resolvedUrl } = useMediaUrl(isVideo ? "reel" : "post", post.media_url);
 
@@ -444,19 +444,19 @@ type Applicant = {
   squad?: { name: string; specialty: string | null };
 };
 
-function ClientProjectsPanel() {
+export function ClientProjectsPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }) {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<ClientJob[]>([]);
   const [appsByJob, setAppsByJob] = useState<Record<string, Applicant[]>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     (async () => {
       setLoading(true);
       const { data: js } = await supabase
         .from("jobs").select("*")
-        .eq("client_id", user.id)
+        .eq("client_id", userId)
         .order("created_at", { ascending: false });
       const jobList = (js ?? []) as ClientJob[];
       setJobs(jobList);
@@ -616,7 +616,7 @@ function getDomain(url: string) {
   }
 }
 
-function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }) {
+export function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }) {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -972,7 +972,7 @@ function SelectedPostModalInner({ post, isVideoMedia }: { post: any, isVideoMedi
   );
 }
 
-function ProfilePortfolioTile({ item, setVideoIndex, videos, isSelf, onEdit, onDelete }: { item: any, setVideoIndex: any, videos: any[], isSelf: boolean, onEdit: any, onDelete: any }) {
+export function ProfilePortfolioTile({ item, setVideoIndex, videos, isSelf, onEdit, onDelete }: { item: any, setVideoIndex: any, videos: any[], isSelf: boolean | undefined, onEdit: any, onDelete: any }) {
   const isVid = item.media_type === "video" && item.media_url;
   const { resolvedUrl: resolvedThumbUrl } = useMediaUrl(isVid ? "thumbnail" : "portfolioImage", item.thumbnail_url);
 
