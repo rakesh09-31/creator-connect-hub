@@ -708,7 +708,7 @@ export type Database = {
         }
         Relationships: []
       }
-      squad_invites: {
+      squad_invitations: {
         Row: {
           created_at: string
           id: string
@@ -738,7 +738,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "squad_invites_squad_id_fkey"
+            foreignKeyName: "squad_invitations_squad_id_fkey"
             columns: ["squad_id"]
             isOneToOne: false
             referencedRelation: "squads"

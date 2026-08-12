@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, ChevronUp, ChevronDown, Volume2, VolumeX, Play, Pause, Loader2, AlertTriangle, Trash2 } from "lucide-react";
+import { X, ChevronUp, ChevronDown, Volume2, VolumeX, Play, Pause, Loader2, AlertTriangle, Trash2, Share2 } from "lucide-react";
+import { toast } from "sonner";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { useViewTracking } from "@/hooks/useViewTracking";
 
@@ -94,6 +95,14 @@ export function VideoViewer({
     }
   };
 
+  const shareVideo = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ url, title: item.title || "Video" });
+      else { await navigator.clipboard.writeText(url); toast.success("Link copied!"); }
+    } catch {}
+  };
+
   if (!item) return null;
 
   return (
@@ -177,6 +186,9 @@ export function VideoViewer({
                 <Trash2 className="w-4.5 h-4.5" />
               </button>
             )}
+            <button onClick={shareVideo} className="p-2 rounded-full text-white hover:bg-white/15" aria-label="Share video">
+              <Share2 className="w-5 h-5" />
+            </button>
             <button onClick={() => setMuted((m) => !m)} className="p-2 rounded-full text-white hover:bg-white/15" aria-label="Toggle sound">
               {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>

@@ -1,9 +1,4 @@
--- 1. Create a UNIQUE INDEX on squad_invitations to prevent duplicate pending invitations
-CREATE UNIQUE INDEX IF NOT EXISTS squad_invitations_unique_pending 
-ON public.squad_invitations (squad_id, invitee_id) 
-WHERE status = 'pending';
-
--- 2. Modify the notify trigger to REMOVE the INSERT INTO squad_members logic.
+-- 1. Modify the notify trigger to REMOVE the INSERT INTO squad_members logic.
 -- We want acceptance to be strictly handled by the atomic RPC, while the trigger only handles notifications.
 CREATE OR REPLACE FUNCTION public.notify_squad_invite()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -22,7 +17,7 @@ BEGIN
   RETURN NEW;
 END $$;
 
--- 3. Create the atomic accept RPC
+-- 2. Create the atomic accept RPC
 CREATE OR REPLACE FUNCTION public.accept_squad_invitation(p_invitation_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -66,7 +61,7 @@ BEGIN
 END;
 $$;
 
--- 4. Create the atomic reject RPC
+-- 3. Create the atomic reject RPC
 CREATE OR REPLACE FUNCTION public.reject_squad_invitation(p_invitation_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
