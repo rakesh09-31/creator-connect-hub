@@ -294,7 +294,13 @@ function HomePage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {posts.map((p) => <PostCard key={p.id} post={p} />)}
+          {posts.map((p) => (
+            <PostCard 
+              key={p.id} 
+              post={p} 
+              onDelete={(id) => setPosts(prev => prev.filter(post => post.id !== id))} 
+            />
+          ))}
         </div>
       )}
 
@@ -304,6 +310,13 @@ function HomePage() {
           startIndex={viewerIndex}
           viewerId={user?.id}
           onClose={() => setViewerIndex(null)}
+          onDeleteStory={(storyId) => {
+            setStoryGroups((prev) =>
+              prev
+                .map((g) => ({ ...g, stories: g.stories.filter((s) => s.id !== storyId) }))
+                .filter((g) => g.stories.length > 0)
+            );
+          }}
         />
       )}
     </div>

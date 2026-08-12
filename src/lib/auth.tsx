@@ -44,10 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s?.user) {
-        // defer to avoid deadlock
-        setTimeout(() => loadProfile(s.user.id), 0);
+        // block loading state until profile is fetched
+        setLoading(true);
+        setTimeout(() => loadProfile(s.user.id).finally(() => setLoading(false)), 0);
       } else {
         setProfile(null);
+        setLoading(false);
       }
     });
     // 2. Then read existing session
