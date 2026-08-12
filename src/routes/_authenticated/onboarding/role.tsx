@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Briefcase, Palette, ArrowRight, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -11,12 +11,26 @@ export const Route = createFileRoute("/_authenticated/onboarding/role")({
 
 function SelectRolePage() {
   const navigate = useNavigate();
-  const { user, refresh } = useAuth();
+  const { user, profile, refresh } = useAuth();
   const [selected, setSelected] = useState<"creator" | "client" | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Guard: if this user already has a role, never show role selection again.
+  useEffect(() => {
+    if (profile?.role) {
+      navigate({ to: "/home", replace: true });
+    }
+  }, [profile, navigate]);
+
   const handleContinue = async () => {
     if (!selected || !user) return;
+    // Double-check: do NOT overwrite an existing role
+    const { data: existing } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (existing?.role) {
+      toast.error("Your account already has a role assigned. Redirecting...");
+      navigate({ to: "/home", replace: true });
+      return;
+    }
     setSaving(true);
     try {
       const { error: pErr } = await supabase

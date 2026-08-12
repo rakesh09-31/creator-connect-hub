@@ -4,7 +4,7 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl, deleteFile } from "@/lib/storage";
+import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl, deleteFile, deleteByUrl } from "@/lib/storage";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
@@ -237,7 +237,16 @@ function ProfilePage() {
       {tab === "saved" && <SavedPanel />}
 
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
-      {selectedPost && <PostMediaViewer post={selectedPost} onClose={() => setSelectedPost(null)} />}
+      {selectedPost && (
+        <PostMediaViewer
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+          onDelete={(postId) => {
+            setPosts((prev) => prev.filter((p) => p.id !== postId));
+            setSelectedPost(null);
+          }}
+        />
+      )}
       {videoIndex !== null && myVideos[videoIndex] && (
         <VideoViewer
           items={myVideos}
@@ -251,6 +260,10 @@ function ProfilePage() {
           groups={[{ userId: user.id, username: profile.username, fullName: profile.full_name, avatarUrl: profile.avatar_url, stories: activeStories } satisfies StoryGroup]}
           viewerId={user.id}
           onClose={() => setStoryOpen(false)}
+          onDeleteStory={(storyId) => {
+            setActiveStories((prev) => prev.filter((s) => s.id !== storyId));
+            if (activeStories.length <= 1) setStoryOpen(false);
+          }}
         />
       )}
     </div>
@@ -406,9 +419,38 @@ export function isVideoMedia(post: any) {
   return /\.(mp4|mov|webm|m3u8|avi)(\?.*)?$/i.test(post.media_url);
 }
 
-export function PostMediaViewer({ post, onClose }: { post: any; onClose: () => void }) {
+export function PostMediaViewer({ post, onClose, onDelete }: { post: any; onClose: () => void; onDelete?: (postId: string) => void }) {
   const isVideo = isVideoMedia(post);
   const { resolvedUrl } = useMediaUrl(isVideo ? "reel" : "post", post.media_url);
+  const [deleting, setDeleting] = useState(false);
+  const { user } = useAuth();
+
+  const isOwner = user?.id === post.author_id;
+
+  const handleDelete = async () => {
+    if (!isOwner || !onDelete || deleting) return;
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      const { error: dbErr } = await supabase.from("posts").delete().eq("id", post.id).eq("author_id", user!.id);
+      if (dbErr) {
+        toast.error(`Could not delete post: ${dbErr.message}`);
+        setDeleting(false);
+        return;
+      }
+      // Storage cleanup — best effort
+      try {
+        await deleteMediaByUrl(post.media_url, post.thumbnail_url);
+      } catch (storageErr: any) {
+        toast.warning(`Post removed, but media file could not be cleaned up: ${storageErr?.message ?? "unknown"}`);
+      }
+      toast.success("Post deleted");
+      onDelete(post.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[90] bg-black/95 backdrop-blur-sm" onClick={onClose}>
@@ -417,7 +459,18 @@ export function PostMediaViewer({ post, onClose }: { post: any; onClose: () => v
           <p className="text-sm font-semibold">{post.caption || "Media"}</p>
           <p className="text-[11px] uppercase tracking-[0.3em] text-white/60">{isVideo ? "Video" : "Image"}</p>
         </div>
-        <button onClick={onClose} className="rounded-full bg-white/10 p-2 hover:bg-white/20"><X className="w-5 h-5" /></button>
+        <div className="flex items-center gap-2">
+          {isOwner && onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+              disabled={deleting}
+              className="rounded-full bg-red-500/20 hover:bg-red-500/40 px-3 py-2 text-red-400 hover:text-red-300 text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />{deleting ? "Deleting..." : "Delete"}
+            </button>
+          )}
+          <button onClick={onClose} className="rounded-full bg-white/10 p-2 hover:bg-white/20"><X className="w-5 h-5" /></button>
+        </div>
       </div>
       <div className="flex h-[calc(100vh-72px)] items-center justify-center px-4 py-2" onClick={(e) => e.stopPropagation()}>
         {isVideo ? (
@@ -656,8 +709,8 @@ export function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: bo
     const { error } = await supabase.from("portfolios").delete().eq("id", item.id).eq("user_id", userId);
     if (error) { toast.error(error.message); return; }
     try {
-      if (item.media_type === "video" && item.media_url) await deleteFile(item.media_url);
-      if (item.thumbnail_url) await deleteFile(item.thumbnail_url);
+      if (item.media_url) await deleteByUrl(item.media_url);
+      if (item.thumbnail_url) await deleteByUrl(item.thumbnail_url);
     } catch (err: any) {
       toast.warning(`Removed, but the stored file could not be deleted: ${err?.message ?? "unknown error"}`);
     }

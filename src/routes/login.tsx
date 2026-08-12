@@ -22,8 +22,15 @@ function LoginPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (session) {
-      navigate({ to: profile?.onboarded ? "/home" : "/onboarding/role", replace: true });
+    if (session && profile !== undefined) {
+      // If the user already has a role, they are recognised — go home.
+      // Only truly new accounts (role === null and not onboarded) see role selection.
+      const hasRole = profile?.role != null;
+      if (hasRole || profile?.onboarded) {
+        navigate({ to: "/home", replace: true });
+      } else {
+        navigate({ to: "/onboarding/role", replace: true });
+      }
     }
   }, [loading, session, profile, navigate]);
 

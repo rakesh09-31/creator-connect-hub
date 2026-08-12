@@ -4,6 +4,7 @@ import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, 
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { NotificationBell } from "@/components/NotificationBell";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   component: AppShell,
@@ -12,12 +13,19 @@ export const Route = createFileRoute("/_authenticated/_app")({
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, loading, signOut } = useAuth();
+  const { profile, loading, signOut, refresh } = useAuth();
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    if (!loading && profile && !profile.onboarded) {
-      navigate({ to: "/onboarding/role", replace: true });
+    if (loading || !profile) return;
+    if (!profile.onboarded) {
+      if (profile.role) {
+        // Has a role but onboarded flag is false — fix the flag silently and let them through.
+        supabase.from("profiles").update({ onboarded: true }).eq("id", profile.id).then(() => refresh());
+      } else {
+        // Truly new account — needs to pick a role.
+        navigate({ to: "/onboarding/role", replace: true });
+      }
     }
   }, [loading, profile, navigate]);
 

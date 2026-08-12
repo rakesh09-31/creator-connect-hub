@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { deleteByUrl } from "@/lib/storage";
+import { toast } from "sonner";
 
 export type Story = {
   id: string;
@@ -37,15 +39,19 @@ export function StoryViewer({
   startIndex = 0,
   viewerId,
   onClose,
+  onDeleteStory,
 }: {
   groups: StoryGroup[];
   startIndex?: number;
   viewerId?: string;
   onClose: () => void;
+  /** Called after a story is deleted; pass to enable delete button for owner */
+  onDeleteStory?: (storyId: string) => void;
 }) {
   const [gi, setGi] = useState(startIndex);
   const [si, setSi] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [deleting, setDeleting] = useState(false);
   const timer = useRef<number | null>(null);
 
   const group = groups[gi];
@@ -53,6 +59,8 @@ export function StoryViewer({
 
   const { resolvedUrl: resolvedMediaUrl } = useMediaUrl("story", story?.media_url);
   const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", story?.thumbnail_url);
+
+  const isOwner = viewerId && story && viewerId === story.user_id;
 
   const next = () => {
     setProgress(0);
@@ -73,6 +81,38 @@ export function StoryViewer({
       const g = groups[gi - 1];
       setGi(gi - 1);
       setSi(Math.max(0, g.stories.length - 1));
+    }
+  };
+
+  const handleDeleteStory = async () => {
+    if (!story || !isOwner || deleting) return;
+    if (!confirm("Delete this story? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      // 1. Delete DB record first
+      const { error: dbErr } = await supabase.from("stories").delete().eq("id", story.id).eq("user_id", viewerId!);
+      if (dbErr) {
+        toast.error(`Could not delete story: ${dbErr.message}`);
+        setDeleting(false);
+        return;
+      }
+      // 2. Delete storage objects (best-effort; don't fail if already gone)
+      try {
+        if (story.media_url) await deleteByUrl(story.media_url);
+      } catch (storageErr: any) {
+        toast.warning(`Story removed from your profile, but the media file could not be cleaned up: ${storageErr?.message ?? "unknown error"}`);
+      }
+      toast.success("Story deleted");
+      onDeleteStory?.(story.id);
+      // Advance to next or close if no more stories
+      const remaining = group.stories.filter((s) => s.id !== story.id);
+      if (remaining.length === 0) {
+        onClose();
+      } else {
+        setSi(Math.min(si, remaining.length - 1));
+      }
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -143,9 +183,22 @@ export function StoryViewer({
             <p className="text-white text-sm font-semibold truncate">{group.fullName || group.username}</p>
             <p className="text-white/60 text-[11px]">{timeAgo(story.created_at)}</p>
           </div>
-          <button onClick={onClose} className="ml-auto p-1.5 rounded-full text-white hover:bg-white/15" aria-label="Close">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            {isOwner && onDeleteStory && (
+              <button
+                onClick={handleDeleteStory}
+                disabled={deleting}
+                className="p-1.5 rounded-full text-white hover:bg-red-500/70 transition disabled:opacity-50"
+                aria-label="Delete story"
+                title="Delete this story"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-full text-white hover:bg-white/15" aria-label="Close">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {story.media_type === "video" ? (
