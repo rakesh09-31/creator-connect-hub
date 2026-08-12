@@ -164,14 +164,17 @@ function NotificationsPage() {
     const status = accept ? "accepted" : "rejected";
     if (n.type === "squad_invite") {
       const { data } = await supabase
-        .from("squad_invites")
+        .from("squad_invitations")
         .select("id")
         .eq("squad_id", n.entity_id)
         .eq("invitee_id", user.id)
         .eq("status", "pending")
         .maybeSingle();
       if (!data) return;
-      await supabase.from("squad_invites").update({ status }).eq("id", data.id);
+      await supabase.rpc(
+        accept ? "accept_squad_invitation" : "reject_squad_invitation",
+        { p_invitation_id: data.id }
+      );
     } else {
       const requestId = (n.data?.request_id as string | undefined) ?? "";
       if (!requestId) return;
