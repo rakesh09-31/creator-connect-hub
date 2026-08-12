@@ -1,8 +1,10 @@
 {
+  "id": "/",
   "name": "Creator Connect Hub",
   "short_name": "Creator Connect",
   "description": "Where creators connect, collaborate, and grow.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#09090b",
