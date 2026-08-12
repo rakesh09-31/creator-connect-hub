@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/_app/home")({
   head: () => ({ meta: [{ title: "Home — Omnicraft" }] }),
@@ -212,6 +213,17 @@ function HomePage() {
     if (idx >= 0) setViewerIndex(idx);
   };
 
+  const handleFollow = async (target: Profile) => {
+    if (!user) return;
+    const { error } = await supabase.from("follows").insert({ follower_id: user.id, following_id: target.id });
+    if (!error) {
+      setFollowing((prev) => [...prev, target]);
+      toast.success(`Following @${target.username}`);
+    } else {
+      toast.error("Failed to follow user");
+    }
+  };
+
   const isCreator = profile?.role === "creator";
 
 
@@ -278,14 +290,38 @@ function HomePage() {
                 />
               );
             })}
-          {following.length === 0 && (
-            <Link to="/explore" className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
-              <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground bg-surface-muted">
-                <UserPlus className="w-5 h-5" />
-              </div>
-              <span className="text-[11px] text-muted-foreground font-semibold">Find people</span>
-            </Link>
-          )}
+          {following
+            .filter((p) => groupIndexFor(p.id) < 0)
+            .slice(0, 8)
+            .map((p) => (
+              <StoryItem
+                key={p.id}
+                label={p.full_name || p.username}
+                username={p.username}
+                avatarUrl={p.avatar_url}
+              />
+            ))}
+          {(() => {
+            const followIds = new Set(following.map((p) => p.id));
+            const suggested = Array.from(
+              new Map(
+                posts
+                  .filter((p) => p.author && p.author.id !== user?.id && !followIds.has(p.author.id) && groupIndexFor(p.author.id) < 0)
+                  .map((p) => [p.author!.id, p.author!])
+              ).values()
+            ).slice(0, 12);
+
+            return suggested.map((p) => (
+              <StoryItem
+                key={p.id}
+                label={p.full_name || p.username}
+                username={p.username}
+                avatarUrl={p.avatar_url}
+                suggested
+                onFollow={() => handleFollow(p)}
+              />
+            ));
+          })()}
         </div>
 
       </section>
@@ -372,16 +408,16 @@ function StoryPreviewThumbnail({ story, avatarUrl, initial }: { story?: Story, a
   );
 }
 
-function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, previewStory, onOpen }: {
+function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, previewStory, suggested, onFollow, onOpen }: {
   label: string; username: string; avatarUrl: string | null; you?: boolean;
-  linkTo?: string; hasStory?: boolean; previewStory?: Story; onOpen?: () => void;
+  linkTo?: string; hasStory?: boolean; previewStory?: Story; suggested?: boolean; onFollow?: () => void; onOpen?: () => void;
 }) {
   const initial = (username || "?").slice(0, 1).toUpperCase();
   const ring = hasStory
     ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand"
     : you
       ? "bg-muted"
-      : "bg-gradient-to-tr from-brand to-primary";
+      : "bg-transparent";
   const inner = (
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
       <div className={`relative w-14 h-14 rounded-full p-[2px] ${ring}`}>
@@ -392,6 +428,19 @@ function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, previewS
           <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand border-2 border-surface flex items-center justify-center">
             <Plus className="w-2.5 h-2.5 text-brand-foreground" />
           </div>
+        )}
+        {suggested && !hasStory && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onFollow?.();
+            }}
+            className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-brand border-2 border-surface flex items-center justify-center hover:scale-110 transition-transform shadow-sm"
+          >
+            <Plus className="w-3 h-3 text-brand-foreground" strokeWidth={3} />
+          </button>
         )}
       </div>
       <span className="text-[11px] text-foreground/80 max-w-[80px] truncate font-medium">{label}</span>
