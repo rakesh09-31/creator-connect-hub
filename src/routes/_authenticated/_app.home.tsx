@@ -156,7 +156,43 @@ function HomePage() {
     let cancelled = false;
 
     const loadStories = async () => {
-      const ids = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
+      // 1. Omnicraft Daily Story
+      const { data: adminProf } = await supabase.from("profiles").select("*").eq("role", "admin").maybeSingle();
+      const adminId = adminProf?.id;
+
+      if (adminId) {
+        const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        const dailyId = `00000000-0000-4000-8000-${todayStr.replace(/-/g, "").padEnd(12, "0")}`;
+        const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+        const messages = [
+          "Welcome to Omnicraft — where creators connect, collaborate and grow.",
+          "Discover new creators and build your creative network on Omnicraft.",
+          "Create. Connect. Collaborate. That's Omnicraft.",
+          "Find your next creative opportunity on Omnicraft.",
+          "Your next collaboration could start today.",
+          "Explore creators. Share your work. Grow your network.",
+          "Omnicraft — bringing creators and opportunities together."
+        ];
+        const msg = messages[dayOfYear % messages.length];
+        const blankImg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+        const nextDay = new Date();
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        nextDay.setUTCHours(0, 0, 0, 0);
+
+        await supabase.from("stories").upsert({
+          id: dailyId,
+          user_id: adminId,
+          media_type: "text",
+          media_url: blankImg,
+          caption: msg,
+          expires_at: nextDay.toISOString(),
+        }, { onConflict: "id" }).maybeSingle();
+      }
+
+      // 2. Fetch Stories
+      const baseIds = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
+      const ids = adminId ? Array.from(new Set([...baseIds, adminId])) : baseIds;
+
       const { data, error } = await supabase
         .from("stories")
         .select("*")
@@ -174,10 +210,11 @@ function HomePage() {
         arr.push(s);
         byUser.set(s.user_id, arr);
       });
-      const profileFor = (id: string) =>
-        id === user.id
-          ? { username: profile?.username ?? "you", full_name: profile?.full_name ?? null, avatar_url: profile?.avatar_url ?? null }
-          : following.find((p) => p.id === id);
+      const profileFor = (id: string) => {
+        if (id === user.id) return { username: profile?.username ?? "you", full_name: profile?.full_name ?? null, avatar_url: profile?.avatar_url ?? null };
+        if (adminId && id === adminId) return { username: adminProf?.username ?? "Omnicraft", full_name: adminProf?.full_name ?? "Omnicraft Official", avatar_url: adminProf?.avatar_url ?? null };
+        return following.find((p) => p.id === id);
+      };
       const groups: StoryGroup[] = ids
         .filter((id) => (byUser.get(id) ?? []).length > 0)
         .map((id) => {
@@ -259,7 +296,7 @@ function HomePage() {
             Discover <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="relative flex gap-4 overflow-x-auto pb-1">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <StoryItem
             label="Your story"
             username={profile?.username ?? ""}
@@ -270,15 +307,43 @@ function HomePage() {
             onOpen={groupIndexFor(user?.id ?? "") >= 0 ? () => openStories(user!.id) : undefined}
             linkTo={groupIndexFor(user?.id ?? "") >= 0 ? undefined : "/create?type=story"}
           />
-          {[...storyGroups]
-            .filter((g) => g.userId !== user?.id)
-            .sort((a, b) => {
-              const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
-              const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
-              return latestB - latestA;
-            })
-            .map((g) => {
-              return (
+          {(() => {
+            // Find admin group
+            const adminGroup = storyGroups.find((g) => g.fullName === "Omnicraft Official" || g.username === "Omnicraft");
+            const adminId = adminGroup?.userId;
+
+            // 1. Other Active Stories
+            const otherActive = [...storyGroups]
+              .filter((g) => g.userId !== user?.id)
+              .sort((a, b) => {
+                // Admin always first
+                if (adminId && a.userId === adminId) return -1;
+                if (adminId && b.userId === adminId) return 1;
+                const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
+                const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
+                return latestB - latestA;
+              });
+
+            // 2. Fallbacks
+            const followingNoStory = following.filter((p) => groupIndexFor(p.id) < 0);
+            const followIds = new Set(following.map((p) => p.id));
+            const suggestedNoStory = Array.from(
+              new Map(
+                posts
+                  .filter((p) => p.author && p.author.id !== user?.id && !followIds.has(p.author.id) && groupIndexFor(p.author.id) < 0)
+                  .map((p) => [p.author!.id, p.author!])
+              ).values()
+            );
+
+            // 3. Apply limits
+            const MAX_TOTAL_OTHERS = 5; // Total 6 including "Your story"
+            const activeSlots = otherActive.slice(0, MAX_TOTAL_OTHERS);
+            
+            const renderedElements = [];
+            
+            // Render active
+            for (const g of activeSlots) {
+              renderedElements.push(
                 <StoryItem
                   key={g.userId}
                   label={g.fullName || g.username}
@@ -289,38 +354,44 @@ function HomePage() {
                   onOpen={() => openStories(g.userId)}
                 />
               );
-            })}
-          {following
-            .filter((p) => groupIndexFor(p.id) < 0)
-            .slice(0, 8)
-            .map((p) => (
-              <StoryItem
-                key={p.id}
-                label={p.full_name || p.username}
-                username={p.username}
-                avatarUrl={p.avatar_url}
-              />
-            ))}
-          {(() => {
-            const followIds = new Set(following.map((p) => p.id));
-            const suggested = Array.from(
-              new Map(
-                posts
-                  .filter((p) => p.author && p.author.id !== user?.id && !followIds.has(p.author.id) && groupIndexFor(p.author.id) < 0)
-                  .map((p) => [p.author!.id, p.author!])
-              ).values()
-            ).slice(0, 12);
+            }
 
-            return suggested.map((p) => (
-              <StoryItem
-                key={p.id}
-                label={p.full_name || p.username}
-                username={p.username}
-                avatarUrl={p.avatar_url}
-                suggested
-                onFollow={() => handleFollow(p)}
-              />
-            ));
+            // Fill remaining with fallbacks (max 2 fallbacks)
+            if (renderedElements.length < MAX_TOTAL_OTHERS) {
+              const needed = MAX_TOTAL_OTHERS - renderedElements.length;
+              const fallbacksToAdd = Math.min(needed, 2);
+              let added = 0;
+
+              for (const p of followingNoStory) {
+                if (added >= fallbacksToAdd) break;
+                renderedElements.push(
+                  <StoryItem
+                    key={p.id}
+                    label={p.full_name || p.username}
+                    username={p.username}
+                    avatarUrl={p.avatar_url}
+                  />
+                );
+                added++;
+              }
+
+              for (const p of suggestedNoStory) {
+                if (added >= fallbacksToAdd) break;
+                renderedElements.push(
+                  <StoryItem
+                    key={p.id}
+                    label={p.full_name || p.username}
+                    username={p.username}
+                    avatarUrl={p.avatar_url}
+                    suggested
+                    onFollow={() => handleFollow(p)}
+                  />
+                );
+                added++;
+              }
+            }
+
+            return renderedElements;
           })()}
         </div>
 
