@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2, Play, Info, ChevronLeft, ChevronRight, Github, Globe, Wrench } from "lucide-react";
+import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2, Play, Info, ChevronLeft, ChevronRight, Github, Globe, Wrench, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl } from "@/lib/storage";
+import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl, deleteFile } from "@/lib/storage";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
   head: () => ({ meta: [{ title: "Profile — Omnicraft" }] }),
@@ -29,6 +31,8 @@ function ProfilePage() {
   const [activeStories, setActiveStories] = useState<Story[]>([]);
   const [storyOpen, setStoryOpen] = useState(false);
   const [videoIndex, setVideoIndex] = useState<number | null>(null);
+
+  const { resolvedUrl: resolvedAvatar } = useMediaUrl("profileImage", profile?.avatar_url);
 
   /** Videos owned by me, in grid order — powers the reels-style viewer. */
   const myVideos: VideoItem[] = useMemo(
@@ -101,8 +105,8 @@ function ProfilePage() {
             aria-label={activeStories.length > 0 ? "View active story" : "No active story"}
           >
             <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-2xl font-semibold overflow-hidden">
-              {profile.avatar_url
-                ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" alt="" />
+              {resolvedAvatar
+                ? <img src={resolvedAvatar} className="w-full h-full rounded-full object-cover" alt="" />
                 : profile.username.slice(0, 1).toUpperCase()}
             </span>
           </button>
@@ -184,28 +188,16 @@ function ProfilePage() {
             <div className="text-center text-muted-foreground py-16 text-sm bg-surface border border-border rounded-2xl">No posts yet</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {posts.map((p) => {
-                const isVid = isVideoMedia(p);
-                return (
-                  <button key={p.id} onClick={() => (isVid ? setVideoIndex(myVideos.findIndex((v) => v.id === p.id)) : setSelectedPost(p))} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-                    <div className="aspect-[4/5] bg-muted">
-                      {p.media_url ? (
-                        isVid ? (
-                          <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="h-full w-full" />
-                        ) : (
-                          <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Post media"} />
-                        )
-                      ) : (
-                        <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{p.caption || "Media preview"}</div>
-                      )}
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-3 py-3 text-white">
-                      <span className="text-xs font-semibold uppercase tracking-[0.2em]">{isVid ? "Video" : "Image"}</span>
-                      <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] backdrop-blur">Open</span>
-                    </div>
-                  </button>
-                );
-              })}
+              {posts.map((p) => (
+                <ProfilePostTile
+                  key={p.id}
+                  post={p}
+                  isVideoMedia={isVideoMedia}
+                  setVideoIndex={setVideoIndex}
+                  myVideos={myVideos}
+                  setSelectedPost={setSelectedPost}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -416,6 +408,8 @@ function isVideoMedia(post: any) {
 
 function PostMediaViewer({ post, onClose }: { post: any; onClose: () => void }) {
   const isVideo = isVideoMedia(post);
+  const { resolvedUrl } = useMediaUrl(isVideo ? "reel" : "post", post.media_url);
+
   return (
     <div className="fixed inset-0 z-[90] bg-black/95 backdrop-blur-sm" onClick={onClose}>
       <div className="flex items-center justify-between p-4 text-white">
@@ -427,9 +421,9 @@ function PostMediaViewer({ post, onClose }: { post: any; onClose: () => void }) 
       </div>
       <div className="flex h-[calc(100vh-72px)] items-center justify-center px-4 py-2" onClick={(e) => e.stopPropagation()}>
         {isVideo ? (
-          <video src={post.media_url} controls autoPlay playsInline className="max-h-full max-w-full rounded-3xl" />
+          resolvedUrl ? <video src={resolvedUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-3xl" /> : <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
         ) : (
-          <img src={post.media_url} alt={post.caption || "Post media"} className="max-h-full max-w-full rounded-3xl object-contain" />
+          resolvedUrl ? <img src={resolvedUrl} alt={post.caption || "Post media"} className="max-h-full max-w-full rounded-3xl object-contain" /> : <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
         )}
       </div>
     </div>
@@ -558,7 +552,7 @@ function ClientProjectsPanel() {
                         <>
                           <Link to="/user/$username" params={{ username: a.applicant.username }} className="w-8 h-8 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold">
                             {a.applicant.avatar_url
-                              ? <img src={a.applicant.avatar_url} className="w-full h-full object-cover" />
+                              ? <ProfileAvatar url={a.applicant.avatar_url} className="w-full h-full object-cover" />
                               : a.applicant.username.slice(0, 1).toUpperCase()}
                           </Link>
                           <div className="flex-1 min-w-0">
@@ -662,7 +656,8 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
     const { error } = await supabase.from("portfolios").delete().eq("id", item.id).eq("user_id", userId);
     if (error) { toast.error(error.message); return; }
     try {
-      await deleteMediaByUrl(item.media_type === "video" ? item.media_url : null, item.thumbnail_url);
+      if (item.media_type === "video" && item.media_url) await deleteFile(item.media_url);
+      if (item.thumbnail_url) await deleteFile(item.thumbnail_url);
     } catch (err: any) {
       toast.warning(`Removed, but the stored file could not be deleted: ${err?.message ?? "unknown error"}`);
     }
@@ -706,52 +701,15 @@ function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: boolean }
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
-            <div key={item.id} className="group overflow-hidden rounded-[20px] border border-border bg-surface/80 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
-              <button
-                onClick={() =>
-                  item.media_type === "video" && item.media_url
-                    ? setVideoIndex(videos.findIndex((v) => v.id === item.id))
-                    : item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")
-                }
-                className="block w-full text-left"
-              >
-                <div className="relative h-40 overflow-hidden bg-muted">
-                  {item.media_type === "video" && item.media_url ? (
-                    <VideoPlayer src={item.media_url} poster={item.thumbnail_url} controls={false} className="h-full w-full" />
-                  ) : item.thumbnail_url ? (
-                    <img src={item.thumbnail_url} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" alt={item.title} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-brand/15 to-primary/10 p-4 text-center text-sm font-semibold text-foreground/70">
-                      {item.title}
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
-                    {item.portfolio_url && <span className="rounded-full bg-brand-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.26em] text-brand">Live</span>}
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground line-clamp-3">{item.description || "A polished portfolio entry with a live link and project summary."}</p>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Globe className="h-3.5 w-3.5" />
-                    {item.portfolio_url ? getDomain(item.portfolio_url) : "Portfolio link"}
-                  </div>
-                  {item.technologies && item.technologies.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {item.technologies.slice(0, 3).map((tech) => (
-                        <span key={tech} className="rounded-full border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground/70">{tech}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </button>
-              {isSelf && (
-                <div className="flex items-center gap-2 border-t border-border px-4 py-3">
-                  <button onClick={(e) => { e.stopPropagation(); setEditing(item); }} className="flex-1 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground/80 transition hover:bg-muted">Edit</button>
-                  <button onClick={(e) => { e.stopPropagation(); remove(item); }} className="flex-1 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/20">Delete</button>
-                </div>
-              )}
-            </div>
+            <ProfilePortfolioTile
+              key={item.id}
+              item={item}
+              setVideoIndex={setVideoIndex}
+              videos={videos}
+              isSelf={isSelf}
+              onEdit={setEditing}
+              onDelete={remove}
+            />
           ))}
         </div>
       )}
@@ -789,13 +747,13 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
     try {
       if (file.type.startsWith("video/")) {
         const res = await uploadVideo({ feature: "portfolioVideo", file, userId, entityType: "portfolio", onProgress: setUploadPct });
-        setVideoUrl(res.url);
-        if (res.thumbnailUrl) setThumbnailUrl(res.thumbnailUrl);
+        setVideoUrl(res.path);
+        if (res.thumbnailPath) setThumbnailUrl(res.thumbnailPath);
         toast.success("Video uploaded");
       } else {
         const prepared = await optimizeImage(file);
-        const { url } = await uploadFile({ feature: "thumbnail", file: prepared, userId, onProgress: setUploadPct });
-        setThumbnailUrl(url);
+        const { path } = await uploadFile({ feature: "portfolioImage", file: prepared, userId, onProgress: setUploadPct });
+        setThumbnailUrl(path);
         setVideoUrl("");
         toast.success("Thumbnail uploaded");
       }
@@ -841,7 +799,19 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
       : await supabase.from("portfolios").insert(payload);
 
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      if (!item) {
+        if (videoUrl) {
+          await deleteFile("portfolioVideo", videoUrl).catch(() => undefined);
+        }
+        if (thumbnailUrl) {
+          const isVid = videoUrl;
+          await deleteFile(isVid ? "thumbnail" : "portfolioImage", thumbnailUrl).catch(() => undefined);
+        }
+      }
+      toast.error(error.message);
+      return;
+    }
     toast.success(item ? "Portfolio updated" : "Portfolio saved");
     onSaved();
   };
@@ -935,20 +905,9 @@ function SavedPanel() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((p) => {
-            const isVid = isVideoMedia(p);
-            return (
-              <div key={p.id} className="overflow-hidden rounded-3xl border border-border bg-surface">
-                <div className="aspect-[4/5] bg-muted">
-                  {p.media_url ? (
-                    isVid ? <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="h-full w-full" /> : <img src={p.media_url} className="h-full w-full object-cover" alt={p.caption || "Saved media"} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{p.caption || "Saved media"}</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {posts.map((p) => (
+            <ProfileSavedTile key={p.id} post={p} isVideoMedia={isVideoMedia} />
+          ))}
         </div>
       )}
     </div>
@@ -956,4 +915,137 @@ function SavedPanel() {
 }
 
 // Customize portfolio modal removed in favor of the new portfolio card workflow.
+
+function ProfilePostTile({ post, isVideoMedia, setVideoIndex, myVideos, setSelectedPost }: { post: any, isVideoMedia: any, setVideoIndex: any, myVideos: any[], setSelectedPost: any }) {
+  const isVid = isVideoMedia(post);
+  const { resolvedUrl } = useMediaUrl(isVid ? "reel" : "post", post.media_url);
+
+  return (
+    <button onClick={() => (isVid ? setVideoIndex(myVideos.findIndex((v) => v.id === post.id)) : setSelectedPost(post))} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+      <div className="aspect-[4/5] bg-muted">
+        {post.media_url ? (
+          isVid ? (
+            <VideoPlayer src={post.media_url} poster={post.thumbnail_url} controls={false} className="h-full w-full" feature="reel" />
+          ) : (
+            resolvedUrl ? <img src={resolvedUrl} className="h-full w-full object-cover" alt={post.caption || "Post media"} /> : <div className="w-full h-full bg-muted animate-pulse" />
+          )
+        ) : (
+          <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{post.caption || "Media preview"}</div>
+        )}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent px-3 py-3 text-white">
+        <span className="text-xs font-semibold uppercase tracking-[0.2em]">{isVid ? "Video" : "Image"}</span>
+        <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] backdrop-blur">Open</span>
+      </div>
+    </button>
+  );
+}
+
+function SelectedPostModalInner({ post, isVideoMedia }: { post: any, isVideoMedia: any }) {
+  const isVid = isVideoMedia(post);
+  const { resolvedUrl } = useMediaUrl(isVid ? "reel" : "post", post.media_url);
+
+  if (!post.media_url) {
+    return <div className="bg-surface border border-border p-6 rounded-3xl text-sm max-w-md">{post.caption}</div>;
+  }
+
+  if (isVid) {
+    return (
+      resolvedUrl ? (
+        <video src={resolvedUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-3xl" />
+      ) : (
+        <div className="w-96 h-96 flex items-center justify-center bg-black rounded-3xl">
+          <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
+        </div>
+      )
+    );
+  }
+
+  return (
+    resolvedUrl ? (
+      <img src={resolvedUrl} alt={post.caption || "Post media"} className="max-h-full max-w-full rounded-3xl object-contain" />
+    ) : (
+      <div className="w-96 h-96 flex items-center justify-center bg-black rounded-3xl">
+        <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
+      </div>
+    )
+  );
+}
+
+function ProfilePortfolioTile({ item, setVideoIndex, videos, isSelf, onEdit, onDelete }: { item: any, setVideoIndex: any, videos: any[], isSelf: boolean, onEdit: any, onDelete: any }) {
+  const isVid = item.media_type === "video" && item.media_url;
+  const { resolvedUrl: resolvedThumbUrl } = useMediaUrl(isVid ? "thumbnail" : "portfolioImage", item.thumbnail_url);
+
+  return (
+    <div className="group relative overflow-hidden rounded-3xl border border-border bg-surface/80 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
+      <button
+        onClick={() =>
+          isVid
+            ? setVideoIndex(videos.findIndex((v) => v.id === item.id))
+            : item.portfolio_url && window.open(item.portfolio_url, "_blank", "noopener,noreferrer")
+        }
+        className="block w-full text-left"
+      >
+        <div className="relative h-40 overflow-hidden bg-muted">
+          {isVid ? (
+            <VideoPlayer src={item.media_url} poster={item.thumbnail_url} controls={false} className="h-full w-full" feature="portfolioVideo" />
+          ) : resolvedThumbUrl ? (
+            <img src={resolvedThumbUrl} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" alt={item.title} />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-brand/15 to-primary/10 p-4 text-center text-sm font-semibold text-foreground/70">
+              {item.title}
+            </div>
+          )}
+        </div>
+        <div className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
+            {item.portfolio_url && <span className="rounded-full bg-brand-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.26em] text-brand">Live</span>}
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground line-clamp-3">{item.description || "A polished portfolio entry with a live link and project summary."}</p>
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Globe className="h-3.5 w-3.5" />
+            {item.portfolio_url ? getDomain(item.portfolio_url) : "Portfolio link"}
+          </div>
+          {item.technologies && item.technologies.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {item.technologies.slice(0, 3).map((tech: string) => (
+                <span key={tech} className="rounded-full border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground/70">{tech}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      </button>
+      {isSelf && (
+        <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="flex-1 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground/80 transition hover:bg-muted">Edit</button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(item); }} className="flex-1 rounded-xl bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/20">Delete</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+function ProfileSavedTile({ post, isVideoMedia }: { post: any, isVideoMedia: any }) {
+  const isVid = isVideoMedia(post);
+  const { resolvedUrl } = useMediaUrl(isVid ? "reel" : "post", post.media_url);
+
+  return (
+    <div className="overflow-hidden rounded-3xl border border-border bg-surface">
+      <div className="aspect-[4/5] bg-muted">
+        {post.media_url ? (
+          isVid ? (
+            <VideoPlayer src={post.media_url} poster={post.thumbnail_url} controls={false} className="h-full w-full" feature="reel" />
+          ) : (
+            resolvedUrl ? <img src={resolvedUrl} className="h-full w-full object-cover" alt={post.caption || "Saved media"} /> : <div className="w-full h-full bg-muted animate-pulse" />
+          )
+        ) : (
+          <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{post.caption || "Saved media"}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 

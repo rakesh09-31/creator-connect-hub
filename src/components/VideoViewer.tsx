@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, ChevronUp, ChevronDown, Volume2, VolumeX, Play, Pause, Loader2, AlertTriangle, Trash2 } from "lucide-react";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { useViewTracking } from "@/hooks/useViewTracking";
 
 export type VideoItem = {
   id: string;
@@ -36,6 +38,15 @@ export function VideoViewer({
   const touchY = useRef<number | null>(null);
 
   const item = items[index];
+
+  const { resolvedUrl: resolvedVideoUrl, loading: videoLoading, error: videoError } = useMediaUrl("post", item?.url);
+  const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", item?.poster);
+
+  const isFailed = failed || !!videoError;
+  const isLoading = loading || videoLoading;
+
+  // Track video view
+  useViewTracking(item?.id, playing && !isLoading && !isFailed);
 
   const go = useCallback(
     (delta: number) => {
@@ -103,42 +114,44 @@ export function VideoViewer({
           <div className="h-full bg-white transition-[width] duration-150" style={{ width: `${progress}%` }} />
         </div>
 
-        <video
-          key={item.id}
-          ref={videoRef}
-          src={item.url}
-          poster={item.poster ?? undefined}
-          className="w-full h-full object-contain"
-          autoPlay
-          muted={muted}
-          playsInline
-          preload="metadata"
-          onClick={togglePlay}
-          onLoadedMetadata={() => setLoading(false)}
-          onCanPlay={() => setLoading(false)}
-          onWaiting={() => setLoading(true)}
-          onPlaying={() => {
-            setLoading(false);
-            setPlaying(true);
-          }}
-          onPause={() => setPlaying(false)}
-          onTimeUpdate={(e) => {
-            const v = e.currentTarget;
-            if (v.duration) setProgress((v.currentTime / v.duration) * 100);
-          }}
-          onEnded={() => (index + 1 < items.length ? go(1) : setPlaying(false))}
-          onError={() => {
-            setLoading(false);
-            setFailed(true);
-          }}
-        />
+        {resolvedVideoUrl && (
+          <video
+            key={item.id}
+            ref={videoRef}
+            src={resolvedVideoUrl}
+            poster={resolvedPosterUrl ?? undefined}
+            className="w-full h-full object-contain"
+            autoPlay
+            muted={muted}
+            playsInline
+            preload="metadata"
+            onClick={togglePlay}
+            onLoadedMetadata={() => setLoading(false)}
+            onCanPlay={() => setLoading(false)}
+            onWaiting={() => setLoading(true)}
+            onPlaying={() => {
+              setLoading(false);
+              setPlaying(true);
+            }}
+            onPause={() => setPlaying(false)}
+            onTimeUpdate={(e) => {
+              const v = e.currentTarget;
+              if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+            }}
+            onEnded={() => (index + 1 < items.length ? go(1) : setPlaying(false))}
+            onError={() => {
+              setLoading(false);
+              setFailed(true);
+            }}
+          />
+        )}
 
-        {loading && !failed && (
+        {isLoading && !isFailed && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Loader2 className="w-8 h-8 text-white/80 animate-spin" />
           </div>
         )}
-        {failed && (
+        {isFailed && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white bg-black/80 px-6 text-center">
             <AlertTriangle className="w-7 h-7" />
             <p className="text-sm">This video failed to load. It may have been removed.</p>

@@ -5,6 +5,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
 
 export const Route = createFileRoute("/_authenticated/_app/user/$username")({
   component: UserProfilePage,
@@ -21,6 +22,8 @@ function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [activeStories, setActiveStories] = useState<Story[]>([]);
   const [storyOpen, setStoryOpen] = useState(false);
+
+  const { resolvedUrl: resolvedAvatar } = useMediaUrl("profileImage", profile?.avatar_url);
 
   const refreshFollow = async (targetId: string) => {
     if (!user) return;
@@ -81,7 +84,7 @@ function UserProfilePage() {
             aria-label={activeStories.length > 0 ? `View ${profile.username}'s story` : "No active story"}
           >
             <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-4xl font-bold overflow-hidden">
-              {profile.avatar_url ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" alt="" /> : profile.username.slice(0, 1).toUpperCase()}
+              {resolvedAvatar ? <img src={resolvedAvatar} className="w-full h-full rounded-full object-cover" alt="" /> : profile.username.slice(0, 1).toUpperCase()}
             </span>
           </button>
           <div className="flex-1">
@@ -115,25 +118,35 @@ function UserProfilePage() {
       )}
 
       <div className="grid grid-cols-3 gap-1 mt-6">
-        {posts.map((p) => {
-          const isVid = p.post_type === "video" || p.post_type === "reel";
-          return (
-            <div key={p.id} className="aspect-square bg-gray-100 overflow-hidden">
-              {p.media_url ? (
-                isVid ? <VideoPlayer src={p.media_url} poster={(p as any).thumbnail_url} controls={false} className="w-full h-full" /> : <img src={p.media_url} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center p-3 text-xs text-gray-600 text-center">{p.caption}</div>
-              )}
-            </div>
-          );
-        })}
+        {posts.map((p) => (
+          <UserPostTile key={p.id} post={p} />
+        ))}
       </div>
       {storyOpen && activeStories.length > 0 && (
         <StoryViewer
-          groups={[{ userId: profile.id, username: profile.username, fullName: profile.full_name, avatarUrl: profile.avatar_url, stories: activeStories } satisfies StoryGroup]}
+          groups={[{ userId: profile.id, username: profile.username, fullName: profile.full_name, avatarUrl: resolvedAvatar, stories: activeStories } satisfies StoryGroup]}
           viewerId={user?.id}
           onClose={() => setStoryOpen(false)}
         />
+      )}
+    </div>
+  );
+}
+
+function UserPostTile({ post }: { post: any }) {
+  const isVid = post.post_type === "video" || post.post_type === "reel";
+  const { resolvedUrl } = useMediaUrl(isVid ? "reel" : "post", post.media_url);
+
+  return (
+    <div className="aspect-square bg-gray-100 overflow-hidden">
+      {post.media_url ? (
+        isVid ? (
+          <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} controls={false} className="w-full h-full" feature="reel" />
+        ) : (
+          resolvedUrl ? <img src={resolvedUrl} className="w-full h-full object-cover" alt="" loading="lazy" /> : <div className="w-full h-full bg-muted animate-pulse" />
+        )
+      ) : (
+        <div className="w-full h-full flex items-center justify-center p-3 text-xs text-gray-600 text-center">{post.caption}</div>
       )}
     </div>
   );

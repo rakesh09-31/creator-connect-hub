@@ -4,6 +4,8 @@ import { Heart, MessageCircle, Share2, ArrowLeft, Bookmark, Send, X, Volume2, Vo
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { useViewTracking } from "@/hooks/useViewTracking";
 
 export const Route = createFileRoute("/_authenticated/_app/reels")({
   head: () => ({ meta: [{ title: "Reels — Omnicraft" }] }),
@@ -154,9 +156,16 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
   const [saved, setSaved] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
   const [following, setFollowing] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const isVideo = reel.post_type === "video" || reel.post_type === "reel";
   const isOwn = user?.id === reel.author_id;
+
+  const { resolvedUrl: resolvedVideoUrl } = useMediaUrl("reel", reel.media_url);
+  const { resolvedUrl: resolvedPoster } = useMediaUrl("thumbnail", (reel as any).thumbnail_url);
+
+  // Track views after 2 seconds of playback
+  useViewTracking(reel.id, isPlaying);
 
   // Counts and viewer state
   useEffect(() => {
@@ -191,13 +200,19 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) { el.play().catch(() => {}); } else { el.pause(); }
+        if (entry.isIntersecting) {
+          el.play().catch(() => {});
+          setIsPlaying(true);
+        } else {
+          el.pause();
+          setIsPlaying(false);
+        }
       },
       { threshold: 0.6 },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [resolvedVideoUrl]);
 
   const toggleLike = async () => {
     if (!user) { toast.error("Sign in to like"); return; }
@@ -242,23 +257,26 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
 
   const togglePlay = () => {
     const v = videoRef.current; if (!v) return;
-    v.paused ? v.play() : v.pause();
+    if (v.paused) { v.play(); setIsPlaying(true); }
+    else { v.pause(); setIsPlaying(false); }
   };
 
   return (
     <div className="h-screen w-full snap-start relative flex items-center justify-center bg-black">
-      {reel.media_url && isVideo ? (
+      {resolvedVideoUrl && isVideo ? (
         <video
           ref={videoRef}
-          src={reel.media_url}
-          poster={(reel as any).thumbnail_url ?? undefined}
+          src={resolvedVideoUrl}
+          poster={resolvedPoster ?? undefined}
           className="max-h-full max-w-full object-contain cursor-pointer"
           loop muted playsInline preload="metadata"
           onClick={togglePlay}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
         />
 
-      ) : reel.media_url ? (
-        <img src={reel.media_url} className="max-h-full max-w-full object-contain" alt="" />
+      ) : resolvedVideoUrl ? (
+        <img src={resolvedVideoUrl} className="max-h-full max-w-full object-contain" alt="" />
       ) : (
         <div className="text-white text-center p-8 max-w-md">{reel.caption}</div>
       )}

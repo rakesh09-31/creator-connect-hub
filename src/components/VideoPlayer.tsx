@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, AlertTriangle } from "lucide-react";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
+import type { StorageFeature } from "@/lib/storage";
 
 /**
  * Bandwidth-friendly HTML5 video.
@@ -19,6 +21,7 @@ export function VideoPlayer({
   loop = false,
   autoPlayInView = false,
   objectFit = "cover",
+  feature = "post",
   onClick,
 }: {
   src: string;
@@ -30,6 +33,7 @@ export function VideoPlayer({
   /** play automatically (muted) while visible, pause when scrolled away */
   autoPlayInView?: boolean;
   objectFit?: "cover" | "contain";
+  feature?: StorageFeature;
   onClick?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -37,6 +41,9 @@ export function VideoPlayer({
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  const { resolvedUrl: resolvedVideoUrl, loading: videoLoading, error: videoError } = useMediaUrl(feature, src);
+  const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", poster);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -62,13 +69,16 @@ export function VideoPlayer({
     return () => io.disconnect();
   }, [autoPlayInView]);
 
+  const isFailed = failed || !!videoError;
+  const isLoading = loading || videoLoading;
+
   return (
     <div ref={wrapRef} className={`relative bg-black ${className}`} onClick={onClick}>
-      {visible ? (
+      {visible && resolvedVideoUrl ? (
         <video
           ref={videoRef}
-          src={src}
-          poster={poster ?? undefined}
+          src={resolvedVideoUrl}
+          poster={resolvedPosterUrl ?? undefined}
           className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
           preload="metadata"
           playsInline
@@ -85,20 +95,20 @@ export function VideoPlayer({
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center">
-          {poster ? (
-            <img src={poster} alt="" className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`} loading="lazy" />
+          {resolvedPosterUrl ? (
+            <img src={resolvedPosterUrl} alt="" className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`} loading="lazy" />
           ) : (
             <Play className="w-8 h-8 text-white/50" />
           )}
         </div>
       )}
 
-      {loading && !failed && (
+      {isLoading && !isFailed && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <Loader2 className="w-6 h-6 text-white/80 animate-spin" />
         </div>
       )}
-      {failed && (
+      {isFailed && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 text-white text-xs px-3 text-center">
           <AlertTriangle className="w-5 h-5" />
           This video could not be loaded.

@@ -4,6 +4,8 @@ import { Search, Play } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { PostViewer } from "@/components/PostViewer";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
+import type { StorageFeature } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/explore")({
   head: () => ({ meta: [{ title: "Search — Omnicraft" }] }),
@@ -188,12 +190,14 @@ function ExploreTile({ tile, big, onReelClick, onPostClick }: {
   const username = tile.author?.username ?? "";
   const isVideo = tile.kind === "post" && (tile.post_type === "video" || tile.post_type === "reel");
   const spanCls = big ? "col-span-2 row-span-2" : "";
+  const feature: StorageFeature = isVideo ? "reel" : tile.kind === "portfolio" ? "portfolioImage" : "post";
+  const { resolvedUrl } = useMediaUrl(feature, tile.media_url);
 
   if (isVideo && onReelClick) {
     return (
       <button onClick={() => onReelClick(tile.id)}
         className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
-        <VideoPlayer src={tile.media_url} poster={(tile as any).thumbnail_url} controls={false} className="w-full h-full" />
+        <VideoPlayer src={tile.media_url} poster={(tile as any).thumbnail_url} controls={false} className="w-full h-full" feature="reel" />
         <div className="absolute top-1.5 right-1.5 text-white drop-shadow"><Play className="w-4 h-4 fill-white" /></div>
       </button>
     );
@@ -204,7 +208,7 @@ function ExploreTile({ tile, big, onReelClick, onPostClick }: {
     return (
       <button onClick={() => onPostClick(tile.id)}
         className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
-        <img src={tile.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" />
+        {resolvedUrl ? <img src={resolvedUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" /> : <div className="w-full h-full bg-muted animate-pulse" />}
       </button>
     );
   }
@@ -213,7 +217,7 @@ function ExploreTile({ tile, big, onReelClick, onPostClick }: {
   return (
     <Link to="/user/$username" params={{ username }}
       className={`relative aspect-square bg-muted overflow-hidden rounded-sm group ${spanCls}`}>
-      <img src={tile.media_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" />
+      {resolvedUrl ? <img src={resolvedUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" /> : <div className="w-full h-full bg-muted animate-pulse" />}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition">
         <p className="text-[10px] text-white font-semibold truncate">@{username}</p>
       </div>

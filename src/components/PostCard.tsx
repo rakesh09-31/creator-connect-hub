@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
 export type PostLike = {
@@ -17,6 +19,8 @@ export function PostCard({ post }: { post: PostLike }) {
   const author = post.author;
   const initial = (author?.username || "?").slice(0, 1).toUpperCase();
   const isVideo = post.post_type === "video" || post.post_type === "reel";
+  const imageFeature = isVideo ? "reel" as const : "post" as const;
+  const { resolvedUrl: resolvedMediaUrl } = useMediaUrl(imageFeature, post.media_url);
 
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
@@ -98,7 +102,7 @@ export function PostCard({ post }: { post: PostLike }) {
       <header className="flex items-center justify-between p-4">
         <Link to="/user/$username" params={{ username: author?.username ?? "" }} className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-foreground font-semibold text-sm shrink-0 overflow-hidden">
-            {author?.avatar_url ? <img src={author.avatar_url} className="w-full h-full object-cover" /> : initial}
+            {author?.avatar_url ? <ProfileAvatar url={author.avatar_url} className="w-full h-full object-cover" /> : initial}
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-sm truncate">{author?.full_name || author?.username || "User"}</p>
@@ -113,9 +117,9 @@ export function PostCard({ post }: { post: PostLike }) {
       {post.media_url && (
         <div className="bg-black relative select-none" onClick={onMediaTap}>
           {isVideo ? (
-            <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} className="w-full max-h-[600px]" objectFit="contain" />
+            <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} className="w-full max-h-[600px]" objectFit="contain" feature={imageFeature} />
           ) : (
-            <img src={post.media_url} alt="" className="w-full max-h-[600px] object-cover" loading="lazy" />
+            resolvedMediaUrl ? <img src={resolvedMediaUrl} alt="" className="w-full max-h-[600px] object-cover" loading="lazy" /> : <div className="w-full h-64 bg-muted animate-pulse" />
           )}
           {heartBurst && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -223,7 +227,7 @@ export function CommentsSheet({ postId, onClose, onCountChange }: { postId: stri
             <div key={c.id} className="flex gap-3">
               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold overflow-hidden shrink-0">
                 {c.author?.avatar_url
-                  ? <img src={c.author.avatar_url} className="w-full h-full object-cover" />
+                  ? <ProfileAvatar url={c.author.avatar_url} className="w-full h-full object-cover" />
                   : (c.author?.username ?? "?").slice(0, 1).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">

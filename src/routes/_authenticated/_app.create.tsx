@@ -71,17 +71,20 @@ function CreatePage() {
         const prepared = isVideo ? file : await optimizeImage(file);
         const uploaded = isVideo
           ? await uploadVideo({ feature: "story", file, userId: user.id, entityType: "story", onProgress: setProgress })
-          : { ...(await uploadFile({ feature: "story", file: prepared, userId: user.id, entityType: "story", onProgress: setProgress })), thumbnailUrl: null };
+          : { ...(await uploadFile({ feature: "story", file: prepared, userId: user.id, entityType: "story", onProgress: setProgress })), thumbnailPath: null };
         const { error } = await supabase.from("stories").insert({
           user_id: user.id,
-          media_url: uploaded.url,
+          media_url: uploaded.path,
           media_type: isVideo ? "video" : "image",
-          thumbnail_url: uploaded.thumbnailUrl,
+          thumbnail_url: uploaded.thumbnailPath,
           caption: caption.trim() || null,
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
         if (error) {
           await deleteFile("story", uploaded.path).catch(() => undefined);
+          if (uploaded.thumbnailPath) {
+            await deleteFile("thumbnail", uploaded.thumbnailPath).catch(() => undefined);
+          }
           throw new Error(`Story record failed: ${error.message}${error.code ? ` (${error.code})` : ""}`);
         }
         toast.success("Story shared — it disappears in 24 hours");
@@ -89,8 +92,8 @@ function CreatePage() {
         return;
       }
 
-      let mediaUrl: string | null = null;
-      let thumbnailUrl: string | null = null;
+      let mediaPath: string | null = null;
+      let thumbnailPath: string | null = null;
       if (file) {
         const feature = featureForMedia(file, "post");
         if (file.type.startsWith("video/")) {
@@ -101,8 +104,8 @@ function CreatePage() {
             entityType: "post",
             onProgress: setProgress,
           });
-          mediaUrl = uploaded.url;
-          thumbnailUrl = uploaded.thumbnailUrl;
+          mediaPath = uploaded.path;
+          thumbnailPath = uploaded.thumbnailPath;
         } else {
           const prepared = await optimizeImage(file);
           const uploaded = await uploadFile({
@@ -112,17 +115,28 @@ function CreatePage() {
             entityType: "post",
             onProgress: setProgress,
           });
-          mediaUrl = uploaded.url;
+          mediaPath = uploaded.path;
         }
       }
       const { error } = await supabase.from("posts").insert({
         author_id: user.id,
         post_type: type,
         caption: caption.trim() || null,
-        media_url: mediaUrl,
-        thumbnail_url: thumbnailUrl,
+        media_url: mediaPath,
+        thumbnail_url: thumbnailPath,
       });
-      if (error) throw error;
+      if (error) {
+        if (file) {
+          const feature = featureForMedia(file, "post");
+          if (mediaPath) {
+            await deleteFile(feature, mediaPath).catch(() => undefined);
+          }
+          if (thumbnailPath) {
+            await deleteFile("thumbnail", thumbnailPath).catch(() => undefined);
+          }
+        }
+        throw error;
+      }
 
       toast.success("Posted!");
       navigate({ to: "/home" });

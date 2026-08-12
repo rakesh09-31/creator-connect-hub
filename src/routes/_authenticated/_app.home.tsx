@@ -5,6 +5,7 @@ import { PostCard } from "@/components/PostCard";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 export const Route = createFileRoute("/_authenticated/_app/home")({
   head: () => ({ meta: [{ title: "Home — Omnicraft" }] }),
@@ -324,7 +325,7 @@ function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, onOpen }
       <div className={`relative w-14 h-14 rounded-full p-[2px] ${ring}`}>
         <div className="w-full h-full rounded-full bg-surface p-[2px]">
           {avatarUrl ? (
-            <img src={avatarUrl} className="w-full h-full rounded-full object-cover" />
+            <ProfileAvatar url={avatarUrl} className="w-full h-full rounded-full object-cover" />
           ) : (
             <div className="w-full h-full rounded-full bg-muted flex items-center justify-center text-foreground text-sm font-semibold">
               {initial}

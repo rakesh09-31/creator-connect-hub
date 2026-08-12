@@ -283,11 +283,51 @@ export function parseStorageUrl(url: string): { feature: StorageFeature; path: s
   return null;
 }
 
+/** Parses either a raw storage path (e.g. users/xyz/post/...) or a full URL. */
+export function parseStoragePathOrUrl(pathOrUrl: string): { feature: StorageFeature; path: string } | null {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.includes("://") || pathOrUrl.startsWith("blob:")) {
+    return parseStorageUrl(pathOrUrl);
+  }
+  const parts = pathOrUrl.split("/");
+  if (parts[0] === "conversations") {
+    return { feature: "chatMedia", path: pathOrUrl };
+  }
+  if (parts[0] === "users" && parts[2]) {
+    const featureOrSubfolder = parts[2];
+    const entries = Object.entries(STORAGE_BUCKETS) as [StorageFeature, BucketConfig][];
+    let match = entries.find(([, c]) => c.subfolder === featureOrSubfolder);
+    if (match) return { feature: match[0], path: pathOrUrl };
+    match = entries.find(([f]) => f === featureOrSubfolder);
+    if (match) return { feature: match[0], path: pathOrUrl };
+  }
+  return null;
+}
+
 /** Refresh a possibly-expired signed URL that was stored in the database. */
 export async function refreshUrl(url: string): Promise<string> {
-  const parsed = parseStorageUrl(url);
+  const parsed = parseStoragePathOrUrl(url);
   if (!parsed) return url;
   return getDisplayUrl(parsed.feature, parsed.path);
+}
+
+/**
+ * Resolves a storage path or full URL into a playable/displayable URL.
+ * Works with both raw storage paths and legacy signed/public URLs.
+ */
+export async function getMediaUrl(
+  feature: StorageFeature,
+  pathOrUrl: string | null | undefined
+): Promise<string> {
+  if (!pathOrUrl) return "";
+  const parsed = parseStoragePathOrUrl(pathOrUrl);
+  if (parsed) {
+    return (await getDisplayUrl(parsed.feature, parsed.path)) ?? pathOrUrl;
+  }
+  if (pathOrUrl.includes("://") || pathOrUrl.startsWith("blob:")) {
+    return pathOrUrl;
+  }
+  return (await getDisplayUrl(feature, pathOrUrl)) ?? "";
 }
 
 /* -------------------------------------------------- upload */
@@ -451,9 +491,9 @@ export async function deleteFile(feature: StorageFeature, path: string): Promise
   await supabase.from("file_uploads").delete().eq("bucket_name", cfg.bucket).eq("file_path", path);
 }
 
-/** Delete by the URL stored in the database. */
+/** Delete by the URL or storage path stored in the database. */
 export async function deleteByUrl(url: string): Promise<void> {
-  const parsed = parseStorageUrl(url);
+  const parsed = parseStoragePathOrUrl(url);
   if (!parsed) return;
   await deleteFile(parsed.feature, parsed.path);
 }

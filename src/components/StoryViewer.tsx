@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
 
 export type Story = {
   id: string;
@@ -49,6 +50,9 @@ export function StoryViewer({
 
   const group = groups[gi];
   const story = group?.stories[si];
+
+  const { resolvedUrl: resolvedMediaUrl } = useMediaUrl("story", story?.media_url);
+  const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", story?.thumbnail_url);
 
   const next = () => {
     setProgress(0);
@@ -145,24 +149,36 @@ export function StoryViewer({
         </div>
 
         {story.media_type === "video" ? (
-          <video
-            key={story.id}
-            src={story.media_url}
-            poster={story.thumbnail_url ?? undefined}
-            className="w-full h-full object-contain"
-            autoPlay
-            muted
-            preload="auto"
-            playsInline
-            controls={false}
-            onTimeUpdate={(e) => {
-              const v = e.currentTarget;
-              if (v.duration) setProgress((v.currentTime / v.duration) * 100);
-            }}
-            onEnded={next}
-          />
+          resolvedMediaUrl ? (
+            <video
+              key={story.id}
+              src={resolvedMediaUrl}
+              poster={resolvedPosterUrl ?? undefined}
+              className="w-full h-full object-contain"
+              autoPlay
+              muted
+              preload="auto"
+              playsInline
+              controls={false}
+              onTimeUpdate={(e) => {
+                const v = e.currentTarget;
+                if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+              }}
+              onEnded={next}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-black">
+              <span className="text-white/50 text-sm animate-pulse">Loading video...</span>
+            </div>
+          )
         ) : (
-          <img key={story.id} src={story.media_url} alt="" className="w-full h-full object-contain" />
+          resolvedMediaUrl ? (
+            <img key={story.id} src={resolvedMediaUrl} alt="" className="w-full h-full object-contain" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-black">
+              <span className="text-white/50 text-sm animate-pulse">Loading image...</span>
+            </div>
+          )
         )}
 
         {story.caption && (
