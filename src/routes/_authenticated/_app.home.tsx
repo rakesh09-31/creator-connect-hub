@@ -6,6 +6,7 @@ import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryView
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { useMediaUrl } from "@/hooks/useMediaUrl";
 
 export const Route = createFileRoute("/_authenticated/_app/home")({
   head: () => ({ meta: [{ title: "Home — Omnicraft" }] }),
@@ -152,7 +153,8 @@ function HomePage() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    (async () => {
+
+    const loadStories = async () => {
       const ids = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
       const { data, error } = await supabase
         .from("stories")
@@ -188,8 +190,20 @@ function HomePage() {
           };
         });
       setStoryGroups(groups);
-    })();
-    return () => { cancelled = true; };
+    };
+
+    void loadStories();
+
+    const channel = supabase.channel("stories_row_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => {
+        void loadStories();
+      })
+      .subscribe();
+
+    return () => { 
+      cancelled = true; 
+      void supabase.removeChannel(channel);
+    };
   }, [user, following, profile?.username, profile?.full_name, profile?.avatar_url]);
 
   const groupIndexFor = (userId: string) => storyGroups.findIndex((g) => g.userId === userId);
@@ -240,21 +254,27 @@ function HomePage() {
             avatarUrl={profile?.avatar_url ?? null}
             you
             hasStory={groupIndexFor(user?.id ?? "") >= 0}
+            previewStory={storyGroups.find((g) => g.userId === user?.id)?.stories.slice(-1)[0]}
             onOpen={groupIndexFor(user?.id ?? "") >= 0 ? () => openStories(user!.id) : undefined}
             linkTo={groupIndexFor(user?.id ?? "") >= 0 ? undefined : "/create?type=story"}
           />
-          {[...following]
-            .sort((a, b) => (groupIndexFor(b.id) >= 0 ? 1 : 0) - (groupIndexFor(a.id) >= 0 ? 1 : 0))
-            .map((p) => {
-              const hasStory = groupIndexFor(p.id) >= 0;
+          {[...storyGroups]
+            .filter((g) => g.userId !== user?.id)
+            .sort((a, b) => {
+              const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
+              const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
+              return latestB - latestA;
+            })
+            .map((g) => {
               return (
                 <StoryItem
-                  key={p.id}
-                  label={p.full_name || p.username}
-                  username={p.username}
-                  avatarUrl={p.avatar_url}
-                  hasStory={hasStory}
-                  onOpen={hasStory ? () => openStories(p.id) : undefined}
+                  key={g.userId}
+                  label={g.fullName || g.username}
+                  username={g.username}
+                  avatarUrl={g.avatarUrl}
+                  hasStory={true}
+                  previewStory={g.stories[g.stories.length - 1]}
+                  onOpen={() => openStories(g.userId)}
                 />
               );
             })}
@@ -323,9 +343,38 @@ function HomePage() {
   );
 }
 
-function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, onOpen }: {
+function StoryPreviewThumbnail({ story, avatarUrl, initial }: { story?: Story, avatarUrl: string | null, initial: string }) {
+  const isVideo = story?.media_type === "video";
+  const path = isVideo && story?.thumbnail_url ? story.thumbnail_url : story?.media_url;
+  const { resolvedUrl } = useMediaUrl("story", path);
+
+  if (story && !resolvedUrl) {
+    return <div className="w-full h-full rounded-full bg-muted animate-pulse" />;
+  }
+
+  if (story && resolvedUrl) {
+    if (isVideo && !story.thumbnail_url) {
+      return (
+        <video src={resolvedUrl} className="w-full h-full rounded-full object-cover" preload="metadata" muted playsInline />
+      );
+    }
+    return <img src={resolvedUrl} alt="Story preview" className="w-full h-full rounded-full object-cover" />;
+  }
+
+  if (avatarUrl) {
+    return <ProfileAvatar url={avatarUrl} className="w-full h-full rounded-full object-cover" />;
+  }
+
+  return (
+    <div className="w-full h-full rounded-full bg-muted flex items-center justify-center text-foreground text-sm font-semibold">
+      {initial}
+    </div>
+  );
+}
+
+function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, previewStory, onOpen }: {
   label: string; username: string; avatarUrl: string | null; you?: boolean;
-  linkTo?: string; hasStory?: boolean; onOpen?: () => void;
+  linkTo?: string; hasStory?: boolean; previewStory?: Story; onOpen?: () => void;
 }) {
   const initial = (username || "?").slice(0, 1).toUpperCase();
   const ring = hasStory
@@ -337,13 +386,7 @@ function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, onOpen }
     <div className="flex-shrink-0 flex flex-col items-center gap-1.5 text-center w-20">
       <div className={`relative w-14 h-14 rounded-full p-[2px] ${ring}`}>
         <div className="w-full h-full rounded-full bg-surface p-[2px]">
-          {avatarUrl ? (
-            <ProfileAvatar url={avatarUrl} className="w-full h-full rounded-full object-cover" />
-          ) : (
-            <div className="w-full h-full rounded-full bg-muted flex items-center justify-center text-foreground text-sm font-semibold">
-              {initial}
-            </div>
-          )}
+          <StoryPreviewThumbnail story={previewStory} avatarUrl={avatarUrl} initial={initial} />
         </div>
         {you && !hasStory && (
           <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand border-2 border-surface flex items-center justify-center">
