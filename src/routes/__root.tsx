@@ -7,11 +7,19 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { App as CapacitorApp } from "@capacitor/app";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider, themeInitScript } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
+
+declare global {
+  interface Window {
+    Capacitor?: any;
+  }
+}
 
 function NotFoundComponent() {
   return (
@@ -108,6 +116,34 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Only run Capacitor specific code if we're in a Capacitor environment
+    // Note: We use try-catch to gracefully degrade if not in a native app
+    try {
+      if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+          if (canGoBack) {
+            window.history.back();
+          } else {
+            CapacitorApp.exitApp();
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Capacitor back button listener error:", e);
+    }
+
+    return () => {
+      try {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+          CapacitorApp.removeAllListeners();
+        }
+      } catch (e) {}
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
