@@ -8,6 +8,10 @@ function createSupabaseClient() {
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env.SUPABASE_URL : undefined);
   const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof process !== 'undefined' ? process.env.SUPABASE_PUBLISHABLE_KEY : undefined);
 
+  // Safe diagnostics for Vercel debugging
+  console.log(`[Supabase Client] URL present: ${!!SUPABASE_URL}`);
+  console.log(`[Supabase Client] Publishable key present: ${!!SUPABASE_PUBLISHABLE_KEY}`);
+
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
