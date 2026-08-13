@@ -981,6 +981,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_squad_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      reject_squad_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
       add_client_to_squad_conversation: {
         Args: { _client_id: string; _squad_id: string }
         Returns: string

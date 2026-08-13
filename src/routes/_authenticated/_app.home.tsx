@@ -66,6 +66,7 @@ function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [maxVisibleSlots, setMaxVisibleSlots] = useState(6);
   const [suggestedProfiles, setSuggestedProfiles] = useState<Profile[]>([]);
+  const [usersWithActiveStories, setUsersWithActiveStories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -165,12 +166,18 @@ function HomePage() {
 
       // Fetch a few random suggestions, just in case feed is empty
       const excludeIds = [...followIds, user.id];
-      const { data: suggestions } = await supabase
+      let query = supabase
         .from("profiles")
         .select("id, username, full_name, avatar_url, role")
         .limit(20);
       
-      const unfollowed = ((suggestions as Profile[]) ?? []).filter(p => !excludeIds.includes(p.id));
+      if (excludeIds.length > 0) {
+        query = query.not("id", "in", `(${excludeIds.join(",")})`);
+      }
+      
+      const { data: suggestions } = await query;
+      
+      const unfollowed = ((suggestions as Profile[]) ?? []);
       setSuggestedProfiles(unfollowed);
 
       setLoading(false);
@@ -218,7 +225,12 @@ function HomePage() {
 
       // 2. Fetch Stories
       const baseIds = Array.from(new Set([user.id, ...following.map((p) => p.id)]));
-      const ids = adminId ? Array.from(new Set([...baseIds, adminId])) : baseIds;
+      const candidateIds = Array.from(new Set([
+        ...posts.map((p) => p.author_id),
+        ...suggestedProfiles.map((p) => p.id)
+      ])).filter((id): id is string => !!id && !baseIds.includes(id));
+
+      const ids = Array.from(new Set([...baseIds, ...candidateIds, adminId].filter((id): id is string => !!id)));
 
       const { data, error } = await supabase
         .from("stories")
@@ -242,7 +254,11 @@ function HomePage() {
         if (adminId && id === adminId) return { username: adminProf?.username ?? "Omnicraft", full_name: adminProf?.full_name ?? "Omnicraft Official", avatar_url: adminProf?.avatar_url ?? null };
         return following.find((p) => p.id === id);
       };
-      const groups: StoryGroup[] = ids
+
+      setUsersWithActiveStories(new Set(Array.from(byUser.keys())));
+
+      const activeIdsForRow = new Set([...baseIds, adminId].filter((id): id is string => !!id));
+      const groups: StoryGroup[] = Array.from(activeIdsForRow)
         .filter((id) => (byUser.get(id) ?? []).length > 0)
         .map((id) => {
           const p = profileFor(id);
@@ -269,7 +285,7 @@ function HomePage() {
       cancelled = true; 
       void supabase.removeChannel(channel);
     };
-  }, [user, following, profile?.username, profile?.full_name, profile?.avatar_url]);
+  }, [user, following, profile?.username, profile?.full_name, profile?.avatar_url, posts, suggestedProfiles]);
 
   const groupIndexFor = (userId: string) => storyGroups.findIndex((g) => g.userId === userId);
   const openStories = (userId: string) => {
@@ -359,7 +375,7 @@ function HomePage() {
                   ...posts.map((p) => p.author).filter(Boolean),
                   ...suggestedProfiles
                 ]
-                  .filter((p) => p && p.id !== user?.id && !followIds.has(p.id) && groupIndexFor(p.id) < 0)
+                  .filter((p) => p && p.id !== user?.id && !followIds.has(p.id) && !usersWithActiveStories.has(p.id))
                   .map((p) => [p!.id, p!])
               ).values()
             );
