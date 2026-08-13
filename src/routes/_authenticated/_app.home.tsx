@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Briefcase, Plus, UserPlus, ArrowRight } from "lucide-react";
 import { PostCard } from "@/components/PostCard";
@@ -63,6 +63,22 @@ function HomePage() {
   const [loading, setLoading] = useState(true);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [maxVisibleSlots, setMaxVisibleSlots] = useState(6);
+  const [suggestedProfiles, setSuggestedProfiles] = useState<Profile[]>([]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // 80px width + 12px gap = 92px
+        const slots = Math.max(1, Math.floor(entry.contentRect.width / 92));
+        setMaxVisibleSlots(slots);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -146,6 +162,17 @@ function HomePage() {
         list.forEach((p) => (p.author = map.get(p.author_id)));
       }
       setPosts(list);
+
+      // Fetch a few random suggestions, just in case feed is empty
+      const excludeIds = [...followIds, user.id];
+      const { data: suggestions } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url, role")
+        .limit(20);
+      
+      const unfollowed = ((suggestions as Profile[]) ?? []).filter(p => !excludeIds.includes(p.id));
+      setSuggestedProfiles(unfollowed);
+
       setLoading(false);
     })();
   }, [user]);
@@ -296,7 +323,7 @@ function HomePage() {
             Discover <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div ref={containerRef} className="flex items-center gap-3 overflow-x-auto pb-2 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <StoryItem
             label="Your story"
             username={profile?.username ?? ""}
@@ -319,25 +346,26 @@ function HomePage() {
                 // Admin always first
                 if (adminId && a.userId === adminId) return -1;
                 if (adminId && b.userId === adminId) return 1;
-                const latestA = new Date(a.stories[a.stories.length - 1].created_at).getTime();
-                const latestB = new Date(b.stories[b.stories.length - 1].created_at).getTime();
+                const latestA = new Date(a.stories[a.stories.length - 1].created_at || 0).getTime();
+                const latestB = new Date(b.stories[b.stories.length - 1].created_at || 0).getTime();
                 return latestB - latestA;
               });
 
             // 2. Fallbacks
-            const followingNoStory = following.filter((p) => groupIndexFor(p.id) < 0);
             const followIds = new Set(following.map((p) => p.id));
             const suggestedNoStory = Array.from(
               new Map(
-                posts
-                  .filter((p) => p.author && p.author.id !== user?.id && !followIds.has(p.author.id) && groupIndexFor(p.author.id) < 0)
-                  .map((p) => [p.author!.id, p.author!])
+                [
+                  ...posts.map((p) => p.author).filter(Boolean),
+                  ...suggestedProfiles
+                ]
+                  .filter((p) => p && p.id !== user?.id && !followIds.has(p.id) && groupIndexFor(p.id) < 0)
+                  .map((p) => [p!.id, p!])
               ).values()
             );
 
             // 3. Apply limits
-            const MAX_TOTAL_OTHERS = 5; // Total 6 including "Your story"
-            const activeSlots = otherActive.slice(0, MAX_TOTAL_OTHERS);
+            const activeSlots = otherActive;
             
             const renderedElements = [];
             
@@ -356,24 +384,14 @@ function HomePage() {
               );
             }
 
-            // Fill remaining with fallbacks (max 2 fallbacks)
-            if (renderedElements.length < MAX_TOTAL_OTHERS) {
-              const needed = MAX_TOTAL_OTHERS - renderedElements.length;
-              const fallbacksToAdd = Math.min(needed, 2);
+            // Calculate available slots in viewport
+            // maxVisibleSlots - 1 (for "Your story") - activeSlots.length
+            const availableViewportSlots = Math.max(0, maxVisibleSlots - 1 - activeSlots.length);
+            
+            if (availableViewportSlots > 0) {
+              // Rule 7, 8: Use up to 3 "+" suggestions only when there are available spaces
+              const fallbacksToAdd = Math.min(availableViewportSlots, 3);
               let added = 0;
-
-              for (const p of followingNoStory) {
-                if (added >= fallbacksToAdd) break;
-                renderedElements.push(
-                  <StoryItem
-                    key={p.id}
-                    label={p.full_name || p.username}
-                    username={p.username}
-                    avatarUrl={p.avatar_url}
-                  />
-                );
-                added++;
-              }
 
               for (const p of suggestedNoStory) {
                 if (added >= fallbacksToAdd) break;
