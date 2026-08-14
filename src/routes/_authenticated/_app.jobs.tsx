@@ -464,6 +464,7 @@ function CreatorsPanel() {
   const [q, setQ] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(profile?.client_field ?? "");
   const [reqTarget, setReqTarget] = useState<CreatorProfile | null>(null);
+  const [inviteTarget, setInviteTarget] = useState<CreatorProfile | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -647,6 +648,7 @@ function CreatorsPanel() {
       )}
 
       {reqTarget && <RequestCreatorModal creator={reqTarget} onClose={() => setReqTarget(null)} />}
+      {inviteTarget && <InviteToJobModal creator={inviteTarget} onClose={() => setInviteTarget(null)} />}
     </div>
   );
 }
@@ -714,32 +716,53 @@ function RequestCreatorModal({ creator, onClose }: { creator: CreatorProfile; on
 function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { user } = useAuth();
   const [form, setForm] = useState({
-    title: "", description: "", category: "", location: "", budget: "",
-    company_name: "", skills: "", experience_level: "Intermediate", duration: "", deadline: "",
+    title: "", description: "", location: "", budget: "",
+    company_name: "", experience_level: "Intermediate", duration: "", deadline: "",
   });
+  const [roles, setRoles] = useState<{id: string, name: string}[]>([]);
+  const [skills, setSkills] = useState<{id: string, name: string}[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: r }, { data: s }] = await Promise.all([
+        supabase.from("professional_roles").select("id, name").eq("is_custom", false),
+        supabase.from("skills").select("id, name").eq("is_custom", false)
+      ]);
+      if (r) setRoles(r);
+      if (s) setSkills(s);
+    })();
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description required"); return; }
+    if (selectedRoles.length === 0) { toast.error("Please select at least one role"); return; }
     setBusy(true);
     const payload: any = {
       client_id: user.id,
       title: form.title.trim(),
       description: form.description.trim(),
-      category: form.category.trim() || null,
       location: form.location.trim() || null,
       budget: form.budget.trim() || null,
       company_name: form.company_name.trim() || null,
       experience_level: form.experience_level || null,
       duration: form.duration.trim() || null,
       deadline: form.deadline || null,
-      skills_required: form.skills.split(",").map((s) => s.trim()).filter(Boolean),
     };
-    const { error } = await supabase.from("jobs").insert(payload);
+    const { data: job, error } = await supabase.from("jobs").insert(payload).select("id").single();
+    if (error) { toast.error(error.message); setBusy(false); return; }
+    
+    if (selectedRoles.length > 0) {
+      await supabase.from("job_roles").insert(selectedRoles.map(rid => ({ job_id: job.id, role_id: rid })));
+    }
+    if (selectedSkills.length > 0) {
+      await supabase.from("job_skills").insert(selectedSkills.map(sid => ({ job_id: job.id, skill_id: sid })));
+    }
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
     toast.success("Project posted");
     onCreated();
   };
@@ -748,10 +771,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     <Modal onClose={onClose} title="Post a brief">
       <form onSubmit={submit} className="space-y-3">
         <Input placeholder="Job title (e.g. Need Instagram Reel Editor)" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
-        <div className="grid grid-cols-2 gap-3">
-          <Input placeholder="Company / brand name" value={form.company_name} onChange={(v) => setForm({ ...form, company_name: v })} />
-          <Input placeholder="Category (Video, Design…)" value={form.category} onChange={(v) => setForm({ ...form, category: v })} />
-        </div>
+        <Input placeholder="Company / brand name" value={form.company_name} onChange={(v) => setForm({ ...form, company_name: v })} />
         <textarea
           placeholder="Project description, deliverables, references…"
           value={form.description}
@@ -759,7 +779,30 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           rows={5}
           className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm resize-none"
         />
-        <Input placeholder="Required skills, comma separated (Premiere Pro, After Effects)" value={form.skills} onChange={(v) => setForm({ ...form, skills: v })} />
+        <div>
+          <label className="block text-xs font-semibold text-muted-foreground mb-1">Required Roles</label>
+          <div className="flex flex-wrap gap-1 border border-border p-2 rounded-lg bg-surface max-h-32 overflow-y-auto">
+            {roles.map(r => (
+              <button key={r.id} type="button" 
+                onClick={() => setSelectedRoles(prev => prev.includes(r.id) ? prev.filter(id => id !== r.id) : [...prev, r.id])}
+                className={`px-2 py-1 text-xs rounded-full ${selectedRoles.includes(r.id) ? 'bg-brand text-white' : 'bg-muted text-foreground'}`}>
+                {r.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-muted-foreground mb-1">Required Skills</label>
+          <div className="flex flex-wrap gap-1 border border-border p-2 rounded-lg bg-surface max-h-32 overflow-y-auto">
+            {skills.map(s => (
+              <button key={s.id} type="button" 
+                onClick={() => setSelectedSkills(prev => prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id])}
+                className={`px-2 py-1 text-xs rounded-full ${selectedSkills.includes(s.id) ? 'bg-brand text-white' : 'bg-muted text-foreground'}`}>
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Input placeholder="Budget (e.g. ₹10,000)" value={form.budget} onChange={(v) => setForm({ ...form, budget: v })} />
           <Input placeholder="Duration (e.g. 30 days)" value={form.duration} onChange={(v) => setForm({ ...form, duration: v })} />
@@ -877,5 +920,71 @@ function Modal({ children, onClose, title }: { children: React.ReactNode; onClos
         {children}
       </div>
     </div>
+  );
+}
+
+
+function InviteToJobModal({ creator, onClose }: { creator: CreatorProfile; onClose: () => void }) {
+  const { user } = useAuth();
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase.from("jobs").select("*").eq("client_id", user.id).eq("status", "open").order("created_at", { ascending: false });
+      setJobs(data || []);
+      setLoading(false);
+    })();
+  }, [user]);
+
+  const handleInvite = async (job: any) => {
+    if (!user) return;
+    setBusy(true);
+    
+    const { error } = await supabase.from("notifications").insert({
+      user_id: creator.id,
+      actor_id: user.id,
+      type: "job_invite",
+      entity_type: "job",
+      entity_id: job.id,
+      read: false
+    });
+    
+    setBusy(false);
+    if (error) {
+      toast.error("Failed to send invite: " + error.message);
+    } else {
+      toast.success(`Invited @${creator.username} to ${job.title}`);
+      onClose();
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} title={`Invite @${creator.username} to a Brief`}>
+      {loading ? (
+        <div className="py-8 text-center text-muted-foreground text-sm">Loading your briefs...</div>
+      ) : jobs.length === 0 ? (
+        <div className="py-8 text-center text-muted-foreground text-sm">You don't have any open briefs.</div>
+      ) : (
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+          {jobs.map(j => (
+            <div key={j.id} className="p-3 border border-border rounded-xl flex justify-between items-center gap-3 hover:bg-surface">
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">{j.title}</p>
+                <p className="text-xs text-muted-foreground truncate">{j.budget ? j.budget : "Unpaid/Negotiable"}</p>
+              </div>
+              <button 
+                onClick={() => handleInvite(j)}
+                disabled={busy}
+                className="px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-semibold whitespace-nowrap disabled:opacity-50">
+                Invite
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }

@@ -14,6 +14,208 @@ export type Database = {
   }
   public: {
     Tables: {
+
+      client_roles: {
+        Row: {
+          client_id: string
+          role_id: string
+        }
+        Insert: {
+          client_id: string
+          role_id: string
+        }
+        Update: {
+          client_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_roles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "professional_roles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      creator_roles: {
+        Row: {
+          creator_id: string
+          role_id: string
+        }
+        Insert: {
+          creator_id: string
+          role_id: string
+        }
+        Update: {
+          creator_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_roles_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "professional_roles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      creator_skills: {
+        Row: {
+          creator_id: string
+          skill_id: string
+        }
+        Insert: {
+          creator_id: string
+          skill_id: string
+        }
+        Update: {
+          creator_id?: string
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_skills_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      job_roles: {
+        Row: {
+          job_id: string
+          role_id: string
+        }
+        Insert: {
+          job_id: string
+          role_id: string
+        }
+        Update: {
+          job_id?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_roles_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "professional_roles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      job_skills: {
+        Row: {
+          job_id: string
+          skill_id: string
+        }
+        Insert: {
+          job_id: string
+          skill_id: string
+        }
+        Update: {
+          job_id?: string
+          skill_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_skills_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      professional_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_custom: boolean | null
+          name: string
+          role_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_custom?: boolean | null
+          name: string
+          role_type: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_custom?: boolean | null
+          name?: string
+          role_type?: string
+        }
+        Relationships: []
+      }
+      skills: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_custom: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_custom?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_custom?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
       conversation_members: {
         Row: {
           archived: boolean
@@ -638,6 +840,10 @@ export type Database = {
           cover_url: string | null
           created_at: string
           full_name: string | null
+          account_type: string | null
+          availability: string | null
+          experience_level: string | null
+          experience_years: number | null
           id: string
           languages: string[] | null
           location: string | null
@@ -663,7 +869,11 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           full_name?: string | null
-          id: string
+          account_type?: string | null
+          availability?: string | null
+          experience_level?: string | null
+          experience_years?: number | null
+          id?: string
           languages?: string[] | null
           location?: string | null
           onboarded?: boolean
@@ -688,6 +898,10 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           full_name?: string | null
+          account_type?: string | null
+          availability?: string | null
+          experience_level?: string | null
+          experience_years?: number | null
           id?: string
           languages?: string[] | null
           location?: string | null

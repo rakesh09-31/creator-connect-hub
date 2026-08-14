@@ -431,6 +431,10 @@ function HomePage() {
 
       </section>
 
+      {/* Recommendations */}
+      {user && isCreator && <RecommendedJobs userId={user.id} />}
+      {user && profile?.role === 'client' && <RecommendedCreators userId={user.id} />}
+      
       {/* Feed */}
       {loading ? (
         <div className="space-y-3">
@@ -557,3 +561,113 @@ function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, previewS
 
 }
 
+
+
+// --- Recommendation Components ---
+
+function RecommendedJobs({ userId }: { userId: string }) {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: recs, error } = await supabase.rpc('get_recommended_jobs_for_creator', { p_creator_id: userId, p_limit: 5 });
+      if (recs && recs.length > 0) {
+        const jobIds = recs.map((r: any) => r.job_id);
+        const { data: jobDetails } = await supabase.from("jobs").select("*").in("id", jobIds);
+        if (jobDetails) {
+          // Sort by match_score descending
+          const sortedJobs = jobDetails.map(j => {
+            const rec = recs.find((r: any) => r.job_id === j.id);
+            return { ...j, match_score: rec?.match_score || 0 };
+          }).sort((a, b) => b.match_score - a.match_score);
+          setJobs(sortedJobs);
+        }
+      }
+      setLoading(false);
+    })();
+  }, [userId]);
+
+  if (loading) return null;
+  if (jobs.length === 0) return null;
+
+  return (
+    <section className="mt-4 mb-2">
+      <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-1">
+        ✨ Recommended Briefs for You
+      </h2>
+      <div className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
+        {jobs.map(job => (
+          <Link key={job.id} to="/jobs" className="min-w-[240px] p-3 rounded-xl border border-border bg-surface hover:border-brand/40 transition shrink-0 block">
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-semibold text-sm truncate pr-2">{job.title}</h3>
+              <span className="text-[10px] font-bold text-brand bg-brand-soft px-1.5 py-0.5 rounded">{job.match_score}% Match</span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">{job.company_name || 'Anonymous'}</p>
+            <div className="mt-3 flex gap-2">
+              {job.budget && <span className="text-xs font-medium px-2 py-1 bg-muted rounded-md">{job.budget}</span>}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecommendedCreators({ userId }: { userId: string }) {
+  const [creators, setCreators] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [jobTitle, setJobTitle] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      // Get the latest open job for this client
+      const { data: jobs } = await supabase.from("jobs").select("id, title").eq("client_id", userId).eq("status", "open").order("created_at", { ascending: false }).limit(1);
+      
+      if (jobs && jobs.length > 0) {
+        const job = jobs[0];
+        setJobTitle(job.title);
+        
+        const { data: recs } = await supabase.rpc('get_recommended_creators_for_job', { p_job_id: job.id, p_limit: 5 });
+        if (recs && recs.length > 0) {
+          const creatorIds = recs.map((r: any) => r.creator_id);
+          const { data: profs } = await supabase.from("profiles").select("id, username, full_name, avatar_url, bio, account_type, experience_level").in("id", creatorIds);
+          if (profs) {
+            const sorted = profs.map(p => {
+              const rec = recs.find((r: any) => r.creator_id === p.id);
+              return { ...p, match_score: rec?.match_score || 0 };
+            }).sort((a, b) => b.match_score - a.match_score);
+            setCreators(sorted);
+          }
+        }
+      }
+      setLoading(false);
+    })();
+  }, [userId]);
+
+  if (loading) return null;
+  if (creators.length === 0) return null;
+
+  return (
+    <section className="mt-4 mb-2">
+      <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-1">
+        ✨ Top Matches for: <span className="text-muted-foreground font-medium truncate max-w-[150px] inline-block align-bottom">{jobTitle}</span>
+      </h2>
+      <div className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
+        {creators.map(c => (
+          <Link key={c.id} to="/user/$username" params={{ username: c.username }} className="w-[160px] p-3 rounded-xl border border-border bg-surface hover:border-brand/40 transition shrink-0 flex flex-col items-center text-center">
+            <div className="relative mb-2">
+              <ProfileAvatar url={c.avatar_url} className="w-12 h-12 rounded-full" />
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-surface rounded-full">
+                <span className="text-[9px] font-bold text-brand bg-brand-soft px-1.5 py-0.5 rounded-full whitespace-nowrap">{c.match_score}% Match</span>
+              </div>
+            </div>
+            <h3 className="font-semibold text-sm truncate w-full mt-1">{c.full_name || c.username}</h3>
+            <p className="text-xs text-muted-foreground truncate w-full mb-2">@{c.username}</p>
+            {c.experience_level && <span className="text-[10px] font-medium px-2 py-0.5 bg-muted rounded-md">{c.experience_level}</span>}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}

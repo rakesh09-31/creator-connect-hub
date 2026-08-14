@@ -70,6 +70,8 @@ function labelFor(n: Notif) {
       return `Your application for ${n.data?.job_title ?? "a brief"} was accepted 🎉`;
     case "job_application_rejected":
       return `Your application for ${n.data?.job_title ?? "a brief"} was not selected`;
+    case "job_invite":
+      return `${name} invited you to a brief`;
     default:
       return `${name} · ${n.type}`;
   }

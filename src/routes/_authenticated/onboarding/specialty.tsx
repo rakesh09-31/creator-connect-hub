@@ -1,148 +1,443 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  Pencil, Video, Film, Music, Camera, Palette, Code, PenTool, Mic, Radio,
-  Laptop, Smartphone, Globe, Layout, Scissors, ArrowRight, Search, Plus, X,
-} from "lucide-react";
+import { ArrowRight, Search, Plus, X, Star, Clock, Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/onboarding/specialty")({
-  component: SpecialtyPage,
+  component: CreatorOnboardingPage,
 });
 
-const SPECIALTIES = [
-  { id: "Content Writer", icon: Pencil, color: "from-blue-500 to-cyan-500" },
-  { id: "Videographer", icon: Video, color: "from-red-500 to-pink-500" },
-  { id: "Video Editor", icon: Film, color: "from-purple-500 to-indigo-500" },
-  { id: "Actor", icon: Film, color: "from-orange-500 to-red-500" },
-  { id: "Dancer", icon: Music, color: "from-pink-500 to-rose-500" },
-  { id: "Choreographer", icon: Music, color: "from-fuchsia-500 to-purple-500" },
-  { id: "Photographer", icon: Camera, color: "from-yellow-500 to-orange-500" },
-  { id: "Graphic Designer", icon: Palette, color: "from-green-500 to-teal-500" },
-  { id: "UI/UX Designer", icon: Layout, color: "from-indigo-500 to-blue-500" },
-  { id: "Web Developer", icon: Code, color: "from-cyan-500 to-blue-500" },
-  { id: "Mobile Developer", icon: Smartphone, color: "from-violet-500 to-purple-500" },
-  { id: "Illustrator", icon: PenTool, color: "from-rose-500 to-pink-500" },
-  { id: "Voice Artist", icon: Mic, color: "from-amber-500 to-orange-500" },
-  { id: "Podcaster", icon: Radio, color: "from-emerald-500 to-green-500" },
-  { id: "Animator", icon: Film, color: "from-teal-500 to-cyan-500" },
-  { id: "3D Artist", icon: Laptop, color: "from-purple-500 to-pink-500" },
-  { id: "Social Media Manager", icon: Globe, color: "from-blue-500 to-indigo-500" },
-  { id: "Photo Editor", icon: Scissors, color: "from-lime-500 to-green-500" },
+type Role = { id: string; name: string; emoji?: string };
+type Skill = { id: string; name: string };
+
+const CURATED_ROLES = [
+  { name: "Actor", emoji: "🎬" },
+  { name: "Dancer", emoji: "💃" },
+  { name: "Video Editor", emoji: "🎥" },
+  { name: "Photographer", emoji: "📸" },
+  { name: "Singer", emoji: "🎤" },
+  { name: "Designer", emoji: "🎨" },
+  { name: "Writer", emoji: "✍️" },
+  { name: "Content Creator", emoji: "📱" },
+  { name: "Voice Artist", emoji: "🎙️" },
 ];
 
-function SpecialtyPage() {
+function CreatorOnboardingPage() {
   const navigate = useNavigate();
   const { user, refresh } = useAuth();
-  const [selected, setSelected] = useState<string[]>([]);
-  const [custom, setCustom] = useState<string[]>([]);
-  const [search, setSearch] = useState("");
-  const [showCustom, setShowCustom] = useState(false);
-  const [customInput, setCustomInput] = useState("");
+  
+  const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
-  const toggle = (id: string) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-  const addCustom = () => {
-    const v = customInput.trim();
-    if (v && !custom.includes(v)) setCustom([...custom, v]);
-    setCustomInput(""); setShowCustom(false);
+  // Data
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
+
+  // State
+  const [selectedRoles, setSelectedRoles] = useState<Role[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<Skill[]>([]);
+  
+  const [searchSkill, setSearchSkill] = useState("");
+  
+  const [customRoleInput, setCustomRoleInput] = useState("");
+  const [customSkillInput, setCustomSkillInput] = useState("");
+  const [showCustomRole, setShowCustomRole] = useState(false);
+  const [showCustomSkill, setShowCustomSkill] = useState(false);
+
+  const [experienceLevel, setExperienceLevel] = useState<string>("");
+  const [experienceYears, setExperienceYears] = useState<string>("");
+
+  useEffect(() => {
+    async function loadData() {
+      const { data: skills } = await supabase.from("skills")
+        .select("id, name")
+        .eq("is_custom", false)
+        .order("name");
+      if (skills) setAvailableSkills(skills);
+    }
+    loadData();
+  }, []);
+
+  const handleAddCustomRole = async () => {
+    if (!customRoleInput.trim() || !user) return;
+    const name = customRoleInput.trim();
+    
+    // First, check if it already exists to avoid unnecessary insert failure
+    const { data: existing } = await supabase.from("professional_roles").select("id, name").ilike("name", name).limit(1).maybeSingle();
+    
+    if (existing) {
+      if (!selectedRoles.find(r => r.id === existing.id)) {
+        setSelectedRoles([...selectedRoles, { ...existing, emoji: "✨" }]);
+      }
+    } else {
+      const { data, error } = await supabase.from("professional_roles")
+        .insert({ name, role_type: "creator", is_custom: true, created_by: user.id })
+        .select("id, name")
+        .single();
+        
+      if (error) {
+        console.error("Failed to add custom role:", error);
+        toast.error(`Error: ${error.message}`);
+        return;
+      } else if (data) {
+        setSelectedRoles([...selectedRoles, { ...data, emoji: "✨" }]);
+      }
+    }
+    setCustomRoleInput("");
+    setShowCustomRole(false);
   };
 
-  const filtered = SPECIALTIES.filter(s => s.id.toLowerCase().includes(search.toLowerCase()));
-  const total = selected.length + custom.length;
+  const handleAddCustomSkill = async () => {
+    if (!customSkillInput.trim() || !user) return;
+    const name = customSkillInput.trim();
+    
+    // First, check if it already exists to avoid unnecessary insert failure
+    const { data: existing } = await supabase.from("skills").select("id, name").ilike("name", name).limit(1).maybeSingle();
+    
+    if (existing) {
+      if (!selectedSkills.find(s => s.id === existing.id)) {
+        setSelectedSkills([...selectedSkills, existing]);
+      }
+    } else {
+      const { data, error } = await supabase.from("skills")
+        .insert({ name, is_custom: true, created_by: user.id })
+        .select("id, name")
+        .single();
+        
+      if (error) {
+        console.error("Failed to add custom skill:", error);
+        toast.error(`Error: ${error.message}`);
+        return;
+      } else if (data) {
+        setSelectedSkills([...selectedSkills, data]);
+        setAvailableSkills([...availableSkills, data]);
+      }
+    }
+    setCustomSkillInput("");
+    setShowCustomSkill(false);
+  };
 
-  const handleContinue = async () => {
-    if (total === 0 || !user) return;
+  const toggleCuratedRole = async (curatedName: string, emoji: string) => {
+    if (!user) return;
+    // Check if it's already selected
+    const existingIndex = selectedRoles.findIndex(r => r.name === curatedName);
+    if (existingIndex >= 0) {
+      setSelectedRoles(selectedRoles.filter((_, i) => i !== existingIndex));
+      return;
+    }
+    
+    // Fetch or create the role in professional_roles
+    let roleId = "";
+    const { data: existingRole } = await supabase.from("professional_roles").select("id").eq("name", curatedName).maybeSingle();
+    if (existingRole) {
+      roleId = existingRole.id;
+    } else {
+      const { data: newRole } = await supabase.from("professional_roles")
+        .insert({ name: curatedName, role_type: "creator", is_custom: false })
+        .select("id")
+        .single();
+      if (newRole) roleId = newRole.id;
+    }
+    
+    if (roleId) {
+      setSelectedRoles([...selectedRoles, { id: roleId, name: curatedName, emoji }]);
+    }
+  };
+
+  const removeRole = (id: string) => {
+    setSelectedRoles(selectedRoles.filter(r => r.id !== id));
+  };
+
+  const toggleSkill = (s: Skill) => {
+    if (selectedSkills.find(x => x.id === s.id)) setSelectedSkills(selectedSkills.filter(x => x.id !== s.id));
+    else setSelectedSkills([...selectedSkills, s]);
+  };
+
+  const handleContinueStep1 = async () => {
+    if (!user) return;
+    if (selectedRoles.length === 0) {
+      toast.error("Please select at least one role to continue.");
+      return;
+    }
     setSaving(true);
     try {
-      const all = [...selected, ...custom];
-      const rows = all.map(specialty => ({ user_id: user.id, specialty }));
-      await supabase.from("creator_specialties").insert(rows);
-      await supabase.from("profiles").update({ onboarded: true }).eq("id", user.id);
+      // Immediately save roles to database so role_count > 0
+      const roleRows = selectedRoles.map(r => ({ creator_id: user.id, role_id: r.id }));
+      await supabase.from("creator_roles").upsert(roleRows, { onConflict: "creator_id,role_id" });
+      
+      // Update profile account_type if it wasn't already set correctly
+      await supabase.from("profiles").update({ account_type: "creator" }).eq("id", user.id);
+      
       await refresh();
-      toast.success("Welcome to Omnicraft!");
+      setStep(2);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFinish = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      // Insert skills
+      if (selectedSkills.length > 0) {
+        const skillRows = selectedSkills.map(s => ({ creator_id: user.id, skill_id: s.id }));
+        await supabase.from("creator_skills").upsert(skillRows, { onConflict: "creator_id,skill_id" });
+      }
+      
+      // Update profile
+      await supabase.from("profiles").update({ 
+        onboarded: true,
+        experience_level: experienceLevel || null,
+        experience_years: experienceYears ? parseInt(experienceYears) : null
+      }).eq("id", user.id);
+      
+      await refresh();
+      toast.success("Profile setup complete!");
       navigate({ to: "/home" });
     } catch (e: any) {
       toast.error(e.message);
-    } finally { setSaving(false); }
+    } finally { 
+      setSaving(false); 
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-6">
-      <div className="max-w-5xl w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-4">Choose Your Specialties</h1>
-          <p className="text-xl text-white/90 mb-2">Select all areas you specialize in</p>
-          <p className="text-white/70">{total} selected</p>
-        </div>
-        <div className="bg-white rounded-3xl p-8 shadow-2xl">
-          <div className="mb-6 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search specialties..."
-              className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 max-h-[350px] overflow-y-auto pr-2">
-            {filtered.map(s => {
-              const Icon = s.icon;
-              const isSel = selected.includes(s.id);
-              return (
-                <button key={s.id} onClick={() => toggle(s.id)}
-                  className={`relative p-5 rounded-xl border-2 transition-all ${
-                    isSel ? "border-indigo-600 bg-indigo-50 shadow-lg scale-105"
-                      : "border-gray-200 bg-white hover:border-indigo-300 hover:scale-105"
-                  }`}>
-                  {isSel && (
-                    <div className="absolute top-2 right-2 w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">✓</span>
-                    </div>
-                  )}
-                  <div className={`w-12 h-12 bg-gradient-to-br ${s.color} rounded-xl flex items-center justify-center mx-auto mb-3`}>
-                    <Icon className="w-6 h-6 text-white" />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-800 text-center leading-tight">{s.id}</p>
-                </button>
-              );
-            })}
-          </div>
+  const filteredSkills = availableSkills.filter(s => s.name.toLowerCase().includes(searchSkill.toLowerCase()));
 
-          {custom.length > 0 && (
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-gray-700 mb-2">Custom:</p>
-              <div className="flex flex-wrap gap-2">
-                {custom.map(c => (
-                  <span key={c} className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    {c}
-                    <button onClick={() => setCustom(custom.filter(x => x !== c))}><X className="w-3 h-3" /></button>
-                  </span>
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8 relative overflow-y-auto">
+      {/* Background glowing effects */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -top-40 -left-20 h-96 w-96 rounded-full bg-indigo-600/20 blur-[120px] animate-pulse-slow" />
+        <div className="absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-purple-600/15 blur-[120px] animate-pulse-slow [animation-delay:1s]" />
+      </div>
+
+      <div className="max-w-4xl w-full bg-surface/80 backdrop-blur-md border border-border rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[90vh] relative z-10 animate-fade-up">
+        {/* Header */}
+        <div className="bg-surface/50 backdrop-blur-md px-8 py-6 border-b border-border flex items-center justify-between shrink-0">
+          <div>
+            <h1 className="text-2xl font-black text-foreground tracking-tight">Creator Profile</h1>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Step {step} of 3</span>
+              <div className="flex gap-1.5">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${
+                    i === step ? 'w-8 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]' 
+                    : i < step ? 'w-4 bg-purple-500/50' 
+                    : 'w-4 bg-muted'
+                  }`} />
                 ))}
               </div>
             </div>
-          )}
+          </div>
+        </div>
 
-          {showCustom ? (
-            <div className="flex gap-2 mb-6">
-              <input value={customInput} onChange={(e) => setCustomInput(e.target.value)} placeholder="Add custom specialty..."
-                className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500" />
-              <button onClick={addCustom} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold">Add</button>
-              <button onClick={() => setShowCustom(false)} className="px-4 py-2 border-2 border-gray-200 rounded-xl">Cancel</button>
+        {/* Content */}
+        <div className="p-8 overflow-y-auto grow custom-scrollbar">
+          {step === 1 && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">What do you do?</h2>
+                <p className="text-muted-foreground mt-2 text-lg">Choose your roles to get started</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {CURATED_ROLES.map(r => {
+                  const isSel = selectedRoles.some(x => x.name === r.name);
+                  return (
+                    <button key={r.name} onClick={() => toggleCuratedRole(r.name, r.emoji)}
+                      className={`relative p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-3 group ${
+                        isSel 
+                          ? "border-purple-500 bg-purple-500/10 shadow-[0_0_20px_-5px_rgba(168,85,247,0.3)] -translate-y-1" 
+                          : "border-border bg-surface hover:bg-muted hover:border-border/80"
+                      }`}>
+                      {isSel && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      )}
+                      <span className="text-4xl group-hover:scale-110 transition-transform">{r.emoji}</span>
+                      <span className="font-bold text-foreground tracking-wide">{r.name}</span>
+                    </button>
+                  );
+                })}
+
+                <button onClick={() => setShowCustomRole(true)}
+                  className="relative p-5 rounded-2xl border-2 border-dashed border-border bg-surface hover:bg-muted hover:border-border/80 transition-all flex flex-col items-center justify-center gap-3 group">
+                  <span className="text-4xl group-hover:scale-110 transition-transform">✨</span>
+                  <span className="font-bold text-foreground tracking-wide">Other</span>
+                </button>
+              </div>
+
+              {selectedRoles.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-border">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-3">Selected Roles</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoles.map(r => (
+                      <span key={r.id || r.name} className="inline-flex items-center gap-2 bg-purple-500/20 text-purple-500 px-4 py-2 rounded-xl text-sm font-bold border border-purple-500/30">
+                        {r.emoji} {r.name}
+                        <button onClick={() => removeRole(r.id)} className="hover:bg-purple-500/30 rounded-full p-1 transition-colors"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {showCustomRole && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in">
+                  <div className="bg-surface border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl">
+                    <h3 className="text-2xl font-black text-foreground mb-2">Add your role</h3>
+                    <p className="text-muted-foreground mb-6">What is your role?</p>
+                    
+                    <input 
+                      autoFocus
+                      value={customRoleInput} 
+                      onChange={(e) => setCustomRoleInput(e.target.value)} 
+                      placeholder="e.g. Cinematographer"
+                      className="w-full px-4 py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-purple-500 text-foreground font-medium mb-6" 
+                    />
+                    
+                    <div className="flex gap-3">
+                      <button onClick={() => setShowCustomRole(false)} className="flex-1 py-3 border border-border rounded-xl font-bold text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
+                      <button onClick={handleAddCustomRole} className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-colors">Add Role</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <button onClick={() => setShowCustom(true)}
-              className="w-full mb-6 py-3 border-2 border-dashed border-indigo-300 text-indigo-600 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-indigo-50">
-              <Plus className="w-5 h-5" /> Add custom specialty
-            </button>
           )}
 
-          <button onClick={handleContinue} disabled={total === 0 || saving}
-            className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 ${
-              total > 0 ? "bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white hover:opacity-90"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}>
-            {saving ? "Saving..." : "Continue"} <ArrowRight className="w-6 h-6" />
-          </button>
+          {step === 2 && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-purple-500/30">
+                  <Star className="w-8 h-8" />
+                </div>
+                <h2 className="text-3xl font-black text-foreground">What are your skills?</h2>
+                <p className="text-muted-foreground mt-2">Tools, software, and abilities you possess</p>
+              </div>
+
+              {selectedSkills.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-4 bg-surface rounded-2xl border border-border">
+                  {selectedSkills.map(s => (
+                    <span key={s.id} className="inline-flex items-center gap-1 bg-purple-500/20 text-purple-500 px-3 py-1.5 rounded-lg text-sm font-bold border border-purple-500/30">
+                      {s.name}
+                      <button onClick={() => toggleSkill(s)} className="hover:bg-purple-500/40 rounded-full p-0.5"><X className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input type="text" value={searchSkill} onChange={(e) => setSearchSkill(e.target.value)}
+                  placeholder="Search skills..."
+                  className="w-full pl-12 pr-4 py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-purple-500 text-foreground transition-colors" />
+              </div>
+
+              <div className="flex flex-wrap gap-2 max-h-[250px] overflow-y-auto pr-2 pb-2 custom-scrollbar">
+                {filteredSkills.map(s => {
+                  const isSel = selectedSkills.some(x => x.id === s.id);
+                  return (
+                    <button key={s.id} onClick={() => toggleSkill(s)}
+                      className={`px-4 py-2 rounded-full border text-sm font-bold transition-all ${
+                        isSel ? "border-purple-500 bg-purple-500/20 text-purple-500"
+                          : "border-border bg-surface hover:border-purple-500/50 text-foreground hover:bg-muted"
+                      }`}>
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {showCustomSkill ? (
+                <div className="flex gap-2">
+                  <input value={customSkillInput} onChange={(e) => setCustomSkillInput(e.target.value)} placeholder="E.g. Final Cut Pro"
+                    className="flex-1 px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:border-purple-500 text-foreground" />
+                  <button onClick={handleAddCustomSkill} className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-500 transition-colors">Add</button>
+                  <button onClick={() => setShowCustomSkill(false)} className="px-4 py-3 border border-border rounded-xl font-bold text-muted-foreground hover:bg-muted">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setShowCustomSkill(true)}
+                  className="w-full py-4 border-2 border-dashed border-border text-muted-foreground rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-muted hover:border-purple-500/50 hover:text-purple-500 transition-colors">
+                  <Plus className="w-5 h-5" /> Add custom skill
+                </button>
+              )}
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-pink-500/20 text-pink-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-pink-500/30">
+                  <Clock className="w-8 h-8" />
+                </div>
+                <h2 className="text-3xl font-black text-foreground">Experience Level</h2>
+                <p className="text-muted-foreground mt-2">Help clients understand your expertise</p>
+              </div>
+
+              <div>
+                <div className="grid grid-cols-2 gap-4">
+                  {["Beginner", "Intermediate", "Advanced", "Professional"].map(level => (
+                    <button key={level} onClick={() => setExperienceLevel(level)}
+                      className={`p-5 rounded-2xl border-2 text-center font-black tracking-wide transition-all ${
+                        experienceLevel === level 
+                          ? "border-pink-500 bg-pink-500/20 text-pink-500 shadow-[0_0_20px_-5px_rgba(236,72,153,0.3)] -translate-y-1" 
+                          : "border-border bg-surface text-foreground/70 hover:border-border/80 hover:bg-muted"
+                      }`}>
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-foreground/70 mb-3 uppercase tracking-wider">Years of Experience (Optional)</label>
+                <input type="number" min="0" max="50" value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)}
+                  placeholder="e.g. 3"
+                  className="w-full px-4 py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-pink-500 text-foreground text-lg font-bold transition-colors placeholder:text-muted-foreground" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="bg-surface/50 backdrop-blur-md p-6 border-t border-border flex items-center justify-between shrink-0">
+          {step > 1 ? (
+            <button onClick={() => setStep(step - 1)} className="px-6 py-3 font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors">
+              Back
+            </button>
+          ) : (
+            <div />
+          )}
+          
+          <div className="flex gap-4">
+            {step > 1 && (
+              <button 
+                onClick={() => step < 3 ? setStep(step + 1) : handleFinish()}
+                className="px-4 py-3 font-bold text-muted-foreground hover:text-foreground transition-colors">
+                Skip for now
+              </button>
+            )}
+            <button 
+              onClick={() => {
+                if (step === 1) {
+                  handleContinueStep1();
+                } else if (step < 3) {
+                  setStep(step + 1);
+                } else {
+                  handleFinish();
+                }
+              }} 
+              disabled={saving}
+              className="px-8 py-3 bg-[linear-gradient(135deg,#7c3aed,#c026d3_55%,#3b82f6)] text-white rounded-xl font-black tracking-wide flex items-center gap-2 hover:opacity-90 transition-all shadow-[0_0_20px_-5px_rgba(168,85,247,0.5)] disabled:opacity-50">
+              {saving ? "Saving..." : step < 3 ? "Continue" : "Complete Profile"}
+              {!saving && <ArrowRight className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </div>
     </div>
