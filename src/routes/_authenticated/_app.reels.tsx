@@ -100,7 +100,7 @@ function ReelsPage() {
     return (
       <div className="h-[calc(100vh-8rem)] flex flex-col items-center justify-center text-white/70 text-sm bg-black gap-3">
         <p>No reels yet.</p>
-        <button onClick={() => navigate({ to: "/create" })} className="px-4 py-2 rounded-full bg-white text-black text-sm font-semibold">Upload one</button>
+        <button onClick={() => navigate({ to: "/create", search: { type: "video" } as any })} className="px-4 py-2 rounded-full bg-white text-black text-sm font-semibold">Upload one</button>
       </div>
     );
   }

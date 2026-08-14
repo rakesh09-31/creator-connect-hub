@@ -570,22 +570,40 @@ function RecommendedJobs({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      const { data: recs, error } = await supabase.rpc('get_recommended_jobs_for_creator', { p_creator_id: userId, p_limit: 5 });
+    let active = true;
+    const fetchRecs = async () => {
+      setLoading(true);
+      const { data: recs, error } = await (supabase.rpc as any)('get_recommended_jobs_for_creator', { p_creator_id: userId, p_limit: 5 });
+      if (!active) return;
       if (recs && recs.length > 0) {
         const jobIds = recs.map((r: any) => r.job_id);
         const { data: jobDetails } = await supabase.from("jobs").select("*").in("id", jobIds);
+        if (!active) return;
         if (jobDetails) {
-          // Sort by match_score descending
           const sortedJobs = jobDetails.map(j => {
             const rec = recs.find((r: any) => r.job_id === j.id);
             return { ...j, match_score: rec?.match_score || 0 };
           }).sort((a, b) => b.match_score - a.match_score);
           setJobs(sortedJobs);
         }
+      } else {
+        setJobs([]);
       }
       setLoading(false);
-    })();
+    };
+
+    fetchRecs();
+
+    const channel = supabase.channel(`recs-jobs-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_roles", filter: `creator_id=eq.${userId}` }, fetchRecs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_skills", filter: `creator_id=eq.${userId}` }, fetchRecs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, fetchRecs)
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   if (loading) return null;
@@ -620,18 +638,22 @@ function RecommendedCreators({ userId }: { userId: string }) {
   const [jobTitle, setJobTitle] = useState("");
 
   useEffect(() => {
-    (async () => {
-      // Get the latest open job for this client
+    let active = true;
+    const fetchRecs = async () => {
+      setLoading(true);
       const { data: jobs } = await supabase.from("jobs").select("id, title").eq("client_id", userId).eq("status", "open").order("created_at", { ascending: false }).limit(1);
+      if (!active) return;
       
       if (jobs && jobs.length > 0) {
         const job = jobs[0];
         setJobTitle(job.title);
         
-        const { data: recs } = await supabase.rpc('get_recommended_creators_for_job', { p_job_id: job.id, p_limit: 5 });
+        const { data: recs } = await (supabase.rpc as any)('get_recommended_creators_for_job', { p_job_id: job.id, p_limit: 5 });
+        if (!active) return;
         if (recs && recs.length > 0) {
           const creatorIds = recs.map((r: any) => r.creator_id);
           const { data: profs } = await supabase.from("profiles").select("id, username, full_name, avatar_url, bio, account_type, experience_level").in("id", creatorIds);
+          if (!active) return;
           if (profs) {
             const sorted = profs.map(p => {
               const rec = recs.find((r: any) => r.creator_id === p.id);
@@ -639,10 +661,23 @@ function RecommendedCreators({ userId }: { userId: string }) {
             }).sort((a, b) => b.match_score - a.match_score);
             setCreators(sorted);
           }
+        } else {
+          setCreators([]);
         }
       }
       setLoading(false);
-    })();
+    };
+
+    fetchRecs();
+
+    const channel = supabase.channel(`recs-creators-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `client_id=eq.${userId}` }, fetchRecs)
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   if (loading) return null;

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
-import { Grid3x3, Briefcase, Image as ImageIcon, MessageCircle, Play, MapPin, Users, Plus } from "lucide-react";
+import { Grid3x3, Briefcase, Image as ImageIcon, MessageCircle, Play, MapPin, Users, Plus, X } from "lucide-react";
 import { ClientProjectsPanel, PortfolioPanel, PostMediaViewer, isVideoMedia } from "./_app.profile";
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -24,12 +24,26 @@ function UserProfilePage() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [following, setFollowing] = useState(false);
   const [counts, setCounts] = useState({ followers: 0, following: 0, squads: 0 });
+  const [squads, setSquads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeStories, setActiveStories] = useState<Story[]>([]);
   const [storyOpen, setStoryOpen] = useState(false);
   const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "videos">("posts");
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [videoIndex, setVideoIndex] = useState<number | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    if (lightboxOpen) {
+      document.body.style.overflow = "hidden";
+      const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxOpen(false); };
+      window.addEventListener("keydown", handleEsc);
+      return () => {
+        document.body.style.overflow = "auto";
+        window.removeEventListener("keydown", handleEsc);
+      };
+    }
+  }, [lightboxOpen]);
 
   const { resolvedUrl: resolvedAvatar } = useMediaUrl("profileImage", profile?.avatar_url);
 
@@ -60,19 +74,32 @@ function UserProfilePage() {
   };
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setProfile(null);
+    setPosts([]);
+    setSquads([]);
+    setSpecialties([]);
+    setCounts({ followers: 0, following: 0, squads: 0 });
+    setActiveStories([]);
+
     (async () => {
       const { data: p } = await supabase.from("profiles").select("*").eq("username", username).maybeSingle();
+      if (!active) return;
       setProfile(p);
       if (p) {
-        const [{ data: postsData }, { data: s }, { count: sqCount }, { data: storyRows }] = await Promise.all([
+        const [{ data: postsData }, { data: s }, { data: mems }, { data: storyRows }] = await Promise.all([
           supabase.from("posts").select("*").eq("author_id", p.id).order("created_at", { ascending: false }),
           supabase.from("creator_specialties").select("specialty").eq("user_id", p.id),
-          supabase.from("squad_members").select("*", { count: "exact", head: true }).eq("user_id", p.id),
+          supabase.from("squad_members").select("squad_id, squads:squad_id(id, name, description, specialty, avatar_url)").eq("user_id", p.id),
           supabase.from("stories").select("*").eq("user_id", p.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: true }),
         ]);
+        if (!active) return;
         setPosts(postsData ?? []);
         setSpecialties((s ?? []).map((x: any) => x.specialty));
-        setCounts((prev) => ({ ...prev, squads: sqCount ?? 0 }));
+        const sq = (mems ?? []).map((m: any) => m.squads).filter(Boolean);
+        setSquads(sq);
+        setCounts((prev) => ({ ...prev, squads: sq.length }));
         setActiveStories((storyRows ?? []) as Story[]);
         await refreshFollow(p.id);
         
@@ -80,8 +107,9 @@ function UserProfilePage() {
         if (p.role === "client") setTab("projects");
         else setTab("portfolio");
       }
-      setLoading(false);
+      if (active) setLoading(false);
     })();
+    return () => { active = false; };
   }, [username, user]);
 
   const toggleFollow = async () => {
@@ -101,7 +129,7 @@ function UserProfilePage() {
       const { data, error } = await supabase.rpc("get_or_create_dm", { _other: profile.id });
       if (error) throw error;
       if (data) {
-        navigate({ to: `/messages/$conversationId`, params: { conversationId: data } });
+        navigate({ to: "/messages", search: { c: data } as any });
       }
     } catch (err: any) {
       toast.error(`Could not open conversation: ${err.message}`);
@@ -128,7 +156,8 @@ function UserProfilePage() {
           <button
             type="button"
             onClick={() => activeStories.length > 0 && setStoryOpen(true)}
-            className={`w-24 h-24 rounded-full p-[3px] flex-shrink-0 bg-surface ${activeStories.length > 0 ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand cursor-pointer" : "border-2 border-border cursor-default"}`}
+            onDoubleClick={() => setLightboxOpen(true)}
+            className={`w-24 h-24 rounded-full p-[3px] flex-shrink-0 bg-surface ${activeStories.length > 0 ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand cursor-pointer" : "border-2 border-border cursor-pointer"}`}
           >
             <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-3xl font-semibold overflow-hidden">
               {profile.avatar_url
@@ -175,14 +204,14 @@ function UserProfilePage() {
 
         {/* Stats Strip */}
         <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-8 pt-5 border-t border-border`}>
-          <div className="text-center">
+          <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "followers" } as any} className="text-center block hover:opacity-80 transition cursor-pointer">
             <div className="text-xl font-semibold tracking-tight">{counts.followers}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Followers</div>
-          </div>
-          <div className="text-center">
+          </Link>
+          <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "following" } as any} className="text-center block hover:opacity-80 transition cursor-pointer">
             <div className="text-xl font-semibold tracking-tight">{counts.following}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Following</div>
-          </div>
+          </Link>
           <div className="text-center">
             <div className="text-xl font-semibold tracking-tight">{posts.length}</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Posts</div>
@@ -273,8 +302,24 @@ function UserProfilePage() {
         )}
 
         {tab === "squads" && isCreator && (
-          <div className="text-center py-16 text-muted-foreground text-sm border border-dashed border-border rounded-2xl">
-            Squad visibility coming soon.
+          <div className="space-y-2">
+            {squads.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground text-sm border border-dashed border-border rounded-2xl">
+                Not a member of any squads yet.
+              </div>
+            ) : (
+              squads.map((s) => (
+                <Link key={s.id} to="/squads/$squadId" params={{ squadId: s.id }} className="flex items-center gap-3 p-4 bg-surface rounded-xl border border-border hover:border-brand/40 hover:shadow-sm transition">
+                  <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold flex-shrink-0">
+                    {s.name.slice(0, 1).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{s.name}</p>
+                    {s.specialty && <p className="text-xs text-muted-foreground truncate">{s.specialty}</p>}
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -296,6 +341,23 @@ function UserProfilePage() {
           viewerId={user?.id}
           onClose={() => setStoryOpen(false)}
         />
+      )}
+
+      {lightboxOpen && profile && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setLightboxOpen(false)}>
+           <button onClick={() => setLightboxOpen(false)} className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-black/20 rounded-full transition">
+             <X className="w-6 h-6" />
+           </button>
+           <div onClick={e => e.stopPropagation()} className="relative max-w-full max-h-full flex items-center justify-center">
+             {profile.avatar_url ? (
+               <img src={profile.avatar_url} alt="Profile" className="max-w-full max-h-full object-contain shadow-2xl" />
+             ) : (
+               <div className="w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-surface text-foreground flex items-center justify-center text-7xl font-bold shadow-2xl border-4 border-border">
+                 {profile.username.slice(0, 1).toUpperCase()}
+               </div>
+             )}
+           </div>
+        </div>
       )}
     </div>
   );

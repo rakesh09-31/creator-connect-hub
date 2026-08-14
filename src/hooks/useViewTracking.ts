@@ -30,7 +30,7 @@ export function useViewTracking(postId: string | undefined, isPlaying: boolean) 
       viewedSessions.add(sessionKey);
       try {
         // Record the view on Supabase. Ignores duplicates via ON CONFLICT (unique constraint).
-        const { error } = await supabase.from("post_views").insert({
+        const { error } = await (supabase.from as any)("post_views").insert({
           post_id: postId,
           viewer_id: user.id,
         });
