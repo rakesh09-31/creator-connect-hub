@@ -3,6 +3,7 @@ import { X, ChevronUp, ChevronDown, Volume2, VolumeX, Play, Pause, Loader2, Aler
 import { toast } from "sonner";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { useViewTracking } from "@/hooks/useViewTracking";
+import { ShareVideoDialog } from "./ShareVideoDialog";
 
 export type VideoItem = {
   id: string;
@@ -30,11 +31,12 @@ export function VideoViewer({
   onDelete?: (item: VideoItem) => void | Promise<void>;
 }) {
   const [index, setIndex] = useState(startIndex);
-  const [muted, setMuted] = useState(true);
-  const [playing, setPlaying] = useState(true);
+  const [muted, setMuted] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const touchY = useRef<number | null>(null);
 
@@ -65,7 +67,7 @@ export function VideoViewer({
     setLoading(true);
     setFailed(false);
     setProgress(0);
-    setPlaying(true);
+    setPlaying(false);
   }, [index]);
 
   useEffect(() => {
@@ -87,21 +89,17 @@ export function VideoViewer({
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
-      void v.play().catch(() => undefined);
-      setPlaying(true);
+      const p = v.play();
+      if (p !== undefined) {
+        p.then(() => setPlaying(true)).catch(() => setPlaying(false));
+      }
     } else {
       v.pause();
       setPlaying(false);
     }
   };
 
-  const shareVideo = async () => {
-    const url = window.location.href;
-    try {
-      if (navigator.share) await navigator.share({ url, title: item.title || "Video" });
-      else { await navigator.clipboard.writeText(url); toast.success("Link copied!"); }
-    } catch {}
-  };
+  const shareVideo = () => setShareOpen(true);
 
   if (!item) return null;
 
@@ -136,7 +134,13 @@ export function VideoViewer({
             preload="metadata"
             onClick={togglePlay}
             onLoadedMetadata={() => setLoading(false)}
-            onCanPlay={() => setLoading(false)}
+            onCanPlay={(e) => {
+              setLoading(false);
+              const p = e.currentTarget.play();
+              if (p !== undefined) {
+                p.then(() => setPlaying(true)).catch(() => setPlaying(false));
+              }
+            }}
             onWaiting={() => setLoading(true)}
             onPlaying={() => {
               setLoading(false);
@@ -164,6 +168,15 @@ export function VideoViewer({
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white bg-black/80 px-6 text-center">
             <AlertTriangle className="w-7 h-7" />
             <p className="text-sm">This video failed to load. It may have been removed.</p>
+          </div>
+        )}
+
+        {/* Big Play Overlay for autoplay blocked */}
+        {!playing && !isLoading && !isFailed && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
+              <Play className="w-8 h-8 text-white ml-1" />
+            </div>
           </div>
         )}
 
@@ -212,6 +225,13 @@ export function VideoViewer({
           </button>
         )}
       </div>
+
+      {shareOpen && (
+        <ShareVideoDialog
+          item={item}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </div>
   );
 }

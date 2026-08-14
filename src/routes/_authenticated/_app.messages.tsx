@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
-import { MessageCircle, Send, Search as SearchIcon, ArrowLeft, Check, CheckCheck, Loader2, Smile, Paperclip, FileText } from "lucide-react";
+import { MessageCircle, Send, Search as SearchIcon, ArrowLeft, Check, CheckCheck, Loader2, Smile, Paperclip, FileText, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadFile, optimizeImage, kindOfFile } from "@/lib/storage";
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
+import EmojiPicker, { Theme } from "emoji-picker-react";
 
 type MessagesSearch = { with?: string; c?: string };
 
@@ -263,6 +264,7 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [attaching, setAttaching] = useState(0);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherReadAt, setOtherReadAt] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -423,6 +425,10 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
     }, 3000);
   };
 
+  const handleEmojiClick = (emojiObject: any) => {
+    setText((prev) => prev + emojiObject.emoji);
+  };
+
   const name = conv.other?.full_name || conv.other?.username || conv.title || "Chat";
   const lastMineIdx = (() => { for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].sender_id === meId) return i; return -1; })();
 
@@ -461,6 +467,8 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
                           <img src={m.attachment_url} alt="attachment" className="max-h-64 w-full object-cover" />
                         ) : m.attachment_type === "video" ? (
                           <video src={m.attachment_url} controls playsInline className="max-h-64 w-full" />
+                        ) : m.attachment_type === "shared_video" ? (
+                          <SharedVideoCard message={m} />
                         ) : m.attachment_type === "audio" ? (
                           <audio src={m.attachment_url} controls className="w-56" />
                         ) : (
@@ -470,7 +478,7 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
                         )}
                       </div>
                     )}
-                    {m.body}
+                    {m.attachment_type !== "shared_video" && m.body}
                     <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${mine ? "text-white/70 justify-end" : "text-muted-foreground"}`}>
                       <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       {mine && (seen ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />)}
@@ -495,8 +503,20 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
       </div>
 
       {/* Composer */}
-      <div className="p-3 border-t border-border flex items-end gap-2">
-        <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Emoji"><Smile className="w-5 h-5" /></button>
+      <div className="relative p-3 border-t border-border flex items-end gap-2">
+        {emojiOpen && (
+          <div className="absolute bottom-full left-2 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-border">
+            <EmojiPicker
+              onEmojiClick={(e) => { handleEmojiClick(e); setEmojiOpen(false); }}
+              theme={Theme.AUTO}
+              skinTonesDisabled
+              searchDisabled
+            />
+          </div>
+        )}
+        <button onClick={() => setEmojiOpen(!emojiOpen)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Emoji">
+          <Smile className="w-5 h-5" />
+        </button>
         <input
           ref={fileInput}
           type="file"
@@ -531,5 +551,38 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
         </button>
       </div>
     </>
+  );
+}
+
+function SharedVideoCard({ message }: { message: Msg }) {
+  const navigate = useNavigate();
+  let data: any = {};
+  try {
+    data = JSON.parse(message.body || "{}");
+  } catch (e) {}
+
+  const url = message.attachment_url;
+  if (!url) return null;
+
+  return (
+    <div 
+      className="bg-surface border border-border/50 rounded-xl overflow-hidden w-64 cursor-pointer hover:border-brand/40 transition"
+      onClick={() => navigate({ to: "/reels", search: { start: data.id } })}
+    >
+      <div className="relative aspect-[9/16] bg-black">
+        {data.poster ? (
+          <img src={data.poster} className="w-full h-full object-cover opacity-80" alt="" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted" />
+        )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+           <PlayCircle className="w-12 h-12 text-white opacity-80 drop-shadow-lg" />
+        </div>
+      </div>
+      <div className="p-3 bg-surface">
+        <p className="text-sm font-semibold text-foreground line-clamp-1">{data.title || "Shared Creative"}</p>
+        <p className="text-xs text-brand mt-1 font-semibold flex items-center gap-1">▶ Watch video</p>
+      </div>
+    </div>
   );
 }

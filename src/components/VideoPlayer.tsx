@@ -17,7 +17,7 @@ export function VideoPlayer({
   poster,
   className = "",
   controls = true,
-  muted = true,
+  muted = false,
   loop = false,
   autoPlayInView = false,
   objectFit = "cover",

@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { deleteMediaByUrl } from "@/lib/storage";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import { ShareVideoDialog } from "./ShareVideoDialog";
 
 type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
 export type PostLike = {
@@ -27,6 +28,7 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
   const [likes, setLikes] = useState(0);
   const [saved, setSaved] = useState(false);
   const [commentCount, setCommentCount] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -84,9 +86,13 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
     }
   };
   const share = async () => {
-    const url = `${window.location.origin}${isVideo ? `/reels?start=${post.id}` : `/user/${author?.username ?? ""}`}`;
+    if (isVideo) {
+      setShareOpen(true);
+      return;
+    }
+    const url = `${window.location.origin}/user/${author?.username ?? ""}`;
     try {
-      if (navigator.share) await navigator.share({ url, title: post.caption ?? "Post" });
+      if (typeof navigator.share === 'function') await navigator.share({ url, title: post.caption ?? "Post" });
       else { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
     } catch {}
   };
@@ -191,6 +197,13 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
 
       {showComments && (
         <CommentsSheet postId={post.id} onClose={() => setShowComments(false)} onCountChange={setCommentCount} />
+      )}
+
+      {shareOpen && isVideo && (
+        <ShareVideoDialog
+          item={{ id: post.id, url: resolvedMediaUrl ?? "", poster: undefined, title: post.caption ?? undefined }}
+          onClose={() => setShareOpen(false)}
+        />
       )}
     </article>
   );

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, ArrowLeft, Bookmark, Send, X, Volume2, VolumeX } from "lucide-react";
+import { Heart, MessageCircle, Share2, ArrowLeft, Bookmark, Send, X, Volume2, VolumeX, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { useViewTracking } from "@/hooks/useViewTracking";
+import { ShareVideoDialog } from "@/components/ShareVideoDialog";
 
 export const Route = createFileRoute("/_authenticated/_app/reels")({
   head: () => ({ meta: [{ title: "Reels — Omnicraft" }] }),
@@ -25,7 +26,7 @@ function ReelsPage() {
   const navigate = useNavigate();
   const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [activeComments, setActiveComments] = useState<string | null>(null);
 
   useEffect(() => {
@@ -157,6 +158,7 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
   const [commentCount, setCommentCount] = useState(0);
   const [following, setFollowing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const isVideo = reel.post_type === "video" || reel.post_type === "reel";
   const isOwn = user?.id === reel.author_id;
@@ -201,8 +203,12 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          el.play().catch(() => {});
-          setIsPlaying(true);
+          const p = el.play();
+          if (p !== undefined) {
+             p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+          } else {
+             setIsPlaying(true);
+          }
         } else {
           el.pause();
           setIsPlaying(false);
@@ -248,16 +254,19 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
   };
 
   const share = async () => {
-    const url = `${window.location.origin}/reels?start=${reel.id}`;
-    try {
-      if (navigator.share) await navigator.share({ url, title: reel.caption ?? "Reel" });
-      else { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
-    } catch {}
+    setShareOpen(true);
   };
 
   const togglePlay = () => {
     const v = videoRef.current; if (!v) return;
-    if (v.paused) { v.play(); setIsPlaying(true); }
+    if (v.paused) {
+      const p = v.play();
+      if (p !== undefined) {
+         p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      } else {
+         setIsPlaying(true);
+      }
+    }
     else { v.pause(); setIsPlaying(false); }
   };
 
@@ -269,16 +278,24 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
           src={resolvedVideoUrl}
           poster={resolvedPoster ?? undefined}
           className="max-h-full max-w-full object-contain cursor-pointer"
-          loop muted playsInline preload="metadata"
+          loop playsInline preload="metadata"
           onClick={togglePlay}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         />
-
       ) : resolvedVideoUrl ? (
         <img src={resolvedVideoUrl} className="max-h-full max-w-full object-contain" alt="" />
       ) : (
         <div className="text-white text-center p-8 max-w-md">{reel.caption}</div>
+      )}
+
+      {/* Big Play Overlay for autoplay blocked */}
+      {!isPlaying && isVideo && resolvedVideoUrl && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm">
+            <Play className="w-8 h-8 text-white ml-1" />
+          </div>
+        </div>
       )}
 
       {/* Bottom-left: username + caption only (Instagram-style) */}
@@ -306,12 +323,19 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
       </div>
 
       {/* Right rail: actions */}
-      <div className="absolute right-3 bottom-32 flex flex-col gap-5 text-white">
+      <div className="absolute right-3 bottom-32 flex flex-col gap-5 text-white z-20">
         <ActionBtn icon={<Heart className={`w-7 h-7 ${liked ? "fill-rose-500 text-rose-500" : ""}`} />} label={formatCount(likes)} onClick={toggleLike} />
         <ActionBtn icon={<MessageCircle className="w-7 h-7" />} label={formatCount(commentCount)} onClick={onOpenComments} />
         <ActionBtn icon={<Bookmark className={`w-7 h-7 ${saved ? "fill-amber-400 text-amber-400" : ""}`} />} label="" onClick={toggleSave} />
         <ActionBtn icon={<Share2 className="w-7 h-7" />} label="" onClick={share} />
       </div>
+
+      {shareOpen && (
+        <ShareVideoDialog
+          item={{ id: reel.id, url: resolvedVideoUrl ?? "", poster: resolvedPoster ?? undefined, title: reel.caption ?? undefined }}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </div>
   );
 }
