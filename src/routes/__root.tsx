@@ -7,11 +7,19 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { App as CapacitorApp } from "@capacitor/app";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider, themeInitScript } from "@/lib/theme";
 import { Toaster } from "@/components/ui/sonner";
+
+declare global {
+  interface Window {
+    Capacitor?: any;
+  }
+}
 
 function NotFoundComponent() {
   return (
@@ -61,11 +69,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" },
       { title: "Omnicraft — Where Creativity Meets Opportunity" },
       { name: "description", content: "Omnicraft connects clients with creators. Build your portfolio, find creative talent, collaborate on projects." },
+      { name: "theme-color", content: "#09090b" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -83,6 +98,17 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <body suppressHydrationWarning>
         {children}
         <Scripts />
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(error => {
+                  console.error('ServiceWorker registration failed: ', error);
+                });
+              });
+            }
+          `
+        }} />
       </body>
     </html>
   );
@@ -90,6 +116,34 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Only run Capacitor specific code if we're in a Capacitor environment
+    // Note: We use try-catch to gracefully degrade if not in a native app
+    try {
+      if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+        CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+          if (canGoBack) {
+            window.history.back();
+          } else {
+            CapacitorApp.exitApp();
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Capacitor back button listener error:", e);
+    }
+
+    return () => {
+      try {
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+          CapacitorApp.removeAllListeners();
+        }
+      } catch (e) {}
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

@@ -9,6 +9,8 @@ export type Profile = {
   avatar_url: string | null;
   bio: string | null;
   role: "creator" | "client" | "admin" | null;
+  account_type: "creator" | "client" | "admin" | null;
+  role_count?: number;
   client_field: string | null;
   onboarded: boolean;
   portfolio_url: string | null;
@@ -36,7 +38,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("*")
       .eq("id", uid)
       .maybeSingle();
-    setProfile((data as Profile) ?? null);
+
+    let role_count = 0;
+    if (data) {
+      const type = data.account_type || data.role;
+      if (type === "creator") {
+        const { count } = await supabase.from("creator_roles").select("*", { count: "exact", head: true }).eq("creator_id", uid);
+        role_count = count || 0;
+      } else if (type === "client") {
+        const { count } = await supabase.from("client_roles").select("*", { count: "exact", head: true }).eq("client_id", uid);
+        role_count = count || 0;
+      }
+      setProfile({ ...(data as Profile), role_count });
+    } else {
+      setProfile(null);
+    }
   };
 
   useEffect(() => {
@@ -44,10 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       if (s?.user) {
-        // defer to avoid deadlock
-        setTimeout(() => loadProfile(s.user.id), 0);
+        // block loading state until profile is fetched
+        setLoading(true);
+        setTimeout(() => loadProfile(s.user.id).finally(() => setLoading(false)), 0);
       } else {
         setProfile(null);
+        setLoading(false);
       }
     });
     // 2. Then read existing session

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadFile, optimizeImage, kindOfFile } from "@/lib/storage";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 
 type MessagesSearch = { with?: string; c?: string };
 
@@ -80,7 +81,12 @@ function MessagesPage() {
       .order("last_read_at", { ascending: false });
     const rows = (memberships ?? []) as any[];
     if (!rows.length) { setConvs([]); setLoading(false); return; }
-    const convIds = rows.map((r) => r.conversation_id);
+    
+    // Keep ONLY direct messages (is_group = false)
+    const dmRows = rows.filter((r) => r.conversations && !r.conversations.is_group);
+    if (!dmRows.length) { setConvs([]); setLoading(false); return; }
+    
+    const convIds = dmRows.map((r) => r.conversation_id);
 
     // Other members (for DMs)
     const { data: others } = await supabase
@@ -106,7 +112,7 @@ function MessagesPage() {
     const lastBodies: Record<string, string | null> = {};
     const unreadCounts: Record<string, number> = {};
     await Promise.all(
-      rows.map(async (r) => {
+      dmRows.map(async (r) => {
         const { data: last } = await supabase
           .from("messages")
           .select("body, attachment_type, created_at")
@@ -127,7 +133,7 @@ function MessagesPage() {
       })
     );
 
-    const list: Conv[] = rows
+    const list: Conv[] = dmRows
       .map((r) => ({
         id: r.conversation_id,
         is_group: r.conversations?.is_group ?? false,
@@ -194,7 +200,7 @@ function MessagesPage() {
             ) : (
               <ul>
                 {filtered.map((c) => {
-                  const name = c.other?.full_name || c.other?.username || c.title || "Chat";
+                  const name = c.is_group ? (c.title || "Group Chat") : (c.other?.full_name || c.other?.username || "Chat");
                   const active = c.id === activeId;
                   return (
                     <li key={c.id}>
@@ -385,6 +391,27 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
     }
   };
 
+  const deleteMsg = async (id: string) => {
+    if (!window.confirm("Delete message?")) return;
+    setMsgs((prev) => prev.filter((m) => m.id !== id));
+    await supabase.from("messages").delete().eq("id", id);
+  };
+
+  const shareMsg = async (body: string | null, attachment: string | null) => {
+    const textToShare = body || (attachment ? `Attachment: ${attachment}` : "");
+    if (!textToShare) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: textToShare });
+      } catch (e) {
+        // user cancelled or failed
+      }
+    } else {
+      await navigator.clipboard.writeText(textToShare);
+      toast.success("Message copied to clipboard!");
+    }
+  };
+
 
 
   const handleTyping = async (v: string) => {
@@ -425,28 +452,40 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
           const seen = isLastMine && otherReadAt && new Date(otherReadAt) >= new Date(m.created_at);
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"} ${showGap ? "mt-2" : ""}`}>
-              <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm animate-fade-in ${mine ? "bg-brand text-white rounded-br-md" : "bg-muted text-foreground rounded-bl-md"}`}>
-                {m.attachment_url && (
-                  <div className="mb-1 overflow-hidden rounded-xl">
-                    {m.attachment_type === "image" ? (
-                      <img src={m.attachment_url} alt="attachment" className="max-h-64 w-full object-cover" />
-                    ) : m.attachment_type === "video" ? (
-                      <video src={m.attachment_url} controls playsInline className="max-h-64 w-full" />
-                    ) : m.attachment_type === "audio" ? (
-                      <audio src={m.attachment_url} controls className="w-56" />
-                    ) : (
-                      <a href={m.attachment_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-2 py-1.5 underline">
-                        <FileText className="w-4 h-4" /> Open document
-                      </a>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <div className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm animate-fade-in cursor-pointer select-none ${mine ? "bg-brand text-white rounded-br-md" : "bg-muted text-foreground rounded-bl-md"}`}>
+                    {m.attachment_url && (
+                      <div className="mb-1 overflow-hidden rounded-xl">
+                        {m.attachment_type === "image" ? (
+                          <img src={m.attachment_url} alt="attachment" className="max-h-64 w-full object-cover" />
+                        ) : m.attachment_type === "video" ? (
+                          <video src={m.attachment_url} controls playsInline className="max-h-64 w-full" />
+                        ) : m.attachment_type === "audio" ? (
+                          <audio src={m.attachment_url} controls className="w-56" />
+                        ) : (
+                          <a href={m.attachment_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-2 py-1.5 underline">
+                            <FileText className="w-4 h-4" /> Open document
+                          </a>
+                        )}
+                      </div>
                     )}
+                    {m.body}
+                    <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${mine ? "text-white/70 justify-end" : "text-muted-foreground"}`}>
+                      <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      {mine && (seen ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />)}
+                    </div>
                   </div>
-                )}
-                {m.body}
-                <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${mine ? "text-white/70 justify-end" : "text-muted-foreground"}`}>
-                  <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  {mine && (seen ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />)}
-                </div>
-              </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => shareMsg(m.body, m.attachment_url)}>Share</ContextMenuItem>
+                  {mine && (
+                    <ContextMenuItem onClick={() => deleteMsg(m.id)} className="text-red-500 focus:bg-red-500/10 focus:text-red-500">
+                      Delete
+                    </ContextMenuItem>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
             </div>
           );
         })}

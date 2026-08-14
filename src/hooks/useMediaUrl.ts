@@ -45,7 +45,8 @@ export function useMediaUrl(
     if (
       (pathOrUrl.startsWith("http://") ||
         pathOrUrl.startsWith("https://") ||
-        pathOrUrl.startsWith("blob:")) &&
+        pathOrUrl.startsWith("blob:") ||
+        pathOrUrl.startsWith("data:")) &&
       !pathOrUrl.includes("/storage/v1/object/")
     ) {
       localCache.set(cacheKey, pathOrUrl);

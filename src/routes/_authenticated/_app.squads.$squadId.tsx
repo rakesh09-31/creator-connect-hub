@@ -49,14 +49,14 @@ function SquadDetailPage() {
     const { data: m } = await supabase.from("squad_members").select("*").eq("squad_id", squadId);
     setMembers(await hydrateProfiles((m ?? []) as Member[], "user_id"));
 
-    const { data: inv } = await sb.from("squad_invites").select("*").eq("squad_id", squadId).eq("status", "pending");
+    const { data: inv } = await sb.from("squad_invitations").select("*").eq("squad_id", squadId).eq("status", "pending");
     setInvites(await hydrateProfiles((inv ?? []) as Invite[], "invitee_id"));
 
     const { data: jr } = await sb.from("squad_join_requests").select("*").eq("squad_id", squadId).eq("status", "pending");
     setJoinReqs(await hydrateProfiles((jr ?? []) as JoinRequest[], "user_id"));
 
     if (user) {
-      const { data: mine } = await sb.from("squad_invites").select("*").eq("squad_id", squadId).eq("invitee_id", user.id).eq("status", "pending").maybeSingle();
+      const { data: mine } = await sb.from("squad_invitations").select("*").eq("squad_id", squadId).eq("invitee_id", user.id).eq("status", "pending").maybeSingle();
       setMyInvite(mine as Invite | null);
       const { data: myReq } = await sb.from("squad_join_requests").select("*").eq("squad_id", squadId).eq("user_id", user.id).eq("status", "pending").maybeSingle();
       setMyRequest(myReq as JoinRequest | null);
@@ -108,7 +108,14 @@ function SquadDetailPage() {
 
   const respondInvite = async (status: "accepted" | "rejected") => {
     if (!myInvite) return;
-    await sb.from("squad_invites").update({ status }).eq("id", myInvite.id);
+    const { error } = await sb.rpc(
+      status === "accepted" ? "accept_squad_invitation" : "reject_squad_invitation",
+      { p_invitation_id: myInvite.id }
+    );
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success(status === "accepted" ? "Joined squad" : "Invite declined");
     load();
   };
@@ -133,7 +140,7 @@ function SquadDetailPage() {
   };
 
   const cancelInvite = async (id: string) => {
-    await sb.from("squad_invites").delete().eq("id", id);
+    await sb.from("squad_invitations").delete().eq("id", id);
     load();
   };
 
@@ -355,9 +362,23 @@ function InviteModal({ squadId, existing, inviterId, onClose, onAdded }: { squad
     return () => clearTimeout(t);
   }, [q, existing]);
 
+  const [sending, setSending] = useState(false);
+
   const invite = async (uid: string) => {
-    const { error } = await sb.from("squad_invites").insert({ squad_id: squadId, invitee_id: uid, inviter_id: inviterId });
-    if (error) { toast.error(error.message); return; }
+    if (sending) return;
+    setSending(true);
+    const { error } = await sb.from("squad_invitations").insert({ squad_id: squadId, invitee_id: uid, inviter_id: inviterId });
+    setSending(false);
+    
+    if (error) { 
+      if (error.code === '23505') {
+        toast.error("Invitation already sent.");
+      } else {
+        toast.error(error.message); 
+      }
+      return; 
+    }
+    
     toast.success("Invite sent");
     onAdded();
   };
@@ -378,7 +399,13 @@ function InviteModal({ squadId, existing, inviterId, onClose, onAdded }: { squad
                 <p className="font-semibold text-sm truncate">{p.full_name || p.username}</p>
                 <p className="text-xs text-muted-foreground">@{p.username}</p>
               </div>
-              <button onClick={() => invite(p.id)} className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold transition hover:opacity-90">Invite</button>
+              <button 
+                onClick={() => invite(p.id)} 
+                disabled={sending}
+                className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
+              >
+                {sending ? "Sending..." : "Invite"}
+              </button>
             </div>
           ))}
           {q && results.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">No matches found</p>}

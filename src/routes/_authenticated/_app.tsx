@@ -18,16 +18,25 @@ function AppShell() {
 
   useEffect(() => {
     if (loading || !profile) return;
+    
     if (!profile.onboarded) {
-      if (profile.role) {
-        // Has a role but onboarded flag is false — fix the flag silently and let them through.
-        supabase.from("profiles").update({ onboarded: true }).eq("id", profile.id).then(() => refresh());
-      } else {
-        // Truly new account — needs to pick a role.
-        navigate({ to: "/onboarding/role", replace: true });
+      const type = profile.account_type || profile.role;
+      if (!type) {
+        if (location.pathname !== "/onboarding/role") navigate({ to: "/onboarding/role", replace: true });
+        return;
+      }
+
+      if (type === "creator" && location.pathname !== "/onboarding/specialty") {
+        navigate({ to: "/onboarding/specialty", replace: true });
+        return;
+      }
+      
+      if (type === "client" && location.pathname !== "/onboarding/client") {
+        navigate({ to: "/onboarding/client", replace: true });
+        return;
       }
     }
-  }, [loading, profile, navigate]);
+  }, [loading, profile, navigate, location.pathname]);
 
   const role = profile?.role ?? "creator";
   const isActive = (p: string) =>

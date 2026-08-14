@@ -21,7 +21,8 @@ type Squad = { id: string; name: string; description: string | null; specialty: 
 function ProfilePage() {
   const { profile, user, refresh } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
-  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [roles, setRoles] = useState<{id: string, name: string}[]>([]);
+  const [skills, setSkills] = useState<{id: string, name: string}[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "saved">("posts");
@@ -73,23 +74,28 @@ function ProfilePage() {
     if (!user) return;
     (async () => {
       setPostsLoading(true);
-      const [{ data: p }, { data: s }, { data: mems }, { count: fc }, { count: gc }, { data: storyRows }] = await Promise.all([
+      const isClient = profile?.role === "client" || profile?.account_type === "client";
+      const [{ data: p }, { data: r }, { data: s }, { data: mems }, { count: fc }, { count: gc }, { data: storyRows }] = await Promise.all([
         supabase.from("posts").select("*").eq("author_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("creator_specialties").select("specialty").eq("user_id", user.id),
+        isClient 
+          ? supabase.from("client_roles").select("role_id, professional_roles(id, name)").eq("client_id", user.id)
+          : supabase.from("creator_roles").select("role_id, professional_roles(id, name)").eq("creator_id", user.id),
+        supabase.from("creator_skills").select("skill_id, skills(id, name)").eq("creator_id", user.id),
         supabase.from("squad_members").select("squad_id, squads:squad_id(id, name, description, specialty, avatar_url)").eq("user_id", user.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", user.id),
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id),
         supabase.from("stories").select("*").eq("user_id", user.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: true }),
       ]);
       setPosts(p ?? []);
-      setSpecialties((s ?? []).map((x: any) => x.specialty));
+      setRoles((r ?? []).map((x: any) => x.professional_roles).filter(Boolean));
+      setSkills((s ?? []).map((x: any) => x.skills).filter(Boolean));
       const sq = (mems ?? []).map((m: any) => m.squads).filter(Boolean);
       setSquads(sq as Squad[]);
       setCounts({ followers: fc ?? 0, following: gc ?? 0 });
-      setActiveStories((storyRows ?? []) as Story[]);
+      setActiveStories((storyRows ?? []) as any as Story[]);
       setPostsLoading(false);
     })();
-  }, [user]);
+  }, [user, profile]);
 
   if (!profile) return null;
   const isCreator = profile.role === "creator";
@@ -149,14 +155,28 @@ function ProfilePage() {
         </div>
       </div>
 
-      {specialties.length > 0 && (
-        <div className="mt-5">
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Specialties</h2>
-          <div className="flex flex-wrap gap-1.5">
-            {specialties.map((s) => (
-              <span key={s} className="bg-surface border border-border px-2.5 py-1 rounded-md text-xs font-medium text-foreground/80">{s}</span>
-            ))}
-          </div>
+      {(roles.length > 0 || skills.length > 0) && (
+        <div className="mt-5 space-y-4">
+          {roles.length > 0 && (
+            <div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Roles</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {roles.map((r) => (
+                  <span key={r.id} className="bg-surface border border-border px-2.5 py-1 rounded-md text-xs font-medium text-foreground/80">{r.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {skills.length > 0 && isCreator && (
+            <div>
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2">Skills</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {skills.map((skill) => (
+                  <span key={skill.id} className="bg-surface border border-border px-2.5 py-1 rounded-md text-xs font-medium text-foreground/80">{skill.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -236,7 +256,7 @@ function ProfilePage() {
 
       {tab === "saved" && <SavedPanel />}
 
-      {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} />}
+      {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); refresh(); }} initialRoles={roles} initialSkills={skills} />}
       {selectedPost && (
         <PostMediaViewer
           post={selectedPost}
@@ -270,8 +290,16 @@ function ProfilePage() {
   );
 }
 
-function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function EditProfileModal({ 
+  onClose, onSaved, initialRoles, initialSkills 
+}: { 
+  onClose: () => void; onSaved: () => void;
+  initialRoles: {id: string, name: string}[];
+  initialSkills: {id: string, name: string}[];
+}) {
   const { profile, user } = useAuth();
+  const isClient = profile?.role === "client" || profile?.account_type === "client";
+  
   const [form, setForm] = useState({
     full_name: profile?.full_name ?? "",
     bio: profile?.bio ?? "",
@@ -280,8 +308,42 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     cover_url: (profile as any)?.cover_url ?? "",
     resume_url: (profile as any)?.resume_url ?? "",
   });
+  
+  const [roles, setRoles] = useState(initialRoles);
+  const [skills, setSkills] = useState(initialSkills);
+  const [roleInput, setRoleInput] = useState("");
+  const [skillInput, setSkillInput] = useState("");
+  
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState<null | { field: string; pct: number }>(null);
+
+  const handleAddRole = async () => {
+    if (!roleInput.trim() || !user) return;
+    const name = roleInput.trim();
+    const { data: existing } = await supabase.from("professional_roles").select("id, name").ilike("name", name).limit(1).maybeSingle();
+    if (existing) {
+      if (!roles.find(r => r.id === existing.id)) setRoles([...roles, existing]);
+    } else {
+      const { data, error } = await supabase.from("professional_roles").insert({ name, role_type: isClient ? "client" : "creator", is_custom: true, created_by: user.id }).select("id, name").single();
+      if (error) toast.error(error.message);
+      else if (data) setRoles([...roles, data]);
+    }
+    setRoleInput("");
+  };
+
+  const handleAddSkill = async () => {
+    if (!skillInput.trim() || !user) return;
+    const name = skillInput.trim();
+    const { data: existing } = await supabase.from("skills").select("id, name").ilike("name", name).limit(1).maybeSingle();
+    if (existing) {
+      if (!skills.find(s => s.id === existing.id)) setSkills([...skills, existing]);
+    } else {
+      const { data, error } = await supabase.from("skills").insert({ name, is_custom: true, created_by: user.id }).select("id, name").single();
+      if (error) toast.error(error.message);
+      else if (data) setSkills([...skills, data]);
+    }
+    setSkillInput("");
+  };
 
   const pickAndUpload = async (
     field: "avatar_url" | "cover_url" | "resume_url",
@@ -323,8 +385,31 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     }).eq("id", user.id);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Profile updated");
-    onSaved();
+    
+    try {
+      if (isClient) {
+        await supabase.from("client_roles").delete().eq("client_id", user.id);
+        if (roles.length > 0) {
+          await supabase.from("client_roles").insert(roles.map(r => ({ client_id: user.id, role_id: r.id })) as any);
+        }
+      } else {
+        await supabase.from("creator_roles").delete().eq("creator_id", user.id);
+        if (roles.length > 0) {
+          await supabase.from("creator_roles").insert(roles.map(r => ({ creator_id: user.id, role_id: r.id })) as any);
+        }
+      }
+      
+      if (!isClient) {
+        await supabase.from("creator_skills").delete().eq("creator_id", user.id);
+        if (skills.length > 0) {
+          await supabase.from("creator_skills").insert(skills.map(s => ({ creator_id: user.id, skill_id: s.id })));
+        }
+      }
+      toast.success("Profile updated");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update roles/skills");
+    }
   };
 
   const uploadingField = uploading?.field;
@@ -346,6 +431,38 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           <Field label="Portfolio URL">
             <input value={form.portfolio_url} onChange={(e) => setForm({ ...form, portfolio_url: e.target.value })} placeholder="https://…" className="w-full px-3 py-2.5 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
           </Field>
+          
+          <Field label="Roles">
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {roles.map(r => (
+                <span key={r.id} className="inline-flex items-center gap-1 bg-surface border border-border px-2.5 py-1 rounded-md text-xs font-medium">
+                  {r.name}
+                  <button type="button" onClick={() => setRoles(roles.filter(x => x.id !== r.id))} className="hover:text-destructive"><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={roleInput} onChange={e => setRoleInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddRole(); } }} placeholder="Add a role..." className="flex-1 px-3 py-2 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+              <button type="button" onClick={handleAddRole} className="px-3 py-2 bg-muted text-foreground rounded-lg text-sm font-semibold hover:bg-muted/80 transition">Add</button>
+            </div>
+          </Field>
+          
+          {!isClient && (
+            <Field label="Skills">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {skills.map(s => (
+                  <span key={s.id} className="inline-flex items-center gap-1 bg-surface border border-border px-2.5 py-1 rounded-md text-xs font-medium">
+                    {s.name}
+                    <button type="button" onClick={() => setSkills(skills.filter(x => x.id !== s.id))} className="hover:text-destructive"><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddSkill(); } }} placeholder="Add a skill..." className="flex-1 px-3 py-2 rounded-lg bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm" />
+                <button type="button" onClick={handleAddSkill} className="px-3 py-2 bg-muted text-foreground rounded-lg text-sm font-semibold hover:bg-muted/80 transition">Add</button>
+              </div>
+            </Field>
+          )}
 
           <Field label="Profile photo">
             <div className="flex items-center gap-3">

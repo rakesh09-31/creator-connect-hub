@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send, X } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { deleteMediaByUrl } from "@/lib/storage";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 
 type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
@@ -14,7 +15,7 @@ export type PostLike = {
   created_at: string; author_id: string; author?: Profile;
 };
 
-export function PostCard({ post }: { post: PostLike }) {
+export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: string) => void }) {
   const { user } = useAuth();
   const author = post.author;
   const initial = (author?.username || "?").slice(0, 1).toUpperCase();
@@ -28,7 +29,9 @@ export function PostCard({ post }: { post: PostLike }) {
   const [commentCount, setCommentCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const lastTapRef = useRef(0);
+  const isOwner = user?.id === post.author_id;
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +100,27 @@ export function PostCard({ post }: { post: PostLike }) {
     lastTapRef.current = now;
   };
 
+  const deletePost = async () => {
+    if (!isOwner || deleting) return;
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("posts").delete().eq("id", post.id).eq("author_id", user!.id);
+      if (error) { toast.error(error.message); return; }
+      try {
+        if (post.media_url) {
+          await deleteMediaByUrl(post.media_url, (post as any).thumbnail_url);
+        }
+      } catch (e: any) {
+        toast.warning(`Post removed, but media could not be cleaned up: ${e.message}`);
+      }
+      toast.success("Post deleted");
+      onDelete?.(post.id);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <article className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
       <header className="flex items-center justify-between p-4">
@@ -109,9 +133,15 @@ export function PostCard({ post }: { post: PostLike }) {
             <p className="text-[11px] text-muted-foreground capitalize">@{author?.username} · {author?.role ?? "creator"}</p>
           </div>
         </Link>
-        <button className="p-1.5 hover:bg-muted rounded-md text-muted-foreground">
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
+        {isOwner ? (
+          <button onClick={deletePost} disabled={deleting} className="p-1.5 hover:bg-red-500/10 rounded-md text-red-500 transition disabled:opacity-50" title="Delete Post">
+            <Trash2 className="w-5 h-5" />
+          </button>
+        ) : (
+          <button className="p-1.5 hover:bg-muted rounded-md text-muted-foreground">
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+        )}
       </header>
 
       {post.media_url && (
