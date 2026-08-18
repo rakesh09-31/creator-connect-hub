@@ -10,6 +10,7 @@ import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
+import ProfileSkillSwapsPanel from "@/components/skill-swap/ProfileSkillSwapsPanel";
 
 export const Route = createFileRoute("/_authenticated/_app/profile")({
   head: () => ({ meta: [{ title: "Profile — Omnicraft" }] }),
@@ -25,7 +26,7 @@ function ProfilePage() {
   const [skills, setSkills] = useState<{id: string, name: string}[]>([]);
   const [squads, setSquads] = useState<Squad[]>([]);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
-  const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "saved">("posts");
+  const [tab, setTab] = useState<"posts" | "portfolio" | "squads" | "projects" | "saved" | "skill_swaps">("posts");
   const [editOpen, setEditOpen] = useState(false);
   const [postsLoading, setPostsLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
@@ -185,7 +186,10 @@ function ProfilePage() {
           <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
           <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-4 h-4" />} label="Portfolio" />
           {isCreator && (
-            <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
+            <>
+              <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />
+              <TabBtn active={tab === "skill_swaps"} onClick={() => setTab("skill_swaps")} icon={<Wrench className="w-4 h-4" />} label="Skill Swaps" />
+            </>
           )}
           {!isCreator && (
             <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />
@@ -251,6 +255,8 @@ function ProfilePage() {
           )}
         </div>
       )}
+
+      {tab === "skill_swaps" && isCreator && <ProfileSkillSwapsPanel />}
 
       {tab === "projects" && !isCreator && <ClientProjectsPanel userId={user?.id ?? ""} isSelf />}
 

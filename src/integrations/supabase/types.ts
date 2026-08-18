@@ -1190,6 +1190,1041 @@ export type Database = {
         }
         Relationships: []
       }
+      skill_categories: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      skills: {
+        Row: {
+          id: string
+          name: string
+          category_id: string | null
+          category: string | null
+          role_id: string | null
+          description: string | null
+          is_custom: boolean | null
+          is_active: boolean | null
+          created_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          category_id?: string | null
+          category?: string | null
+          role_id?: string | null
+          description?: string | null
+          is_custom?: boolean | null
+          is_active?: boolean | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          category_id?: string | null
+          category?: string | null
+          role_id?: string | null
+          description?: string | null
+          is_custom?: boolean | null
+          is_active?: boolean | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "skill_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skills_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "professional_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skills_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_subskills: {
+        Row: {
+          id: string
+          skill_id: string | null
+          name: string
+          category: string | null
+          is_custom: boolean | null
+          created_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          skill_id?: string | null
+          name: string
+          category?: string | null
+          is_custom?: boolean | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          skill_id?: string | null
+          name?: string
+          category?: string | null
+          is_custom?: boolean | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_subskills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_specialties: {
+        Row: {
+          id: string
+          skill_id: string | null
+          name: string
+          software: string | null
+          is_custom: boolean | null
+          created_by: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          skill_id?: string | null
+          name: string
+          software?: string | null
+          is_custom?: boolean | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          skill_id?: string | null
+          name?: string
+          software?: string | null
+          is_custom?: boolean | null
+          created_by?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_specialties_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      creator_learning_skills: {
+        Row: {
+          id: string
+          user_id: string | null
+          skill_id: string | null
+          desired_level: string | null
+          requirements: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          skill_id?: string | null
+          desired_level?: string | null
+          requirements?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          skill_id?: string | null
+          desired_level?: string | null
+          requirements?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_learning_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_learning_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_listings: {
+        Row: {
+          id: string
+          user_id: string
+          title: string | null
+          role: string | null
+          role_id: string | null
+          description: string | null
+          learning_mode: string | null
+          availability: string | null
+          is_active: boolean | null
+          verification_status: string | null
+          overall_score: number | null
+          theory_score: number | null
+          technical_score: number | null
+          scenario_score: number | null
+          practical_score: number | null
+          software_score: number | null
+          troubleshooting_score: number | null
+          decision_making_score: number | null
+          communication_score: number | null
+          stage2_score: number | null
+          stage3_score: number | null
+          knowledge_score: number | null
+          problem_solving_score: number | null
+          technical_knowledge_score: number | null
+          skill_level: string | null
+          declared_level: string | null
+          demonstrated_level: string | null
+          verification_confidence: string | null
+          strengths_summary: string | null
+          weaknesses_summary: string | null
+          recommendations_summary: string | null
+          ai_feedback: string | null
+          experience_duration: string | null
+          ai_verified_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title?: string | null
+          role?: string | null
+          role_id?: string | null
+          description?: string | null
+          learning_mode?: string | null
+          availability?: string | null
+          is_active?: boolean | null
+          verification_status?: string | null
+          overall_score?: number | null
+          theory_score?: number | null
+          technical_score?: number | null
+          scenario_score?: number | null
+          practical_score?: number | null
+          software_score?: number | null
+          troubleshooting_score?: number | null
+          decision_making_score?: number | null
+          communication_score?: number | null
+          stage2_score?: number | null
+          stage3_score?: number | null
+          knowledge_score?: number | null
+          problem_solving_score?: number | null
+          technical_knowledge_score?: number | null
+          skill_level?: string | null
+          declared_level?: string | null
+          demonstrated_level?: string | null
+          verification_confidence?: string | null
+          strengths_summary?: string | null
+          weaknesses_summary?: string | null
+          recommendations_summary?: string | null
+          ai_feedback?: string | null
+          experience_duration?: string | null
+          ai_verified_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string | null
+          role?: string | null
+          role_id?: string | null
+          description?: string | null
+          learning_mode?: string | null
+          availability?: string | null
+          is_active?: boolean | null
+          verification_status?: string | null
+          overall_score?: number | null
+          theory_score?: number | null
+          technical_score?: number | null
+          scenario_score?: number | null
+          practical_score?: number | null
+          software_score?: number | null
+          troubleshooting_score?: number | null
+          decision_making_score?: number | null
+          communication_score?: number | null
+          stage2_score?: number | null
+          stage3_score?: number | null
+          knowledge_score?: number | null
+          problem_solving_score?: number | null
+          technical_knowledge_score?: number | null
+          skill_level?: string | null
+          declared_level?: string | null
+          demonstrated_level?: string | null
+          verification_confidence?: string | null
+          strengths_summary?: string | null
+          weaknesses_summary?: string | null
+          recommendations_summary?: string | null
+          ai_feedback?: string | null
+          experience_duration?: string | null
+          ai_verified_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_listings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_listing_teach_skills: {
+        Row: {
+          id: string
+          listing_id: string
+          skill_id: string
+          skill_name: string | null
+          skill_level: string | null
+          sub_skills: string[] | null
+          software: string[] | null
+          specialties: string[] | null
+          verification_status: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          listing_id: string
+          skill_id: string
+          skill_name?: string | null
+          skill_level?: string | null
+          sub_skills?: string[] | null
+          software?: string[] | null
+          specialties?: string[] | null
+          verification_status?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          listing_id?: string
+          skill_id?: string
+          skill_name?: string | null
+          skill_level?: string | null
+          sub_skills?: string[] | null
+          software?: string[] | null
+          specialties?: string[] | null
+          verification_status?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_listing_teach_skills_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_listing_teach_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_listing_learn_skills: {
+        Row: {
+          id: string
+          listing_id: string
+          skill_id: string
+          skill_name: string | null
+          desired_level: string | null
+          requirement: string | null
+          requirements: string | null
+          sub_skills: string[] | null
+          desired_software: string[] | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          listing_id: string
+          skill_id: string
+          skill_name?: string | null
+          desired_level?: string | null
+          requirement?: string | null
+          requirements?: string | null
+          sub_skills?: string[] | null
+          desired_software?: string[] | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          listing_id?: string
+          skill_id?: string
+          skill_name?: string | null
+          desired_level?: string | null
+          requirement?: string | null
+          requirements?: string | null
+          sub_skills?: string[] | null
+          desired_software?: string[] | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_listing_learn_skills_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_listing_learn_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_specialties: {
+        Row: {
+          id: string
+          listing_id: string
+          skill_id: string
+          specialty_name: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          listing_id: string
+          skill_id: string
+          specialty_name: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          listing_id?: string
+          skill_id?: string
+          specialty_name?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_specialties_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_specialties_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      assessment_question_bank: {
+        Row: {
+          id: string
+          role_name: string
+          skill_name: string
+          sub_skill: string | null
+          specialty: string | null
+          software: string | null
+          question_type: string
+          difficulty: string
+          competency: string
+          question_text: string
+          options: Json | null
+          correct_answer: string | null
+          acceptable_answers: string[] | null
+          expected_concepts: string[]
+          evaluation_criteria: string | null
+          rubric: Json | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          role_name: string
+          skill_name: string
+          sub_skill?: string | null
+          specialty?: string | null
+          software?: string | null
+          question_type: string
+          difficulty: string
+          competency: string
+          question_text: string
+          options?: Json | null
+          correct_answer?: string | null
+          acceptable_answers?: string[] | null
+          expected_concepts?: string[]
+          evaluation_criteria?: string | null
+          rubric?: Json | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          role_name?: string
+          skill_name?: string
+          sub_skill?: string | null
+          specialty?: string | null
+          software?: string | null
+          question_type?: string
+          difficulty?: string
+          competency?: string
+          question_text?: string
+          options?: Json | null
+          correct_answer?: string | null
+          acceptable_answers?: string[] | null
+          expected_concepts?: string[]
+          evaluation_criteria?: string | null
+          rubric?: Json | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      skill_swap_question_bank: {
+        Row: {
+          id: string
+          role_name: string | null
+          skill_name: string | null
+          skill_id: string | null
+          subskill_id: string | null
+          specialty_id: string | null
+          sub_skill: string | null
+          specialty: string | null
+          software: string | null
+          question_type: string
+          difficulty: string
+          competency: string
+          question_text: string
+          options: Json | null
+          correct_answer: string | null
+          acceptable_answers: string[] | null
+          expected_concepts: string[]
+          evaluation_criteria: string | null
+          rubric: Json | null
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          role_name?: string | null
+          skill_name?: string | null
+          skill_id?: string | null
+          subskill_id?: string | null
+          specialty_id?: string | null
+          sub_skill?: string | null
+          specialty?: string | null
+          software?: string | null
+          question_type: string
+          difficulty: string
+          competency: string
+          question_text: string
+          options?: Json | null
+          correct_answer?: string | null
+          acceptable_answers?: string[] | null
+          expected_concepts?: string[]
+          evaluation_criteria?: string | null
+          rubric?: Json | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          role_name?: string | null
+          skill_name?: string | null
+          skill_id?: string | null
+          subskill_id?: string | null
+          specialty_id?: string | null
+          sub_skill?: string | null
+          specialty?: string | null
+          software?: string | null
+          question_type?: string
+          difficulty?: string
+          competency?: string
+          question_text?: string
+          options?: Json | null
+          correct_answer?: string | null
+          acceptable_answers?: string[] | null
+          expected_concepts?: string[]
+          evaluation_criteria?: string | null
+          rubric?: Json | null
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      skill_swap_assessments: {
+        Row: {
+          id: string
+          listing_id: string | null
+          user_id: string | null
+          skill_id: string | null
+          role_name: string | null
+          skill_name: string | null
+          declared_level: string | null
+          demonstrated_level: string | null
+          verification_confidence: string | null
+          assessment_type: string | null
+          assessment_stage: number | null
+          status: string | null
+          overall_score: number | null
+          technical_score: number | null
+          practical_score: number | null
+          problem_solving_score: number | null
+          knowledge_score: number | null
+          communication_score: number | null
+          scenario_score: number | null
+          software_score: number | null
+          troubleshooting_score: number | null
+          stage2_score: number | null
+          stage3_score: number | null
+          strengths: string | null
+          weaknesses: string | null
+          recommendations: string | null
+          started_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          listing_id?: string | null
+          user_id?: string | null
+          skill_id?: string | null
+          role_name?: string | null
+          skill_name?: string | null
+          declared_level?: string | null
+          demonstrated_level?: string | null
+          verification_confidence?: string | null
+          assessment_type?: string | null
+          assessment_stage?: number | null
+          status?: string | null
+          overall_score?: number | null
+          technical_score?: number | null
+          practical_score?: number | null
+          problem_solving_score?: number | null
+          knowledge_score?: number | null
+          communication_score?: number | null
+          scenario_score?: number | null
+          software_score?: number | null
+          troubleshooting_score?: number | null
+          stage2_score?: number | null
+          stage3_score?: number | null
+          strengths?: string | null
+          weaknesses?: string | null
+          recommendations?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          listing_id?: string | null
+          user_id?: string | null
+          skill_id?: string | null
+          role_name?: string | null
+          skill_name?: string | null
+          declared_level?: string | null
+          demonstrated_level?: string | null
+          verification_confidence?: string | null
+          assessment_type?: string | null
+          assessment_stage?: number | null
+          status?: string | null
+          overall_score?: number | null
+          technical_score?: number | null
+          practical_score?: number | null
+          problem_solving_score?: number | null
+          knowledge_score?: number | null
+          communication_score?: number | null
+          scenario_score?: number | null
+          software_score?: number | null
+          troubleshooting_score?: number | null
+          stage2_score?: number | null
+          stage3_score?: number | null
+          strengths?: string | null
+          weaknesses?: string | null
+          recommendations?: string | null
+          started_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_assessments_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_assessments_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_assessments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_assessment_questions: {
+        Row: {
+          id: string
+          assessment_id: string | null
+          question_number: number | null
+          question_text: string
+          question_type: string | null
+          difficulty: string | null
+          topic: string | null
+          sub_skill: string | null
+          software: string | null
+          competency: string | null
+          options: Json | null
+          correct_answer: string | null
+          expected_concepts: string[] | null
+          evaluation_criteria: string | null
+          assessment_stage: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          assessment_id?: string | null
+          question_number?: number | null
+          question_text: string
+          question_type?: string | null
+          difficulty?: string | null
+          topic?: string | null
+          sub_skill?: string | null
+          software?: string | null
+          competency?: string | null
+          options?: Json | null
+          correct_answer?: string | null
+          expected_concepts?: string[] | null
+          evaluation_criteria?: string | null
+          assessment_stage?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          assessment_id?: string | null
+          question_number?: number | null
+          question_text?: string
+          question_type?: string | null
+          difficulty?: string | null
+          topic?: string | null
+          sub_skill?: string | null
+          software?: string | null
+          competency?: string | null
+          options?: Json | null
+          correct_answer?: string | null
+          expected_concepts?: string[] | null
+          evaluation_criteria?: string | null
+          assessment_stage?: number | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_assessment_questions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_assessments"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_assessment_answers: {
+        Row: {
+          id: string
+          assessment_id: string | null
+          question_id: string | null
+          question_type: string | null
+          answer_text: string | null
+          answer_transcript: string | null
+          is_correct: boolean | null
+          score: number | null
+          answer_quality: string | null
+          competency: string | null
+          feedback: string | null
+          concepts_matched: string[] | null
+          concepts_missed: string[] | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          assessment_id?: string | null
+          question_id?: string | null
+          question_type?: string | null
+          answer_text?: string | null
+          answer_transcript?: string | null
+          is_correct?: boolean | null
+          score?: number | null
+          answer_quality?: string | null
+          competency?: string | null
+          feedback?: string | null
+          concepts_matched?: string[] | null
+          concepts_missed?: string[] | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          assessment_id?: string | null
+          question_id?: string | null
+          question_type?: string | null
+          answer_text?: string | null
+          answer_transcript?: string | null
+          is_correct?: boolean | null
+          score?: number | null
+          answer_quality?: string | null
+          competency?: string | null
+          feedback?: string | null
+          concepts_matched?: string[] | null
+          concepts_missed?: string[] | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_assessment_answers_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_assessment_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_assessment_questions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_assessment_results: {
+        Row: {
+          id: string
+          assessment_id: string | null
+          skill_id: string | null
+          skill_name: string | null
+          declared_level: string | null
+          demonstrated_level: string | null
+          verification_confidence: string | null
+          overall_score: number | null
+          stage2_score: number | null
+          stage3_score: number | null
+          scenario_score: number | null
+          software_score: number | null
+          technical_score: number | null
+          practical_score: number | null
+          troubleshooting_score: number | null
+          strengths: string | null
+          weaknesses: string | null
+          recommendations: string | null
+          ai_summary: string | null
+          verification_status: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          assessment_id?: string | null
+          skill_id?: string | null
+          skill_name?: string | null
+          declared_level?: string | null
+          demonstrated_level?: string | null
+          verification_confidence?: string | null
+          overall_score?: number | null
+          stage2_score?: number | null
+          stage3_score?: number | null
+          scenario_score?: number | null
+          software_score?: number | null
+          technical_score?: number | null
+          practical_score?: number | null
+          troubleshooting_score?: number | null
+          strengths?: string | null
+          weaknesses?: string | null
+          recommendations?: string | null
+          ai_summary?: string | null
+          verification_status?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          assessment_id?: string | null
+          skill_id?: string | null
+          skill_name?: string | null
+          declared_level?: string | null
+          demonstrated_level?: string | null
+          verification_confidence?: string | null
+          overall_score?: number | null
+          stage2_score?: number | null
+          stage3_score?: number | null
+          scenario_score?: number | null
+          software_score?: number | null
+          technical_score?: number | null
+          practical_score?: number | null
+          troubleshooting_score?: number | null
+          strengths?: string | null
+          weaknesses?: string | null
+          recommendations?: string | null
+          ai_summary?: string | null
+          verification_status?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_assessment_results_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_assessment_results_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      skill_swap_requests: {
+        Row: {
+          id: string
+          sender_id: string
+          receiver_id: string
+          sender_listing_id: string
+          receiver_listing_id: string
+          message: string | null
+          match_score: number | null
+          status: string | null
+          created_at: string | null
+          updated_at: string | null
+          responded_at: string | null
+        }
+        Insert: {
+          id?: string
+          sender_id: string
+          receiver_id: string
+          sender_listing_id: string
+          receiver_listing_id: string
+          message?: string | null
+          match_score?: number | null
+          status?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          responded_at?: string | null
+        }
+        Update: {
+          id?: string
+          sender_id?: string
+          receiver_id?: string
+          sender_listing_id?: string
+          receiver_listing_id?: string
+          message?: string | null
+          match_score?: number | null
+          status?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          responded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_swap_requests_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_requests_receiver_listing_id_fkey"
+            columns: ["receiver_listing_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_requests_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_swap_requests_sender_listing_id_fkey"
+            columns: ["sender_listing_id"]
+            isOneToOne: false
+            referencedRelation: "skill_swap_listings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -27,11 +27,14 @@ type CreatorProfile = {
   specialties: string[];
 };
 
+import SkillSwapPanel from "@/components/skill-swap/SkillSwapPanel";
+
 function JobsPage() {
   const { profile } = useAuth();
   const isClient = profile?.role === "client";
 
-  // Default tab: for clients, "Find creators"; for creators, "Briefs"
+  const [topTab, setTopTab] = useState<"jobs" | "skill_swap">("jobs");
+  // Default tab for Brief Matching: for clients, "Find creators"; for creators, "Briefs"
   const [tab, setTab] = useState<"briefs" | "creators">(isClient ? "creators" : "briefs");
 
   return (
@@ -39,24 +42,37 @@ function JobsPage() {
       <div className="mb-5">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Opportunities</p>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">
-          {isClient ? "Hire creators & post briefs" : "Briefs matched to your specialty"}
+          {topTab === "skill_swap" ? "Skill Swap" : isClient ? "Hire creators & post briefs" : "Briefs matched to your specialty"}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {isClient
-            ? "Post project briefs or reach out directly to creators that fit your field."
-            : "We only show open briefs that align with your specialties."}
+          {topTab === "skill_swap"
+            ? "Exchange skills with other creators and learn from each other."
+            : isClient
+              ? "Post project briefs or reach out directly to creators that fit your field."
+              : "We only show open briefs that align with your specialties."}
         </p>
       </div>
 
-      {isClient && (
-        <div className="flex gap-1 border-b border-border mb-5">
-          <TabBtn active={tab === "creators"} onClick={() => setTab("creators")}>Find creators</TabBtn>
-          <TabBtn active={tab === "briefs"} onClick={() => setTab("briefs")}>My briefs</TabBtn>
-        </div>
+      <div className="flex gap-1 border-b border-border mb-5">
+        <TabBtn active={topTab === "jobs"} onClick={() => setTopTab("jobs")}>Brief Matching</TabBtn>
+        <TabBtn active={topTab === "skill_swap"} onClick={() => setTopTab("skill_swap")}>Skill Swap</TabBtn>
+      </div>
+
+      {topTab === "jobs" && (
+        <>
+          {isClient && (
+            <div className="flex gap-1 border-b border-border mb-5">
+              <TabBtn active={tab === "creators"} onClick={() => setTab("creators")}>Find creators</TabBtn>
+              <TabBtn active={tab === "briefs"} onClick={() => setTab("briefs")}>My briefs</TabBtn>
+            </div>
+          )}
+
+          {(!isClient || tab === "briefs") && <BriefsPanel />}
+          {isClient && tab === "creators" && <CreatorsPanel />}
+        </>
       )}
 
-      {(!isClient || tab === "briefs") && <BriefsPanel />}
-      {isClient && tab === "creators" && <CreatorsPanel />}
+      {topTab === "skill_swap" && <SkillSwapPanel />}
     </div>
   );
 }
