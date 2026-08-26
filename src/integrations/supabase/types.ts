@@ -192,30 +192,6 @@ export type Database = {
         }
         Relationships: []
       }
-      skills: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          is_custom: boolean | null
-          name: string
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          is_custom?: boolean | null
-          name: string
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          is_custom?: boolean | null
-          name?: string
-        }
-        Relationships: []
-      }
       conversation_members: {
         Row: {
           archived: boolean
