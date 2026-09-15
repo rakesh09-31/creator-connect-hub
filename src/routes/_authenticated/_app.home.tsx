@@ -194,7 +194,7 @@ function HomePage() {
       const { data: adminProf } = await supabase.from("profiles").select("*").eq("role", "admin").maybeSingle();
       const adminId = adminProf?.id;
 
-      if (adminId) {
+      if (adminId && user?.id === adminId) {
         const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
         const dailyId = `00000000-0000-4000-8000-${todayStr.replace(/-/g, "").padEnd(12, "0")}`;
         const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);

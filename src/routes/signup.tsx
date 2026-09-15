@@ -76,8 +76,8 @@ function SignupPage() {
           id: signUpData.user.id,
           username: parsed.data.username,
           full_name: parsed.data.username,
-          role: "creator",
-          account_type: "creator",
+          role: null,
+          account_type: null,
           onboarded: false,
         }, { onConflict: "id" });
       }

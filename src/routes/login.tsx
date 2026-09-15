@@ -21,16 +21,24 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (loading) return;
-    if (session && profile !== undefined) {
-      // If the user already has a role, they are recognised — go home.
-      // Only truly new accounts (role === null and not onboarded) see role selection.
-      const hasRole = profile?.role != null;
-      if (hasRole || profile?.onboarded) {
-        navigate({ to: "/home", replace: true });
-      } else {
-        navigate({ to: "/onboarding/role", replace: true });
-      }
+    if (loading || !session || !profile) return;
+
+    // If profile is complete/onboarded, go directly to Home/Dashboard
+    if (profile.onboarded) {
+      navigate({ to: "/home", replace: true });
+      return;
+    }
+
+    // Incomplete profile routing only for missing steps
+    const type = profile.account_type || profile.role;
+    if (!type) {
+      navigate({ to: "/onboarding/role", replace: true });
+    } else if (type === "creator") {
+      navigate({ to: "/onboarding/specialty", replace: true });
+    } else if (type === "client") {
+      navigate({ to: "/onboarding/client", replace: true });
+    } else {
+      navigate({ to: "/home", replace: true });
     }
   }, [loading, session, profile, navigate]);
 

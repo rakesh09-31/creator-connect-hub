@@ -26,7 +26,7 @@ const CURATED_ROLES = [
 
 function CreatorOnboardingPage() {
   const navigate = useNavigate();
-  const { user, refresh } = useAuth();
+  const { user, profile, refresh } = useAuth();
   
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -49,15 +49,51 @@ function CreatorOnboardingPage() {
   const [experienceYears, setExperienceYears] = useState<string>("");
 
   useEffect(() => {
+    if (profile?.onboarded) {
+      navigate({ to: "/home", replace: true });
+      return;
+    }
+  }, [profile, navigate]);
+
+  useEffect(() => {
     async function loadData() {
-      const { data: skills } = await supabase.from("skills")
-        .select("id, name")
-        .eq("is_custom", false)
-        .order("name");
-      if (skills) setAvailableSkills(skills);
+      if (!user) return;
+
+      const [skillsRes, rolesRes, userSkillsRes] = await Promise.all([
+        supabase.from("skills").select("id, name").eq("is_custom", false).order("name"),
+        supabase.from("creator_roles").select("role_id, professional_roles(id, name)").eq("creator_id", user.id),
+        supabase.from("creator_skills").select("skill_id, skills(id, name)").eq("creator_id", user.id),
+      ]);
+
+      if (skillsRes.data) setAvailableSkills(skillsRes.data);
+
+      const existingRoles = (rolesRes.data || [])
+        .map((x: any) => x.professional_roles)
+        .filter(Boolean);
+
+      if (existingRoles.length > 0) {
+        setSelectedRoles(existingRoles.map((r: any) => ({ ...r, emoji: "✨" })));
+        // Roles already selected in Step 1: resume directly at Step 2 (Skills)
+        setStep(2);
+      }
+
+      const existingSkills = (userSkillsRes.data || [])
+        .map((x: any) => x.skills)
+        .filter(Boolean);
+
+      if (existingSkills.length > 0) {
+        setSelectedSkills(existingSkills);
+      }
+
+      if (profile?.experience_level) {
+        setExperienceLevel(profile.experience_level);
+      }
+      if (profile?.experience_years != null) {
+        setExperienceYears(String(profile.experience_years));
+      }
     }
     loadData();
-  }, []);
+  }, [user, profile]);
 
   const handleAddCustomRole = async () => {
     if (!customRoleInput.trim() || !user) return;
@@ -191,6 +227,8 @@ function CreatorOnboardingPage() {
       // Update profile
       await supabase.from("profiles").update({ 
         onboarded: true,
+        role: "creator",
+        account_type: "creator",
         experience_level: experienceLevel || null,
         experience_years: experienceYears ? parseInt(experienceYears) : null
       }).eq("id", user.id);

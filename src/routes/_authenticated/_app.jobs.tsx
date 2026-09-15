@@ -1149,7 +1149,7 @@ function ApplicantsPanel({ jobId }: { jobId: string }) {
             {a.applicant ? (
               <Link
                 to="/user/$username"
-                params={{ username: a.applicant.username || a.applicant.id }}
+                params={{ username: a.applicant.username || (a.applicant as any).id || "" }}
                 className="w-9 h-9 rounded-full bg-muted overflow-hidden flex items-center justify-center text-xs font-semibold flex-shrink-0 hover:opacity-80 transition"
               >
                 {a.applicant?.avatar_url ? (

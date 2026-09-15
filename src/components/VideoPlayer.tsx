@@ -41,6 +41,7 @@ export function VideoPlayer({
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
 
   const { resolvedUrl: resolvedVideoUrl, loading: videoLoading, error: videoError } = useMediaUrl(feature, src);
   const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", poster);
@@ -69,16 +70,16 @@ export function VideoPlayer({
     return () => io.disconnect();
   }, [autoPlayInView]);
 
-  const isFailed = failed || !!videoError;
-  const isLoading = loading || videoLoading;
+  const isFailed = failed || !!videoError || (!videoLoading && !resolvedVideoUrl && !!src);
+  const isLoading = loading || (videoLoading && !isFailed);
 
   return (
-    <div ref={wrapRef} className={`relative bg-black ${className}`} onClick={onClick}>
-      {visible && resolvedVideoUrl ? (
+    <div ref={wrapRef} className={`relative bg-black min-h-[220px] ${className}`} onClick={onClick}>
+      {visible && resolvedVideoUrl && !isFailed ? (
         <video
           ref={videoRef}
           src={resolvedVideoUrl}
-          poster={resolvedPosterUrl ?? undefined}
+          poster={(!posterFailed && resolvedPosterUrl) ? resolvedPosterUrl : undefined}
           className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
           preload="metadata"
           playsInline
@@ -94,24 +95,33 @@ export function VideoPlayer({
           }}
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          {resolvedPosterUrl ? (
-            <img src={resolvedPosterUrl} alt="" className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`} loading="lazy" />
+        <div className="w-full h-full min-h-[220px] flex items-center justify-center bg-black/60">
+          {!posterFailed && resolvedPosterUrl ? (
+            <img
+              src={resolvedPosterUrl}
+              alt=""
+              className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
+              loading="lazy"
+              onError={() => setPosterFailed(true)}
+            />
           ) : (
-            <Play className="w-8 h-8 text-white/50" />
+            <div className="flex flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
+              <Play className="w-8 h-8 text-white/40" />
+            </div>
           )}
         </div>
       )}
 
       {isLoading && !isFailed && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/30">
           <Loader2 className="w-6 h-6 text-white/80 animate-spin" />
         </div>
       )}
       {isFailed && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 text-white text-xs px-3 text-center">
-          <AlertTriangle className="w-5 h-5" />
-          This video could not be loaded.
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 text-white text-xs px-4 text-center">
+          <AlertTriangle className="w-6 h-6 text-amber-400" />
+          <span className="font-medium text-white/90">Video unavailable</span>
+          <span className="text-[11px] text-white/60 max-w-xs">This video could not be played or is no longer accessible.</span>
         </div>
       )}
     </div>

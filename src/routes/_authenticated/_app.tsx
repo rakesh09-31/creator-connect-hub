@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, Briefcase, LogOut, Sun, Moon } from "lucide-react";
+import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, Briefcase, LogOut, Sun, Moon, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -19,22 +19,23 @@ function AppShell() {
   useEffect(() => {
     if (loading || !profile) return;
     
-    if (!profile.onboarded) {
-      const type = profile.account_type || profile.role;
-      if (!type) {
-        if (location.pathname !== "/onboarding/role") navigate({ to: "/onboarding/role", replace: true });
-        return;
-      }
+    // If user is onboarded, do not redirect to onboarding
+    if (profile.onboarded) return;
 
-      if (type === "creator" && location.pathname !== "/onboarding/specialty") {
-        navigate({ to: "/onboarding/specialty", replace: true });
-        return;
-      }
-      
-      if (type === "client" && location.pathname !== "/onboarding/client") {
-        navigate({ to: "/onboarding/client", replace: true });
-        return;
-      }
+    const type = profile.account_type || profile.role;
+    if (!type) {
+      if (location.pathname !== "/onboarding/role") navigate({ to: "/onboarding/role", replace: true });
+      return;
+    }
+
+    if (type === "creator" && location.pathname !== "/onboarding/specialty") {
+      navigate({ to: "/onboarding/specialty", replace: true });
+      return;
+    }
+    
+    if (type === "client" && location.pathname !== "/onboarding/client") {
+      navigate({ to: "/onboarding/client", replace: true });
+      return;
     }
   }, [loading, profile, navigate, location.pathname]);
 
@@ -60,6 +61,9 @@ function AppShell() {
             <NotificationBell active={isActive("/notifications")} />
             <HeaderBtn to="/messages" active={isActive("/messages")}>
               <MessageCircle className="w-5 h-5" />
+            </HeaderBtn>
+            <HeaderBtn to="/settings" active={isActive("/settings")}>
+              <Settings className="w-5 h-5" />
             </HeaderBtn>
             <button
               onClick={toggle}

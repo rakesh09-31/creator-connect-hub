@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send, X, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send, X, Trash2, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +23,8 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
   const initial = (author?.username || "?").slice(0, 1).toUpperCase();
   const isVideo = post.post_type === "video" || post.post_type === "reel";
   const imageFeature = isVideo ? "reel" as const : "post" as const;
-  const { resolvedUrl: resolvedMediaUrl } = useMediaUrl(imageFeature, post.media_url);
+  const { resolvedUrl: resolvedMediaUrl, loading: mediaLoading, error: mediaUrlError } = useMediaUrl(imageFeature, post.media_url);
+  const [mediaError, setMediaError] = useState(false);
 
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
@@ -173,11 +174,40 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
       </header>
 
       {post.media_url && (
-        <div className="bg-black relative select-none" onClick={onMediaTap}>
+        <div className="bg-black/90 relative select-none overflow-hidden" onClick={onMediaTap}>
           {isVideo ? (
-            <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} className="w-full max-h-[600px]" objectFit="contain" feature={imageFeature} />
+            <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} className="w-full max-h-[600px] min-h-[260px]" objectFit="contain" feature={imageFeature} />
           ) : (
-            resolvedMediaUrl ? <img src={resolvedMediaUrl} alt="" className="w-full max-h-[600px] object-cover" loading="lazy" /> : <div className="w-full h-64 bg-muted animate-pulse" />
+            mediaError || (mediaUrlError && !resolvedMediaUrl) ? (
+              <div className="w-full py-16 px-6 flex flex-col items-center justify-center text-center bg-muted/10 border-y border-border/40">
+                <div className="w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-medium text-foreground/80">Media unavailable</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                  This image could not be loaded or is no longer accessible.
+                </p>
+              </div>
+            ) : resolvedMediaUrl ? (
+              <img
+                src={resolvedMediaUrl}
+                alt={post.caption || "Post media"}
+                className="w-full max-h-[600px] object-cover"
+                loading="lazy"
+                onError={() => setMediaError(true)}
+              />
+            ) : mediaLoading ? (
+              <div className="w-full h-72 bg-muted/40 animate-pulse flex items-center justify-center text-muted-foreground/30">
+                <ImageIcon className="w-8 h-8 opacity-40 animate-pulse" />
+              </div>
+            ) : (
+              <div className="w-full py-16 px-6 flex flex-col items-center justify-center text-center bg-muted/10 border-y border-border/40">
+                <div className="w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-medium text-foreground/80">Media unavailable</p>
+              </div>
+            )
           )}
           {heartBurst && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

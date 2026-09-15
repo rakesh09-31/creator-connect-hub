@@ -240,9 +240,47 @@ export function buildPath(opts: {
 
 const signedCache = new Map<string, { url: string; expires: number }>();
 
+export const BUCKET_ALIAS_MAP: Record<string, StorageFeature> = {
+  posts: "post",
+  post: "post",
+  media: "post",
+  "post-media": "post",
+  post_media: "post",
+  postmedia: "post",
+  stories: "story",
+  story: "story",
+  thumbnails: "thumbnail",
+  thumbnail: "thumbnail",
+  "profile-images": "profileImage",
+  profile_images: "profileImage",
+  profiles: "profileImage",
+  "cover-images": "coverImage",
+  cover_images: "coverImage",
+  covers: "coverImage",
+  portfolio: "portfolioImage",
+  documents: "document",
+  "chat-media": "chatMedia",
+};
+
+export function cleanPathOrUrl(val: unknown): string {
+  if (!val || typeof val !== "string") return "";
+  let trimmed = val.trim();
+  if (!trimmed || trimmed === "[object Object]" || trimmed === "null" || trimmed === "undefined") {
+    return "";
+  }
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const obj = JSON.parse(trimmed);
+      trimmed = obj.url || obj.media_url || obj.path || "";
+    } catch {}
+  }
+  return trimmed;
+}
+
 export function getPublicUrl(feature: StorageFeature, path: string): string {
   const cfg = STORAGE_BUCKETS[feature];
-  return supabase.storage.from(cfg.bucket).getPublicUrl(path).data.publicUrl;
+  const cleanPath = (path || "").replace(/^\/+/, "");
+  return supabase.storage.from(cfg.bucket).getPublicUrl(cleanPath).data.publicUrl;
 }
 
 export async function getSignedUrl(
@@ -251,64 +289,113 @@ export async function getSignedUrl(
   expiresIn = 60 * 60,
 ): Promise<string | null> {
   const cfg = STORAGE_BUCKETS[feature];
-  const key = `${cfg.bucket}:${path}:${expiresIn}`;
+  if (!cfg) return null;
+  const cleanPath = (path || "").replace(/^\/+/, "");
+  if (!cleanPath) return null;
+
+  const key = `${cfg.bucket}:${cleanPath}:${expiresIn}`;
   const hit = signedCache.get(key);
   if (hit && hit.expires > Date.now()) return hit.url;
-  const { data, error } = await supabase.storage.from(cfg.bucket).createSignedUrl(path, expiresIn);
-  if (error || !data?.signedUrl) return null;
-  signedCache.set(key, { url: data.signedUrl, expires: Date.now() + Math.min(expiresIn, 3600) * 900 });
-  return data.signedUrl;
+
+  try {
+    const { data, error } = await supabase.storage.from(cfg.bucket).createSignedUrl(cleanPath, expiresIn);
+    if (error || !data?.signedUrl) return null;
+    signedCache.set(key, { url: data.signedUrl, expires: Date.now() + Math.min(expiresIn, 3600) * 900 });
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
 }
 
 /** URL that can be dropped straight into <img src> / <video src> and stored in the DB. */
 export async function getDisplayUrl(feature: StorageFeature, path: string): Promise<string> {
   const cfg = STORAGE_BUCKETS[feature];
-  if (cfg.shared && SHARED_BUCKETS_ARE_PUBLIC) return getPublicUrl(feature, path);
+  const cleanPath = (path || "").replace(/^\/+/, "");
+  if (!cleanPath) return "";
+  if (cfg.shared && SHARED_BUCKETS_ARE_PUBLIC) return getPublicUrl(feature, cleanPath);
   const ttl = cfg.shared ? LONG_SIGNED_TTL : 60 * 60 * 24;
-  return (await getSignedUrl(feature, path, ttl)) ?? getPublicUrl(feature, path);
+  return (await getSignedUrl(feature, cleanPath, ttl)) ?? getPublicUrl(feature, cleanPath);
 }
 
 /** Best-effort: derive {feature, path} back from a stored URL. */
 export function parseStorageUrl(url: string): { feature: StorageFeature; path: string } | null {
+  const cleaned = cleanPathOrUrl(url);
+  if (!cleaned) return null;
+
+  // 1. Check for standard Supabase storage URL: /storage/v1/object/(public|sign|authenticated)/<bucket>/<path>
+  const match = cleaned.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/?#]+)\/([^?#]+)/i);
+  if (match) {
+    const rawBucket = decodeURIComponent(match[1]).toLowerCase();
+    const rawPath = decodeURIComponent(match[2]).replace(/^\/+/, "");
+    let feature: StorageFeature = BUCKET_ALIAS_MAP[rawBucket] || "post";
+    if (rawBucket === "portfolio" && rawPath.includes("/videos/")) {
+      feature = "portfolioVideo";
+    }
+    return { feature, path: rawPath };
+  }
+
+  // 2. Check for bucket marker anywhere in path
   const entries = Object.entries(STORAGE_BUCKETS) as [StorageFeature, BucketConfig][];
-  for (const [feature, cfg] of entries) {
+  for (const [feat, cfg] of entries) {
     const marker = `/${cfg.bucket}/`;
-    const idx = url.indexOf(marker);
+    const idx = cleaned.indexOf(marker);
     if (idx !== -1) {
-      const path = url.slice(idx + marker.length).split("?")[0];
-      const match = entries.find(([, c]) => c.bucket === cfg.bucket && c.subfolder && path.includes(`/${c.subfolder}/`));
-      return { feature: match?.[0] ?? feature, path };
+      const rawPath = decodeURIComponent(cleaned.slice(idx + marker.length).split("?")[0]).replace(/^\/+/, "");
+      const subMatch = entries.find(([, c]) => c.bucket === cfg.bucket && c.subfolder && rawPath.includes(`/${c.subfolder}/`));
+      return { feature: subMatch?.[0] ?? feat, path: rawPath };
     }
   }
+
   return null;
 }
 
 /** Parses either a raw storage path (e.g. users/xyz/post/...) or a full URL. */
 export function parseStoragePathOrUrl(pathOrUrl: string): { feature: StorageFeature; path: string } | null {
-  if (!pathOrUrl) return null;
-  if (pathOrUrl.includes("://") || pathOrUrl.startsWith("blob:")) {
-    return parseStorageUrl(pathOrUrl);
+  const cleaned = cleanPathOrUrl(pathOrUrl);
+  if (!cleaned) return null;
+
+  if (cleaned.includes("://") || cleaned.startsWith("blob:") || cleaned.startsWith("data:")) {
+    return parseStorageUrl(cleaned);
   }
-  const parts = pathOrUrl.split("/");
+
+  // Strip leading slashes
+  let norm = cleaned.replace(/^\/+/, "");
+
+  // Check if starts with a known bucket name (e.g. "posts/users/..." or "stories/users/...")
+  const firstSlash = norm.indexOf("/");
+  if (firstSlash !== -1) {
+    const firstSegment = norm.slice(0, firstSlash).toLowerCase();
+    const mappedFeature = BUCKET_ALIAS_MAP[firstSegment];
+    if (mappedFeature) {
+      const remainingPath = norm.slice(firstSlash + 1).replace(/^\/+/, "");
+      return { feature: mappedFeature, path: remainingPath };
+    }
+  }
+
+  const parts = norm.split("/");
   if (parts[0] === "conversations") {
-    return { feature: "chatMedia", path: pathOrUrl };
+    return { feature: "chatMedia", path: norm };
   }
   if (parts[0] === "users" && parts[2]) {
     const featureOrSubfolder = parts[2];
     const entries = Object.entries(STORAGE_BUCKETS) as [StorageFeature, BucketConfig][];
     let match = entries.find(([, c]) => c.subfolder === featureOrSubfolder);
-    if (match) return { feature: match[0], path: pathOrUrl };
+    if (match) return { feature: match[0], path: norm };
     match = entries.find(([f]) => f === featureOrSubfolder);
-    if (match) return { feature: match[0], path: pathOrUrl };
+    if (match) return { feature: match[0], path: norm };
+    return { feature: "post", path: norm };
   }
+
   return null;
 }
 
 /** Refresh a possibly-expired signed URL that was stored in the database. */
 export async function refreshUrl(url: string): Promise<string> {
-  const parsed = parseStoragePathOrUrl(url);
-  if (!parsed) return url;
-  return getDisplayUrl(parsed.feature, parsed.path);
+  const cleaned = cleanPathOrUrl(url);
+  if (!cleaned) return "";
+  const parsed = parseStoragePathOrUrl(cleaned);
+  if (!parsed) return cleaned;
+  return (await getDisplayUrl(parsed.feature, parsed.path)) || cleaned;
 }
 
 /**
@@ -319,15 +406,29 @@ export async function getMediaUrl(
   feature: StorageFeature,
   pathOrUrl: string | null | undefined
 ): Promise<string> {
-  if (!pathOrUrl) return "";
-  const parsed = parseStoragePathOrUrl(pathOrUrl);
+  const cleaned = cleanPathOrUrl(pathOrUrl);
+  if (!cleaned) return "";
+
+  const parsed = parseStoragePathOrUrl(cleaned);
   if (parsed) {
-    return (await getDisplayUrl(parsed.feature, parsed.path)) ?? pathOrUrl;
+    const displayUrl = await getDisplayUrl(parsed.feature, parsed.path);
+    if (displayUrl) return displayUrl;
   }
-  if (pathOrUrl.includes("://") || pathOrUrl.startsWith("blob:")) {
-    return pathOrUrl;
+
+  // If it's an external HTTP/HTTPS/blob URL that is NOT a Supabase storage URL
+  if (
+    cleaned.startsWith("http://") ||
+    cleaned.startsWith("https://") ||
+    cleaned.startsWith("blob:") ||
+    cleaned.startsWith("data:")
+  ) {
+    return cleaned;
   }
-  return (await getDisplayUrl(feature, pathOrUrl)) ?? "";
+
+  // If it was a plain relative path without bucket prefix
+  const cleanRelPath = cleaned.replace(/^\/+/, "");
+  const displayUrl = await getDisplayUrl(feature, cleanRelPath);
+  return displayUrl || "";
 }
 
 /* -------------------------------------------------- upload */
@@ -340,42 +441,22 @@ async function putWithProgress(
   onProgress?: (p: number) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  const baseUrl = (import.meta.env.VITE_SUPABASE_URL || "https://mouvlzrsaxhczywkrwyq.supabase.co") as string;
-  const apiKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_nBxswRGxXCgpKQZLw2sZvA_ZZeNFuDn") as string;
+  const cleanPath = (path || "").replace(/^\/+/, "");
+  onProgress?.(30);
 
-  // XHR gives real progress events; fall back to the SDK when unavailable.
-  if (!token || !baseUrl || !apiKey || typeof XMLHttpRequest === "undefined") {
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: IMMUTABLE_CACHE,
-      upsert,
-      contentType: file.type || undefined,
-    });
-    if (error) throw error;
-    return;
+  if (signal?.aborted) throw new StorageError("UPLOAD", "Upload cancelled.");
+
+  const { error } = await supabase.storage.from(bucket).upload(cleanPath, file, {
+    cacheControl: IMMUTABLE_CACHE,
+    upsert,
+    contentType: file.type || undefined,
+  });
+
+  if (error) {
+    throw new StorageError("UPLOAD", error.message);
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open(upsert ? "PUT" : "POST", `${baseUrl}/storage/v1/object/${bucket}/${encodeURI(path)}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.setRequestHeader("apikey", apiKey);
-    xhr.setRequestHeader("x-upsert", String(upsert));
-    xhr.setRequestHeader("cache-control", `max-age=${IMMUTABLE_CACHE}, immutable`);
-    if (file.type) xhr.setRequestHeader("content-type", file.type);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress?.(Math.min(95, Math.round((e.loaded / e.total) * 90) + 5));
-    };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(formatUploadError(xhr.status, xhr.responseText)));
-    xhr.onerror = () => reject(new Error("Network error during upload."));
-    xhr.onabort = () => reject(new StorageError("UPLOAD", "Upload cancelled."));
-    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
-    xhr.send(file);
-  });
+  onProgress?.(95);
 }
 
 const safeMessage = (text: string) => {

@@ -12,11 +12,24 @@ function SplashPage() {
   const { loading, session, profile } = useAuth();
 
   useEffect(() => {
+    if (loading) return;
     const t = setTimeout(() => {
-      if (loading) return;
-      if (!session) navigate({ to: "/login" });
-      else if (!profile?.onboarded) navigate({ to: "/onboarding/role" });
-      else navigate({ to: "/home" });
+      if (!session) {
+        navigate({ to: "/login" });
+      } else if (profile?.onboarded) {
+        navigate({ to: "/home" });
+      } else {
+        const type = profile?.account_type || profile?.role;
+        if (!type) {
+          navigate({ to: "/onboarding/role" });
+        } else if (type === "creator") {
+          navigate({ to: "/onboarding/specialty" });
+        } else if (type === "client") {
+          navigate({ to: "/onboarding/client" });
+        } else {
+          navigate({ to: "/home" });
+        }
+      }
     }, 2400);
     return () => clearTimeout(t);
   }, [loading, session, profile, navigate]);

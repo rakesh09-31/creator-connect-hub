@@ -14,6 +14,8 @@ export type Profile = {
   client_field: string | null;
   onboarded: boolean;
   portfolio_url: string | null;
+  experience_level?: string | null;
+  experience_years?: number | null;
 };
 
 type AuthState = {
@@ -44,24 +46,26 @@ export async function ensureProfile(user: User): Promise<Profile> {
   const emailPrefix = user.email?.split("@")[0] || `user_${user.id.slice(0, 8)}`;
   const username = (meta.username || emailPrefix).replace(/[^a-zA-Z0-9_]/g, "_");
   const fullName = meta.full_name || meta.name || username;
-  const role = meta.role || "creator";
+  const role = meta.role || null;
 
   const { data: created, error } = await supabase
     .from("profiles")
-    .upsert({
-      id: user.id,
-      username,
-      full_name: fullName,
-      role,
-      account_type: role,
-      onboarded: false,
-    }, { onConflict: "id" })
+    .upsert(
+      {
+        id: user.id,
+        username,
+        full_name: fullName,
+        role,
+        account_type: role,
+        onboarded: false,
+      },
+      { onConflict: "id" }
+    )
     .select()
     .single();
 
   if (error) {
     console.error("[Auth] ensureProfile upsert error:", error);
-    // Fallback attempt to read again in case another process inserted it
     const { data: retry } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (retry) return retry as Profile;
     throw error;
@@ -75,52 +79,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  const loadProfile = async (u: User) => {
+  const loadProfile = async (u: User): Promise<Profile | null> => {
     try {
       const data = await ensureProfile(u);
       let role_count = 0;
+      let isOnboarded = !!data.onboarded;
+
       if (data) {
         const type = data.account_type || data.role;
-        if (type === "creator") {
-          const { count } = await supabase.from("creator_roles").select("*", { count: "exact", head: true }).eq("creator_id", u.id);
-          role_count = count || 0;
-        } else if (type === "client") {
-          const { count } = await supabase.from("client_roles").select("*", { count: "exact", head: true }).eq("client_id", u.id);
-          role_count = count || 0;
+        if (!isOnboarded) {
+          if (type === "creator") {
+            const { count } = await supabase
+              .from("creator_roles")
+              .select("role_id", { count: "exact" })
+              .eq("creator_id", u.id);
+            role_count = count || 0;
+            // If the creator already has roles assigned in DB, mark them onboarded
+            if (role_count > 0) {
+              isOnboarded = true;
+              supabase
+                .from("profiles")
+                .update({ onboarded: true })
+                .eq("id", u.id)
+                .then(() => {});
+            }
+          } else if (type === "client") {
+            const { count } = await supabase
+              .from("client_roles")
+              .select("role_id", { count: "exact" })
+              .eq("client_id", u.id);
+            role_count = count || 0;
+            if (role_count > 0) {
+              isOnboarded = true;
+              supabase
+                .from("profiles")
+                .update({ onboarded: true })
+                .eq("id", u.id)
+                .then(() => {});
+            }
+          }
+        } else {
+          role_count = 1;
         }
-        setProfile({ ...(data as Profile), role_count });
+
+        const merged: Profile = {
+          ...(data as Profile),
+          onboarded: isOnboarded,
+          role_count,
+        };
+        setProfile(merged);
+        return merged;
       } else {
         setProfile(null);
+        return null;
       }
     } catch (err) {
       console.error("[Auth] Failed to load/ensure profile:", err);
       setProfile(null);
+      return null;
     }
   };
 
   useEffect(() => {
-    // 1. Subscribe FIRST
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    let isMounted = true;
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!isMounted) return;
+
       setSession(s);
       if (s?.user) {
-        // block loading state until profile is fetched
-        setLoading(true);
-        setTimeout(() => loadProfile(s.user).finally(() => setLoading(false)), 0);
+        // Must yield to next tick so Supabase Auth client releases its internal event lock
+        setTimeout(async () => {
+          if (!isMounted) return;
+          try {
+            await loadProfile(s.user);
+          } catch (err) {
+            console.error("[Auth] loadProfile error:", err);
+          } finally {
+            if (isMounted) setLoading(false);
+          }
+        }, 0);
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
-    // 2. Then read existing session
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) {
-        loadProfile(data.session.user).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    });
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const value: AuthState = {
@@ -129,10 +177,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     refresh: async () => {
-      if (session?.user) await loadProfile(session.user);
+      if (session?.user) {
+        await loadProfile(session.user);
+      }
     },
     signOut: async () => {
-      await supabase.auth.signOut();
+      try {
+        setLoading(true);
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error("[Auth] Sign out error:", err);
+      } finally {
+        setSession(null);
+        setProfile(null);
+        setLoading(false);
+        window.location.href = "/login";
+      }
     },
   };
 

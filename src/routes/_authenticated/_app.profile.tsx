@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2, Play, Info, ChevronLeft, ChevronRight, Github, Globe, Wrench, Loader2 } from "lucide-react";
+import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2, Play, Info, ChevronLeft, ChevronRight, Github, Globe, Wrench, Loader2, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, ensureProfile } from "@/lib/auth";
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/_app/profile")({
 type Squad = { id: string; name: string; description: string | null; specialty: string | null; avatar_url: string | null };
 
 function ProfilePage() {
-  const { profile, user, refresh } = useAuth();
+  const { profile, user, refresh, signOut } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
   const [roles, setRoles] = useState<{id: string, name: string}[]>([]);
   const [skills, setSkills] = useState<{id: string, name: string}[]>([]);
@@ -124,9 +124,27 @@ function ProfilePage() {
                 <h1 className="text-xl font-semibold tracking-tight truncate">{profile.full_name || profile.username}</h1>
                 <p className="text-sm text-muted-foreground">@{profile.username}</p>
               </div>
-              <button onClick={() => setEditOpen(true)} className="p-2 hover:bg-muted rounded-md text-muted-foreground transition" aria-label="Edit profile">
-                <Pencil className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Link
+                  to="/settings"
+                  className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition"
+                  title="Settings"
+                  aria-label="Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Link>
+                <button onClick={() => setEditOpen(true)} className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition" aria-label="Edit profile" title="Edit profile">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => signOut()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 transition border border-destructive/20"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded ${

@@ -25,7 +25,7 @@ const CURATED_ROLES = [
 
 function ClientOnboardingPage() {
   const navigate = useNavigate();
-  const { user, refresh } = useAuth();
+  const { user, profile, refresh } = useAuth();
   
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +33,30 @@ function ClientOnboardingPage() {
   const [selectedRoles, setSelectedRoles] = useState<Role[]>([]);
   const [customRoleInput, setCustomRoleInput] = useState("");
   const [showCustomRole, setShowCustomRole] = useState(false);
+
+  useEffect(() => {
+    if (profile?.onboarded) {
+      navigate({ to: "/home", replace: true });
+      return;
+    }
+  }, [profile, navigate]);
+
+  useEffect(() => {
+    async function loadClientRoles() {
+      if (!user) return;
+      const { data: existingRoles } = await supabase
+        .from("client_roles")
+        .select("role_id, professional_roles(id, name)")
+        .eq("client_id", user.id);
+      const roles = (existingRoles || [])
+        .map((r: any) => r.professional_roles)
+        .filter(Boolean);
+      if (roles.length > 0) {
+        setSelectedRoles(roles.map((r: any) => ({ ...r, emoji: "✨" })));
+      }
+    }
+    loadClientRoles();
+  }, [user]);
 
   const handleAddCustomRole = async () => {
     if (!customRoleInput.trim() || !user) return;
@@ -108,6 +132,7 @@ function ClientOnboardingPage() {
       
       // Update profile
       await supabase.from("profiles").update({ 
+        role: "client",
         account_type: "client",
         onboarded: true 
       }).eq("id", user.id);

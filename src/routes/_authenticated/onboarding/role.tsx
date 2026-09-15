@@ -16,8 +16,14 @@ function SelectRolePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (profile?.account_type || profile?.role) {
-      if (profile.role_count && profile.role_count > 0) {
+    if (profile?.onboarded) {
+      navigate({ to: "/home", replace: true });
+      return;
+    }
+    const currentRole = profile?.account_type || profile?.role;
+    if (currentRole === "creator" || currentRole === "client") {
+      setSelected(currentRole);
+      if (profile?.role_count && profile.role_count > 0) {
         navigate({ to: "/home", replace: true });
       }
     }

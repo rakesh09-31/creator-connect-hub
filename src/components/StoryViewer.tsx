@@ -58,6 +58,8 @@ export function StoryViewer({
   const group = groups[gi];
   const story = group?.stories[si];
 
+  const [mediaFailed, setMediaFailed] = useState(false);
+
   const { resolvedUrl: resolvedMediaUrl } = useMediaUrl("story", story?.media_url);
   const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", story?.thumbnail_url);
 
@@ -65,6 +67,7 @@ export function StoryViewer({
 
   const next = () => {
     setProgress(0);
+    setMediaFailed(false);
     if (!group) return onClose();
     if (si + 1 < group.stories.length) return setSi(si + 1);
     if (gi + 1 < groups.length) {
@@ -77,6 +80,7 @@ export function StoryViewer({
 
   const prev = () => {
     setProgress(0);
+    setMediaFailed(false);
     if (si > 0) return setSi(si - 1);
     if (gi > 0) {
       const g = groups[gi - 1];
@@ -209,7 +213,18 @@ export function StoryViewer({
           </div>
         </div>
 
-        {story.media_type === "video" ? (
+        {story.media_type === "text" ? (
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-purple-900/60 via-slate-900 to-black text-center select-none">
+            <p className="text-xl sm:text-2xl font-semibold text-white leading-relaxed max-w-sm drop-shadow-md">
+              {story.caption || "Omnicraft Story"}
+            </p>
+          </div>
+        ) : mediaFailed ? (
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-900 text-center select-none text-white/70">
+            <p className="text-base font-medium mb-1">Story media unavailable</p>
+            <p className="text-xs text-white/50">This media could not be loaded.</p>
+          </div>
+        ) : story.media_type === "video" ? (
           resolvedMediaUrl ? (
             <video
               key={story.id}
@@ -221,6 +236,7 @@ export function StoryViewer({
               preload="auto"
               playsInline
               controls={false}
+              onError={() => setMediaFailed(true)}
               onTimeUpdate={(e) => {
                 const v = e.currentTarget;
                 if (v.duration) setProgress((v.currentTime / v.duration) * 100);
@@ -234,7 +250,13 @@ export function StoryViewer({
           )
         ) : (
           resolvedMediaUrl ? (
-            <img key={story.id} src={resolvedMediaUrl} alt="" className="w-full h-full object-contain" />
+            <img
+              key={story.id}
+              src={resolvedMediaUrl}
+              alt=""
+              className="w-full h-full object-contain"
+              onError={() => setMediaFailed(true)}
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-black">
               <span className="text-white/50 text-sm animate-pulse">Loading image...</span>

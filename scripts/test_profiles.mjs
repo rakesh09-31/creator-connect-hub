@@ -11,11 +11,10 @@ for (const line of env.split('\n')) {
 const supabase = createClient(url, key);
 
 async function run() {
-  const { data: signinData, error: signinErr } = await supabase.auth.signInWithPassword({
-    email: 'creator_1789410388281@testomnicraft.dev',
-    password: 'TestPassword123!#'
-  });
-  console.log('Login attempt:', signinErr ? signinErr.message : 'SUCCESS: ' + signinData.user.email);
+  const { count: total } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+  const { count: onboardedCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('onboarded', true);
+  const { count: notOnboardedCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('onboarded', false);
+  console.log({ total, onboardedCount, notOnboardedCount });
 }
 
 run();

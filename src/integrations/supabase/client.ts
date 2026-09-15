@@ -55,8 +55,16 @@ let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 // import { supabase } from "@/integrations/supabase/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
   get(_, prop, receiver) {
-    if (!_supabase) _supabase = createSupabaseClient();
+    if (!_supabase) {
+      _supabase = createSupabaseClient();
+      if (typeof window !== 'undefined') {
+        (window as any).__supabase = _supabase;
+      }
+    }
     return Reflect.get(_supabase, prop, receiver);
   },
 });
+if (typeof window !== 'undefined') {
+  (window as any).__supabase = supabase;
+}
 

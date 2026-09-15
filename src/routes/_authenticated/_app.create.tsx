@@ -131,6 +131,7 @@ function CreatePage() {
         caption: caption.trim() || null,
         media_url: mediaPath,
         thumbnail_url: thumbnailPath,
+        created_at: new Date().toISOString(),
       });
       if (error) {
         if (file) {

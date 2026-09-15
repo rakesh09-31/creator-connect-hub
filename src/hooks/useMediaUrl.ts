@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getMediaUrl, type StorageFeature } from "@/lib/storage";
+import { getMediaUrl, cleanPathOrUrl, type StorageFeature } from "@/lib/storage";
 
 const localCache = new Map<string, string>();
 
@@ -9,20 +9,22 @@ const localCache = new Map<string, string>();
  */
 export function useMediaUrl(
   feature: StorageFeature,
-  pathOrUrl: string | null | undefined
+  rawPathOrUrl: string | null | undefined
 ) {
+  const pathOrUrl = cleanPathOrUrl(rawPathOrUrl);
   const cacheKey = pathOrUrl ? `${feature}:${pathOrUrl}` : "";
   const initialUrl = cacheKey ? localCache.get(cacheKey) : "";
 
+  const isImmediateExternal =
+    !!pathOrUrl &&
+    (pathOrUrl.startsWith("http://") ||
+      pathOrUrl.startsWith("https://") ||
+      pathOrUrl.startsWith("blob:") ||
+      pathOrUrl.startsWith("data:")) &&
+    !pathOrUrl.includes("/storage/v1/object/");
+
   const [resolvedUrl, setResolvedUrl] = useState<string>(
-    initialUrl ||
-      (pathOrUrl &&
-      (pathOrUrl.startsWith("http://") ||
-        pathOrUrl.startsWith("https://") ||
-        pathOrUrl.startsWith("blob:")) &&
-      !pathOrUrl.includes("/storage/v1/object/") // If it has Supabase object URL pattern, let's resolve it asynchronously
-        ? pathOrUrl
-        : "")
+    initialUrl || (isImmediateExternal ? pathOrUrl : "")
   );
   const [loading, setLoading] = useState<boolean>(!resolvedUrl && !!pathOrUrl);
   const [error, setError] = useState<Error | null>(null);
@@ -31,6 +33,7 @@ export function useMediaUrl(
     if (!pathOrUrl) {
       setResolvedUrl("");
       setLoading(false);
+      setError(null);
       return;
     }
 
@@ -42,13 +45,7 @@ export function useMediaUrl(
     }
 
     // If it's a non-Supabase external URL, we can resolve immediately
-    if (
-      (pathOrUrl.startsWith("http://") ||
-        pathOrUrl.startsWith("https://") ||
-        pathOrUrl.startsWith("blob:") ||
-        pathOrUrl.startsWith("data:")) &&
-      !pathOrUrl.includes("/storage/v1/object/")
-    ) {
+    if (isImmediateExternal) {
       localCache.set(cacheKey, pathOrUrl);
       setResolvedUrl(pathOrUrl);
       setLoading(false);
@@ -79,7 +76,7 @@ export function useMediaUrl(
     return () => {
       active = false;
     };
-  }, [feature, pathOrUrl, cacheKey]);
+  }, [feature, pathOrUrl, cacheKey, isImmediateExternal]);
 
   return { resolvedUrl, loading, error };
 }
