@@ -37,17 +37,58 @@ function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-    if (!email || !password) return toast.error("Enter your email and password");
-    if (!email.includes("@")) return toast.error("Please sign in with your email address");
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) return toast.error("Enter your email and password");
+    if (!trimmedEmail.includes("@")) return toast.error("Please sign in with your email address");
+
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) {
-      toast.error(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (error) {
+        console.error("[Auth Login Error]", {
+          name: error.name,
+          message: error.message,
+          status: error.status,
+        });
+
+        const rawMsg = error.message || "";
+        const lowerMsg = rawMsg.toLowerCase();
+
+        if (lowerMsg.includes("failed to fetch") || error.name === "AuthRetryableFetchError") {
+          toast.error(
+            "Authentication server connection failed. Please verify your internet connection or check your network."
+          );
+        } else if (lowerMsg.includes("invalid login credentials") || lowerMsg.includes("invalid grant")) {
+          toast.error("Invalid email or password. Please check your credentials and try again.");
+        } else if (lowerMsg.includes("email not confirmed")) {
+          toast.error("Please confirm your email address before signing in. Check your inbox for the confirmation link.");
+        } else if (lowerMsg.includes("too many requests") || error.status === 429) {
+          toast.error("Too many login attempts. Please wait a moment and try again.");
+        } else {
+          toast.error(rawMsg || "Sign in failed. Please try again.");
+        }
+
+        setSubmitting(false);
+        return;
+      }
+
+      toast.success("Welcome back!");
+      // keep loader visible until auth context redirects
+    } catch (err: any) {
+      console.error("[Auth Unexpected Login Exception]", err);
+      const rawMsg = err?.message || "";
+      const lowerMsg = rawMsg.toLowerCase();
+      if (lowerMsg.includes("failed to fetch") || err?.name === "TypeError") {
+        toast.error("Network error: Unable to connect to authentication server. Please check your network connection.");
+      } else {
+        toast.error(rawMsg || "An unexpected error occurred during sign in. Please try again.");
+      }
       setSubmitting(false);
-      return;
     }
-    toast.success("Welcome back!");
-    // keep loader visible until auth context redirects
   };
 
   if (submitting) return <LoadingScreen message="Signing you in" />;

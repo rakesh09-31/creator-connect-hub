@@ -3,10 +3,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Heart, MessageCircle, Share2, ArrowLeft, Bookmark, Send, X, Volume2, VolumeX, Play } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ensureProfile } from "@/lib/auth";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { useViewTracking } from "@/hooks/useViewTracking";
 import { ShareVideoDialog } from "@/components/ShareVideoDialog";
+import { getReadableErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_authenticated/_app/reels")({
   head: () => ({ meta: [{ title: "Reels — Omnicraft" }] }),
@@ -222,23 +223,45 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
 
   const toggleLike = async () => {
     if (!user) { toast.error("Sign in to like"); return; }
+    try {
+      await ensureProfile(user);
+    } catch {}
     if (liked) {
-      await supabase.from("post_likes").delete().eq("post_id", reel.id).eq("user_id", user.id);
       setLiked(false); setLikes((n) => Math.max(0, n - 1));
+      const { error } = await supabase.from("post_likes").delete().eq("post_id", reel.id).eq("user_id", user.id);
+      if (error) {
+        setLiked(true); setLikes((n) => n + 1);
+        toast.error(getReadableErrorMessage(error, "Failed to unlike video"));
+      }
     } else {
+      setLiked(true); setLikes((n) => n + 1);
       const { error } = await supabase.from("post_likes").insert({ post_id: reel.id, user_id: user.id });
-      if (!error) { setLiked(true); setLikes((n) => n + 1); }
+      if (error && error.code !== "23505") {
+        setLiked(false); setLikes((n) => Math.max(0, n - 1));
+        toast.error(getReadableErrorMessage(error, "Failed to like video"));
+      }
     }
   };
 
   const toggleSave = async () => {
     if (!user) { toast.error("Sign in to save"); return; }
+    try {
+      await ensureProfile(user);
+    } catch {}
     if (saved) {
-      await supabase.from("post_saves").delete().eq("post_id", reel.id).eq("user_id", user.id);
       setSaved(false);
+      const { error } = await supabase.from("post_saves").delete().eq("post_id", reel.id).eq("user_id", user.id);
+      if (error) {
+        setSaved(true);
+        toast.error(getReadableErrorMessage(error, "Failed to unsave video"));
+      }
     } else {
+      setSaved(true);
       const { error } = await supabase.from("post_saves").insert({ post_id: reel.id, user_id: user.id });
-      if (!error) setSaved(true);
+      if (error && error.code !== "23505") {
+        setSaved(false);
+        toast.error(getReadableErrorMessage(error, "Failed to save video"));
+      }
     }
   };
 
@@ -385,12 +408,24 @@ function CommentsSheet({ postId, onClose }: { postId: string; onClose: () => voi
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !text.trim()) return;
+    if (!user) {
+      toast.error("Sign in to comment");
+      return;
+    }
+    if (!text.trim()) return;
     const body = text.trim().slice(0, 500);
-    const { error } = await supabase.from("post_comments").insert({ post_id: postId, user_id: user.id, body });
-    if (error) { toast.error(error.message); return; }
-    setText("");
-    load();
+    try {
+      await ensureProfile(user);
+      const { error } = await supabase.from("post_comments").insert({ post_id: postId, user_id: user.id, body });
+      if (error) {
+        toast.error(getReadableErrorMessage(error, "Failed to post comment"));
+        return;
+      }
+      setText("");
+      load();
+    } catch (err) {
+      toast.error(getReadableErrorMessage(err, "Failed to post comment"));
+    }
   };
 
   return (
@@ -409,19 +444,37 @@ function CommentsSheet({ postId, onClose }: { postId: string; onClose: () => voi
             <p className="text-center text-sm text-muted-foreground py-8">Loading…</p>
           ) : items.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">Be the first to comment.</p>
-          ) : items.map((c) => (
-            <div key={c.id} className="flex gap-3">
-              <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold overflow-hidden shrink-0">
-                {c.author?.avatar_url
-                  ? <img src={c.author.avatar_url} className="w-full h-full object-cover" />
-                  : (c.author?.username ?? "?").slice(0, 1).toUpperCase()}
+          ) : items.map((c) => {
+            const commentAuthorUsername = c.author?.username || c.author?.id || "";
+            return (
+              <div key={c.id} className="flex gap-3">
+                <Link
+                  to="/user/$username"
+                  params={{ username: commentAuthorUsername }}
+                  onClick={onClose}
+                  className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold overflow-hidden shrink-0 hover:opacity-80 transition"
+                >
+                  {c.author?.avatar_url
+                    ? <img src={c.author.avatar_url} className="w-full h-full object-cover" />
+                    : (c.author?.username ?? "?").slice(0, 1).toUpperCase()}
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm">
+                    <Link
+                      to="/user/$username"
+                      params={{ username: commentAuthorUsername }}
+                      onClick={onClose}
+                      className="font-semibold mr-1.5 hover:underline"
+                    >
+                      @{c.author?.username ?? "user"}
+                    </Link>
+                    {c.body}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(c.created_at).toLocaleDateString()}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm"><span className="font-semibold mr-1.5">@{c.author?.username ?? "user"}</span>{c.body}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(c.created_at).toLocaleDateString()}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <form onSubmit={submit} className="border-t border-border p-3 flex items-center gap-2">
           <input

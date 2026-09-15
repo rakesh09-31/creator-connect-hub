@@ -4,11 +4,12 @@ import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send, X, Trash2
 import { toast } from "sonner";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ensureProfile } from "@/lib/auth";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { deleteMediaByUrl } from "@/lib/storage";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { ShareVideoDialog } from "./ShareVideoDialog";
+import { getReadableErrorMessage } from "@/lib/errors";
 
 type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
 export type PostLike = {
@@ -58,31 +59,52 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
 
   const doLike = async () => {
     if (!user) { toast.error("Sign in to like"); return; }
+    try {
+      await ensureProfile(user);
+    } catch {}
     // optimistic
     setLiked(true); setLikes((n) => n + (liked ? 0 : 1));
     if (!liked) {
       const { error } = await supabase.from("post_likes").insert({ post_id: post.id, user_id: user.id });
-      if (error) { setLiked(false); setLikes((n) => Math.max(0, n - 1)); }
+      if (error && error.code !== "23505") {
+        setLiked(false);
+        setLikes((n) => Math.max(0, n - 1));
+        toast.error(getReadableErrorMessage(error, "Failed to like post"));
+      }
     }
   };
   const toggleLike = async () => {
     if (!user) { toast.error("Sign in to like"); return; }
     if (liked) {
       setLiked(false); setLikes((n) => Math.max(0, n - 1));
-      await supabase.from("post_likes").delete().eq("post_id", post.id).eq("user_id", user.id);
+      const { error } = await supabase.from("post_likes").delete().eq("post_id", post.id).eq("user_id", user.id);
+      if (error) {
+        setLiked(true); setLikes((n) => n + 1);
+        toast.error(getReadableErrorMessage(error, "Failed to unlike post"));
+      }
     } else {
       await doLike();
     }
   };
   const toggleSave = async () => {
     if (!user) { toast.error("Sign in to save"); return; }
+    try {
+      await ensureProfile(user);
+    } catch {}
     if (saved) {
       setSaved(false);
-      await supabase.from("post_saves").delete().eq("post_id", post.id).eq("user_id", user.id);
+      const { error } = await supabase.from("post_saves").delete().eq("post_id", post.id).eq("user_id", user.id);
+      if (error) {
+        setSaved(true);
+        toast.error(getReadableErrorMessage(error, "Failed to unsave post"));
+      }
     } else {
       setSaved(true);
       const { error } = await supabase.from("post_saves").insert({ post_id: post.id, user_id: user.id });
-      if (error) setSaved(false);
+      if (error && error.code !== "23505") {
+        setSaved(false);
+        toast.error(getReadableErrorMessage(error, "Failed to save post"));
+      }
     }
   };
   const share = async () => {
@@ -130,7 +152,7 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
   return (
     <article className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
       <header className="flex items-center justify-between p-4">
-        <Link to="/user/$username" params={{ username: author?.username ?? "" }} className="flex items-center gap-3 min-w-0">
+        <Link to="/user/$username" params={{ username: author?.username || author?.id || "" }} className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-foreground font-semibold text-sm shrink-0 overflow-hidden">
             {author?.avatar_url ? <ProfileAvatar url={author.avatar_url} className="w-full h-full object-cover" /> : initial}
           </div>

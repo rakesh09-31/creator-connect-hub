@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Users, UserPlus, Trash2, ArrowLeft, X, Check, Clock, Shield, ShieldOff, MessageCircle, Info, MessagesSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -242,11 +242,13 @@ function SquadDetailPage() {
                 <div className="space-y-2">
                   {joinReqs.map((r) => (
                     <div key={r.id} className="bg-background rounded-xl p-3 border border-border flex items-center gap-3">
-                      <Avatar profile={r.profile} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{r.profile?.full_name || r.profile?.username}</p>
-                        <p className="text-xs text-muted-foreground">@{r.profile?.username}</p>
-                      </div>
+                      <Link to="/user/$username" params={{ username: r.profile?.username || r.profile?.id || "" }} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition">
+                        <Avatar profile={r.profile} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{r.profile?.full_name || r.profile?.username}</p>
+                          <p className="text-xs text-muted-foreground">@{r.profile?.username}</p>
+                        </div>
+                      </Link>
                       <button onClick={() => respondJoinReq(r.id, "accepted")} className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold">Accept</button>
                       <button onClick={() => respondJoinReq(r.id, "rejected")} className="px-4 py-1.5 bg-muted text-foreground rounded-lg text-xs font-bold">Reject</button>
                     </div>
@@ -261,11 +263,13 @@ function SquadDetailPage() {
                 <div className="space-y-2">
                   {invites.map((i) => (
                     <div key={i.id} className="bg-background rounded-xl p-3 border border-border flex items-center gap-3">
-                      <Avatar profile={i.profile} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{i.profile?.full_name || i.profile?.username}</p>
-                        <p className="text-xs text-muted-foreground">@{i.profile?.username} · awaiting response</p>
-                      </div>
+                      <Link to="/user/$username" params={{ username: i.profile?.username || i.profile?.id || "" }} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition">
+                        <Avatar profile={i.profile} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{i.profile?.full_name || i.profile?.username}</p>
+                          <p className="text-xs text-muted-foreground">@{i.profile?.username} · awaiting response</p>
+                        </div>
+                      </Link>
                       <button onClick={() => cancelInvite(i.id)} className="p-2 hover:bg-destructive/10 rounded-full text-destructive"><X className="w-4 h-4" /></button>
                     </div>
                   ))}
@@ -285,11 +289,13 @@ function SquadDetailPage() {
               <div className="space-y-2">
                 {members.map((m) => (
                   <div key={m.id} className="bg-background rounded-xl p-3 border border-border flex items-center gap-3">
-                    <Avatar profile={m.profile} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">{m.profile?.full_name || m.profile?.username}</p>
-                      <p className="text-xs text-muted-foreground">@{m.profile?.username} · {m.role}</p>
-                    </div>
+                    <Link to="/user/$username" params={{ username: m.profile?.username || m.profile?.id || "" }} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition">
+                      <Avatar profile={m.profile} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{m.profile?.full_name || m.profile?.username}</p>
+                        <p className="text-xs text-muted-foreground">@{m.profile?.username} · {m.role}</p>
+                      </div>
+                    </Link>
                     {isOwner && m.user_id !== squad.owner_id && (
                       <div className="flex items-center gap-1">
                         {m.role === "admin" ? (

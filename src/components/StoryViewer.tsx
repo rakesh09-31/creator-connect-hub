@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { X, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
@@ -172,17 +173,24 @@ export function StoryViewer({
         </div>
 
         <div className="absolute top-7 left-3 right-3 z-20 flex items-center gap-2.5 pt-1">
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-white text-xs font-bold">
-            {group.avatarUrl ? (
-              <img src={group.avatarUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              group.username.slice(0, 1).toUpperCase()
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-white text-sm font-semibold truncate">{group.fullName || group.username}</p>
-            <p className="text-white/60 text-[11px]">{timeAgo(story.created_at)}</p>
-          </div>
+          <Link
+            to="/user/$username"
+            params={{ username: group.username || group.userId }}
+            onClick={onClose}
+            className="flex items-center gap-2.5 min-w-0 hover:opacity-85 transition"
+          >
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-white text-xs font-bold">
+              {group.avatarUrl ? (
+                <img src={group.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                group.username.slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-white text-sm font-semibold truncate">{group.fullName || group.username}</p>
+              <p className="text-white/60 text-[11px]">{timeAgo(story.created_at)}</p>
+            </div>
+          </Link>
           <div className="ml-auto flex items-center gap-1">
             {isOwner && onDeleteStory && (
               <button

@@ -3,8 +3,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, MapPin, Clock, Image as ImageIcon, Trash2, Play, Info, ChevronLeft, ChevronRight, Github, Globe, Wrench, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ensureProfile } from "@/lib/auth";
 import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl, deleteFile, deleteByUrl } from "@/lib/storage";
+import { getReadableErrorMessage } from "@/lib/errors";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { StoryViewer, type Story, type StoryGroup } from "@/components/StoryViewer";
@@ -985,7 +986,7 @@ function PortfolioModal({ item, userId, onClose, onSaved }: { item?: PortfolioIt
           await deleteFile(isVid ? "thumbnail" : "portfolioImage", thumbnailUrl).catch(() => undefined);
         }
       }
-      toast.error(error.message);
+      toast.error(getReadableErrorMessage(error, "Failed to save portfolio project"));
       return;
     }
     toast.success(item ? "Portfolio updated" : "Portfolio saved");

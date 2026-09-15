@@ -2,25 +2,43 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Active production fallback values
+const DEFAULT_SUPABASE_URL = "https://mouvlzrsaxhczywkrwyq.supabase.co";
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_nBxswRGxXCgpKQZLw2sZvA_ZZeNFuDn";
+const DEPRECATED_PROJECT_REF = "njgfixexgkflpmojmzao";
+
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env.SUPABASE_URL : undefined);
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || (typeof process !== 'undefined' ? process.env.SUPABASE_PUBLISHABLE_KEY : undefined);
+  // Check client-side Vite variables first, then server-side process.env
+  let SUPABASE_URL =
+    import.meta.env.VITE_SUPABASE_URL ||
+    (typeof process !== 'undefined' ? (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) : undefined);
 
-  // Safe diagnostics for Vercel debugging
-  console.log(`[Supabase Client] URL present: ${!!SUPABASE_URL}`);
-  console.log(`[Supabase Client] Publishable key present: ${!!SUPABASE_PUBLISHABLE_KEY}`);
+  let SUPABASE_PUBLISHABLE_KEY =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    (typeof process !== 'undefined'
+      ? (process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+         process.env.VITE_SUPABASE_ANON_KEY ||
+         process.env.SUPABASE_PUBLISHABLE_KEY ||
+         process.env.SUPABASE_ANON_KEY)
+      : undefined);
 
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+  // Safeguard: Automatically redirect if stale deprecated project reference is found
+  if (SUPABASE_URL && SUPABASE_URL.includes(DEPRECATED_PROJECT_REF)) {
+    console.warn(`[Supabase Client] Stale project ref ${DEPRECATED_PROJECT_REF} detected. Redirecting to active production project.`);
+    SUPABASE_URL = DEFAULT_SUPABASE_URL;
+    SUPABASE_PUBLISHABLE_KEY = DEFAULT_SUPABASE_PUBLISHABLE_KEY;
   }
+
+  // Resilient fallback to active production project
+  if (!SUPABASE_URL) SUPABASE_URL = DEFAULT_SUPABASE_URL;
+  if (!SUPABASE_PUBLISHABLE_KEY) SUPABASE_PUBLISHABLE_KEY = DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+
+  SUPABASE_URL = SUPABASE_URL.trim().replace(/\/+$/, '');
+  SUPABASE_PUBLISHABLE_KEY = SUPABASE_PUBLISHABLE_KEY.trim();
+
+  // Diagnostics for deployment verification
+  console.log(`[Supabase Client] Connected to: ${SUPABASE_URL}`);
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {

@@ -45,25 +45,49 @@ function SignupPage() {
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
 
     setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/splash`,
-        data: {
+    try {
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/splash`,
+          data: {
+            username: parsed.data.username,
+            full_name: parsed.data.username,
+            phone: parsed.data.phone,
+          },
+        },
+      });
+      if (error) {
+        console.error("[Auth Signup Error]", error);
+        const lowerMsg = (error.message || "").toLowerCase();
+        if (lowerMsg.includes("failed to fetch") || error.name === "AuthRetryableFetchError") {
+          toast.error("Unable to reach authentication server. Please verify your internet connection.");
+        } else if (lowerMsg.includes("already registered") || lowerMsg.includes("already exists")) {
+          toast.error("An account with this email already exists. Please sign in instead.");
+        } else {
+          toast.error(error.message || "Registration failed. Please try again.");
+        }
+        setSubmitting(false);
+        return;
+      }
+      if (signUpData?.user) {
+        await supabase.from("profiles").upsert({
+          id: signUpData.user.id,
           username: parsed.data.username,
           full_name: parsed.data.username,
-          phone: parsed.data.phone,
-        },
-      },
-    });
-    if (error) {
-      toast.error(error.message);
+          role: "creator",
+          account_type: "creator",
+          onboarded: false,
+        }, { onConflict: "id" });
+      }
+      toast.success("Welcome to Omnicraft!");
+      navigate({ to: "/onboarding/role" });
+    } catch (err: any) {
+      console.error("[Auth Unexpected Signup Exception]", err);
+      toast.error(err?.message || "An unexpected error occurred during signup. Please try again.");
       setSubmitting(false);
-      return;
     }
-    toast.success("Welcome to Omnicraft!");
-    navigate({ to: "/onboarding/role" });
   };
 
   if (submitting) return <LoadingScreen message="Creating your account" />;

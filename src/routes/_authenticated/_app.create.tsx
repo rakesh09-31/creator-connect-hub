@@ -3,8 +3,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Image as ImageIcon, Video, Briefcase, Send, Upload, Camera, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useAuth, ensureProfile } from "@/lib/auth";
 import { deleteFile, uploadFile, uploadVideo, featureForMedia, optimizeImage } from "@/lib/storage";
+import { getReadableErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_authenticated/_app/create")({
   validateSearch: (s: Record<string, unknown>) => ({ type: typeof s.type === "string" ? s.type : undefined }),
@@ -46,7 +47,10 @@ function CreatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user) {
+      toast.error("Please sign in to publish");
+      return;
+    }
     if (type === "story" && !file) {
       toast.error("Pick a photo or video for your story");
       return;
@@ -64,6 +68,9 @@ function CreatePage() {
 
     setSubmitting(true);
     try {
+      // Guarantee profile identity exists in public.profiles before any upload/insert
+      await ensureProfile(user);
+
       // ---------- Stories: own bucket + own table, auto-expiring in 24h ----------
       if (type === "story") {
         if (!file) return;
@@ -85,7 +92,7 @@ function CreatePage() {
           if (uploaded.thumbnailPath) {
             await deleteFile("thumbnail", uploaded.thumbnailPath).catch(() => undefined);
           }
-          throw new Error(`Story record failed: ${error.message}${error.code ? ` (${error.code})` : ""}`);
+          throw error;
         }
         toast.success("Story shared — it disappears in 24 hours");
         navigate({ to: "/home" });
@@ -141,8 +148,8 @@ function CreatePage() {
       toast.success("Posted!");
       navigate({ to: "/home" });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       console.error("Story/post publish failed:", err);
+      const message = getReadableErrorMessage(err, "Failed to publish. Please try again.");
       toast.error(message);
     } finally {
       setSubmitting(false);

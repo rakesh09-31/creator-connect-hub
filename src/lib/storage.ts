@@ -342,8 +342,8 @@ async function putWithProgress(
 ): Promise<void> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const apiKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  const baseUrl = (import.meta.env.VITE_SUPABASE_URL || "https://mouvlzrsaxhczywkrwyq.supabase.co") as string;
+  const apiKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_nBxswRGxXCgpKQZLw2sZvA_ZZeNFuDn") as string;
 
   // XHR gives real progress events; fall back to the SDK when unavailable.
   if (!token || !baseUrl || !apiKey || typeof XMLHttpRequest === "undefined") {

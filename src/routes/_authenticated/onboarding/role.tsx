@@ -28,10 +28,18 @@ function SelectRolePage() {
     
     setSaving(true);
     try {
+      const defaultUsername = profile?.username || user.user_metadata?.username || user.email?.split("@")[0] || `user_${user.id.slice(0, 8)}`;
+      const defaultFullName = profile?.full_name || user.user_metadata?.full_name || defaultUsername;
+
       const { error: pErr } = await supabase
         .from("profiles")
-        .update({ role: selected, account_type: selected })
-        .eq("id", user.id);
+        .upsert({
+          id: user.id,
+          role: selected,
+          account_type: selected,
+          username: defaultUsername,
+          full_name: defaultFullName,
+        }, { onConflict: "id" });
       if (pErr) { toast.error(pErr.message); return; }
       
       await supabase.from("user_roles").upsert({ user_id: user.id, role: selected }, { onConflict: "user_id,role" });

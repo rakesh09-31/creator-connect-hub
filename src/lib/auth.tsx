@@ -27,30 +27,73 @@ type AuthState = {
 
 const AuthCtx = createContext<AuthState | null>(null);
 
+/**
+ * Guarantees that an authenticated user has an active row in public.profiles.
+ * If the profile does not exist, an initial profile row is upserted from user metadata.
+ */
+export async function ensureProfile(user: User): Promise<Profile> {
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existing) return existing as Profile;
+
+  const meta = user.user_metadata || {};
+  const emailPrefix = user.email?.split("@")[0] || `user_${user.id.slice(0, 8)}`;
+  const username = (meta.username || emailPrefix).replace(/[^a-zA-Z0-9_]/g, "_");
+  const fullName = meta.full_name || meta.name || username;
+  const role = meta.role || "creator";
+
+  const { data: created, error } = await supabase
+    .from("profiles")
+    .upsert({
+      id: user.id,
+      username,
+      full_name: fullName,
+      role,
+      account_type: role,
+      onboarded: false,
+    }, { onConflict: "id" })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("[Auth] ensureProfile upsert error:", error);
+    // Fallback attempt to read again in case another process inserted it
+    const { data: retry } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    if (retry) return retry as Profile;
+    throw error;
+  }
+
+  return created as Profile;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  const loadProfile = async (uid: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", uid)
-      .maybeSingle();
-
-    let role_count = 0;
-    if (data) {
-      const type = data.account_type || data.role;
-      if (type === "creator") {
-        const { count } = await supabase.from("creator_roles").select("*", { count: "exact", head: true }).eq("creator_id", uid);
-        role_count = count || 0;
-      } else if (type === "client") {
-        const { count } = await supabase.from("client_roles").select("*", { count: "exact", head: true }).eq("client_id", uid);
-        role_count = count || 0;
+  const loadProfile = async (u: User) => {
+    try {
+      const data = await ensureProfile(u);
+      let role_count = 0;
+      if (data) {
+        const type = data.account_type || data.role;
+        if (type === "creator") {
+          const { count } = await supabase.from("creator_roles").select("*", { count: "exact", head: true }).eq("creator_id", u.id);
+          role_count = count || 0;
+        } else if (type === "client") {
+          const { count } = await supabase.from("client_roles").select("*", { count: "exact", head: true }).eq("client_id", u.id);
+          role_count = count || 0;
+        }
+        setProfile({ ...(data as Profile), role_count });
+      } else {
+        setProfile(null);
       }
-      setProfile({ ...(data as Profile), role_count });
-    } else {
+    } catch (err) {
+      console.error("[Auth] Failed to load/ensure profile:", err);
       setProfile(null);
     }
   };
@@ -62,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user) {
         // block loading state until profile is fetched
         setLoading(true);
-        setTimeout(() => loadProfile(s.user.id).finally(() => setLoading(false)), 0);
+        setTimeout(() => loadProfile(s.user).finally(() => setLoading(false)), 0);
       } else {
         setProfile(null);
         setLoading(false);
@@ -72,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
-        loadProfile(data.session.user.id).finally(() => setLoading(false));
+        loadProfile(data.session.user).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -86,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     refresh: async () => {
-      if (session?.user) await loadProfile(session.user.id);
+      if (session?.user) await loadProfile(session.user);
     },
     signOut: async () => {
       await supabase.auth.signOut();
