@@ -42,3 +42,5 @@ public/downloads/*.idsig
 
 .vercel/
 .vercel
+
+supabase/.temp/

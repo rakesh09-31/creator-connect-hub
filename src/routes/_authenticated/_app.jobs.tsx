@@ -28,6 +28,7 @@ import SkillSwapPanel from "@/components/skill-swap/SkillSwapPanel";
 import {
   calculateJobMatchScore,
   calculateCreatorMatchForBrief,
+  extractSpecialtiesFromJob,
   CreatorMatchProfile,
   JobMatchRequirements,
   JobMatchResult,
@@ -51,6 +52,7 @@ type Job = {
   created_at: string;
   company_name?: string | null;
   skills_required?: string[] | null;
+  specialties_required?: string[] | null;
   experience_level?: string | null;
   duration?: string | null;
   deadline?: string | null;
@@ -289,6 +291,8 @@ function BriefsPanel() {
       j.roles_required = joinedRoles;
       const combinedSkills = Array.from(new Set([...(j.skills_required ?? []), ...joinedSkills]));
       j.skills_required = combinedSkills;
+      const extractedSpecs = extractSpecialtiesFromJob(j);
+      j.specialties_required = Array.from(new Set([...(j.specialties_required ?? []), ...extractedSpecs]));
     });
 
     const ids = Array.from(new Set(list.map((j) => j.client_id)));
@@ -357,6 +361,7 @@ function BriefsPanel() {
         category: job.category ?? undefined,
         skillsRequired: job.skills_required ?? [],
         rolesRequired: job.roles_required ?? [],
+        specialtiesRequired: job.specialties_required ?? [],
         experienceLevel: job.experience_level ?? undefined,
         location: job.location ?? undefined,
         budget: job.budget ?? undefined,
@@ -911,88 +916,137 @@ function JobCard({
         </div>
       )}
 
-      {/* Required Skills breakdown (Matched vs Missing) */}
-      {job.skills_required && job.skills_required.length > 0 && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-brand" /> Required Skills ({job.skills_required.length})
-            </p>
-            {match && match.missingSkills.length === 0 && match.matchedSkills.length > 0 && (
-              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 100% Required Skills Match
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {job.skills_required.map((s) => {
-              const lower = s.toLowerCase();
-              const isDirectMatch = matchedSet.has(lower);
-
-              if (isDirectMatch) {
-                return (
-                  <span
-                    key={s}
-                    title="Required skill: Matched with your profile"
-                    className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30 inline-flex items-center gap-1"
-                  >
-                    <Check className="w-3 h-3" /> {s}
-                  </span>
-                );
-              }
-
-              return (
-                <span
-                  key={s}
-                  title="Required skill: Missing from your profile"
-                  className="text-[11px] px-2.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium border border-border/70 inline-flex items-center gap-1"
-                >
-                  <span className="text-[9px] opacity-70">○</span> {s}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Explicit "Your Matching Skills" section (Requirement 9) */}
-      {match && match.yourMatchingSkills && match.yourMatchingSkills.length > 0 && (
-        <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Your Matching Skills ({match.yourMatchingSkills.length}):
-            </p>
-            <span className="text-[10px] font-semibold text-emerald-600/90 dark:text-emerald-400/90">
+      {/* AI Match Analysis Section */}
+      {match ? (
+        <div className="mt-3.5 p-3.5 rounded-xl border border-border/80 bg-surface/80 space-y-3">
+          <div className="flex items-center justify-between border-b border-border/60 pb-2">
+            <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-foreground">
+              <Sparkles className="w-3.5 h-3.5 text-brand" />
+              <span>AI Match Analysis</span>
+            </div>
+            <span
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${getBadgeStyle(
+                match.matchScore
+              )}`}
+            >
               {match.tierLabel}
             </span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {match.yourMatchingSkills.map((s) => (
-              <span
-                key={s}
-                className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/30 inline-flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" /> {s}
+
+          {/* Matched Requirements (Direct, Role-supported, Specialty-supported) */}
+          {match.matchedRequirements.length > 0 && (
+            <div>
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">
+                ✓ Matched ({match.matchedRequirements.length})
               </span>
-            ))}
+              <div className="flex flex-wrap gap-1.5">
+                {match.matchedRequirements.map((e, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/25 inline-flex items-center gap-1.5"
+                    title={`Evidence: ${e.evidenceSource}`}
+                  >
+                    <Check className="w-3 h-3 flex-shrink-0" />
+                    <span>
+                      <span className="font-bold">{e.requirement}</span>
+                      <span className="text-[9.5px] opacity-85 font-normal ml-1">
+                        • {e.evidenceSource.replace("Professional Role", "Role").replace("Specialty", "Spec")}
+                      </span>
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Related / Partial Requirements */}
+          {match.relatedRequirements.length > 0 && (
+            <div>
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-1">
+                ≈ Related / Partial Match ({match.relatedRequirements.length})
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {match.relatedRequirements.map((e, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold border border-amber-500/25 inline-flex items-center gap-1.5"
+                    title={`Evidence: ${e.evidenceSource}`}
+                  >
+                    <span className="text-xs">≈</span>
+                    <span>
+                      <span className="font-bold">{e.requirement}</span>
+                      <span className="text-[9.5px] opacity-85 font-normal ml-1">
+                        • {e.evidenceSource}
+                      </span>
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Missing Requirements (Truly missing across all profile fields) */}
+          {match.missingRequirements.length > 0 && (
+            <div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                ○ Missing ({match.missingRequirements.length})
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {match.missingRequirements.map((e, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[11px] px-2.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground font-medium border border-border inline-flex items-center gap-1"
+                  >
+                    • {e.requirement}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Role & Experience Validation Row */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1.5 border-t border-border/40 text-xs">
+            <div className="inline-flex items-center gap-1">
+              {match.isRoleMatch ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 text-[11px]">
+                  <Check className="w-3 h-3" /> Role supported ({match.matchedRoles.join(", ") || "Target role"})
+                </span>
+              ) : (
+                <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
+                  • Open to cross-discipline creators
+                </span>
+              )}
+            </div>
+
+            <div className="inline-flex items-center gap-1">
+              {match.isExperienceMatch ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold inline-flex items-center gap-1 text-[11px]">
+                  <Check className="w-3 h-3" /> {match.experienceLabel}
+                </span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 text-[11px]">
+                  • {match.experienceLabel}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Missing Skills note (if any) */}
-      {match && match.missingSkills && match.missingSkills.length > 0 && match.matchedSkills.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="text-[10px] font-semibold">Missing from your skills:</span>
-          {match.missingSkills.map((s) => (
-            <span
-              key={s}
-              className="text-[10px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border"
-            >
-              ○ {s}
-            </span>
-          ))}
-        </div>
+      ) : (
+        /* Fallback if no matching result available */
+        job.skills_required && job.skills_required.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">
+              Required Skills ({job.skills_required.length})
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {job.skills_required.map((s) => (
+                <span key={s} className="text-[11px] px-2.5 py-0.5 rounded-full bg-muted text-foreground/80 border border-border">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       {/* Metadata bar */}
@@ -1389,6 +1443,7 @@ function CreatorsPanel() {
           category: activeBrief.category ?? undefined,
           skillsRequired: activeBrief.skills_required ?? [],
           rolesRequired: activeBrief.roles_required ?? [],
+          specialtiesRequired: activeBrief.specialties_required ?? [],
           experienceLevel: activeBrief.experience_level ?? undefined,
         };
 
@@ -1687,18 +1742,19 @@ function CreatorsPanel() {
                           ))}
                         </div>
 
-                        {/* Matched skills indicator against active brief */}
-                        {m && m.matchedSkills.length > 0 && (
+                        {/* Matched requirements indicator against active brief */}
+                        {m && m.matchedRequirements && m.matchedRequirements.length > 0 && (
                           <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
                             <span className="text-[10px] font-semibold text-muted-foreground">
                               Matched:
                             </span>
-                            {m.matchedSkills.map((ms) => (
+                            {m.matchedRequirements.map((e, idx) => (
                               <span
-                                key={ms}
+                                key={idx}
                                 className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold border border-emerald-500/20"
+                                title={`Evidence: ${e.evidenceSource}`}
                               >
-                                <Check className="w-2.5 h-2.5" /> {ms}
+                                <Check className="w-2.5 h-2.5" /> {e.requirement} <span className="opacity-75 text-[9px]">({e.evidenceSource.replace("Professional Role", "Role")})</span>
                               </span>
                             ))}
                           </div>
@@ -1857,6 +1913,9 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const [skills, setSkills] = useState<{ id: string; name: string }[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
+  const [customSpecialtyInput, setCustomSpecialtyInput] = useState("");
+  const [showCustomSpecialty, setShowCustomSpecialty] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -1869,6 +1928,31 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       if (s) setSkills(s);
     })();
   }, []);
+
+  const curatedSpecialtyMap: Record<string, string[]> = {
+    Actor: ["Film Acting", "Action", "Dialogue", "Theatre", "Voice Acting", "Commercials", "Method Acting"],
+    "Video Editor": ["YouTube Editing", "Short Form Content", "Color Grading", "Commercials", "Documentary", "Music Videos", "Sound Design"],
+    Dancer: ["Contemporary", "Hip Hop", "Choreography", "Ballet", "Jazz", "Street Dance"],
+    Photographer: ["Portrait", "Commercial", "Fashion", "Event", "Street Photography", "Product"],
+    Singer: ["Pop", "Classical", "R&B", "Jazz", "Playback", "Rock", "Acoustic"],
+    Designer: ["Brand Identity", "UI/UX", "Typography", "Illustrations", "Packaging", "Motion Graphics"],
+    Writer: ["Screenwriting", "Copywriting", "Creative Writing", "Fiction", "Technical Writing"],
+    "Content Creator": ["Vlogging", "Reels & Shorts", "Storytelling", "Livestreaming", "Tech Reviews"],
+    "Voice Artist": ["Audiobooks", "Character Voices", "Narration", "Commercials", "Dubbing"],
+  };
+
+  const suggestedJobSpecialties = useMemo(() => {
+    const list = new Set<string>();
+    const selectedRoleNames = roles.filter((r) => selectedRoles.includes(r.id)).map((r) => r.name);
+    selectedRoleNames.forEach((rn) => {
+      const specs = curatedSpecialtyMap[rn] || [];
+      specs.forEach((s) => list.add(s));
+    });
+    if (list.size === 0) {
+      ["YouTube Editing", "Film Acting", "Short Form Content", "Color Grading", "Brand Identity", "UI/UX", "Commercials"].forEach((s) => list.add(s));
+    }
+    return Array.from(list);
+  }, [roles, selectedRoles]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1899,6 +1983,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       duration: form.duration.trim() || null,
       deadline: form.deadline || null,
       skills_required: selectedSkillNames,
+      specialties_required: selectedSpecialties,
     };
 
     const { data: job, error } = await supabase.from("jobs").insert(payload).select("id").single();
@@ -1995,6 +2080,92 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               </button>
             ))}
           </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-muted-foreground mb-1">
+            Required Specialties
+          </label>
+          {selectedSpecialties.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {selectedSpecialties.map((sp) => (
+                <span
+                  key={sp}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-brand/20 text-brand font-semibold border border-brand/30"
+                >
+                  {sp}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSpecialties(selectedSpecialties.filter((x) => x !== sp))}
+                    className="hover:opacity-80 ml-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1 border border-border p-2 rounded-lg bg-surface max-h-28 overflow-y-auto mb-2">
+            {suggestedJobSpecialties.map((sp) => {
+              const isSel = selectedSpecialties.includes(sp);
+              return (
+                <button
+                  key={sp}
+                  type="button"
+                  onClick={() =>
+                    setSelectedSpecialties((prev) =>
+                      prev.includes(sp) ? prev.filter((x) => x !== sp) : [...prev, sp]
+                    )
+                  }
+                  className={`px-2 py-1 text-xs rounded-full transition ${
+                    isSel ? "bg-brand text-white" : "bg-muted text-foreground"
+                  }`}
+                >
+                  {isSel ? `✓ ${sp}` : sp}
+                </button>
+              );
+            })}
+          </div>
+          {showCustomSpecialty ? (
+            <div className="flex gap-2">
+              <input
+                value={customSpecialtyInput}
+                onChange={(e) => setCustomSpecialtyInput(e.target.value)}
+                placeholder="Custom specialty (e.g. YouTube Editing)"
+                className="flex-1 px-3 py-1.5 rounded-lg bg-surface border border-border text-xs focus:outline-none focus:ring-1 focus:ring-brand"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (customSpecialtyInput.trim()) {
+                    const norm = customSpecialtyInput.trim();
+                    if (!selectedSpecialties.includes(norm)) {
+                      setSelectedSpecialties([...selectedSpecialties, norm]);
+                    }
+                    setCustomSpecialtyInput("");
+                    setShowCustomSpecialty(false);
+                  }
+                }}
+                className="px-3 py-1.5 bg-brand text-white text-xs font-semibold rounded-lg hover:opacity-90"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCustomSpecialty(false)}
+                className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowCustomSpecialty(true)}
+              className="text-xs text-brand font-semibold hover:underline inline-flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" /> Add other specialty
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input
@@ -2098,6 +2269,80 @@ function ApplyJobModal({
   return (
     <Modal onClose={onClose} title={`Apply: ${job.title}`}>
       <form onSubmit={submit} className="space-y-3">
+        {job.matchResult && (
+          <div className="p-3.5 rounded-xl bg-surface border border-border space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-foreground">
+                <Sparkles className="w-3.5 h-3.5 text-brand" /> AI Match Analysis
+              </span>
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-soft text-brand border border-brand/30">
+                {job.matchResult.matchScore}% Match
+              </span>
+            </div>
+
+            {/* Matched Details with Evidence */}
+            {job.matchResult.matchedRequirements.length > 0 && (
+              <div className="text-xs space-y-0.5">
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                  ✓ Matched
+                </span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {job.matchResult.matchedRequirements.map((e, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                    >
+                      ✓ {e.requirement} <span className="text-[9.5px] opacity-80 font-normal">({e.evidenceSource.replace("Professional Role", "Role")})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Related Details with Evidence */}
+            {job.matchResult.relatedRequirements.length > 0 && (
+              <div className="text-xs space-y-0.5">
+                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                  ≈ Related / Partial Match
+                </span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {job.matchResult.relatedRequirements.map((e, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[11px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                    >
+                      ≈ {e.requirement} <span className="text-[9.5px] opacity-80 font-normal">({e.evidenceSource})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Missing Details */}
+            {job.matchResult.missingRequirements.length > 0 && (
+              <div className="text-xs space-y-0.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  ○ Missing
+                </span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {job.matchResult.missingRequirements.map((e, idx) => (
+                    <span
+                      key={idx}
+                      className="text-[11px] px-2 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border"
+                    >
+                      • {e.requirement}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/50">
+              AI-assisted matching provides guidance. You can apply to any opportunity regardless of score.
+            </p>
+          </div>
+        )}
+
         {mySquads.length > 0 && (
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1">

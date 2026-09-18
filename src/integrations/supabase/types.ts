@@ -466,6 +466,7 @@ export type Database = {
           id: string
           location: string | null
           skills_required: string[] | null
+          specialties_required: string[] | null
           status: string
           title: string
           updated_at: string
@@ -483,6 +484,7 @@ export type Database = {
           id?: string
           location?: string | null
           skills_required?: string[] | null
+          specialties_required?: string[] | null
           status?: string
           title: string
           updated_at?: string
@@ -500,6 +502,7 @@ export type Database = {
           id?: string
           location?: string | null
           skills_required?: string[] | null
+          specialties_required?: string[] | null
           status?: string
           title?: string
           updated_at?: string

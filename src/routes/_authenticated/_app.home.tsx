@@ -579,18 +579,24 @@ function RecommendedJobs({ userId }: { userId: string }) {
     let active = true;
     const fetchRecs = async () => {
       setLoading(true);
-      const { data: recs, error } = await (supabase.rpc as any)('get_recommended_jobs_for_creator', { p_creator_id: userId, p_limit: 5 });
+      const { data: recs, error } = await (supabase.rpc as any)('get_recommended_jobs_for_creator', { p_creator_id: userId, p_limit: 10 });
       if (!active) return;
       if (recs && recs.length > 0) {
         const jobIds = recs.map((r: any) => r.job_id);
         const { data: jobDetails } = await supabase.from("jobs").select("*").in("id", jobIds);
         if (!active) return;
         if (jobDetails) {
-          const sortedJobs = jobDetails.map(j => {
-            const rec = recs.find((r: any) => r.job_id === j.id);
-            return { ...j, match_score: rec?.match_score || 0 };
-          }).sort((a, b) => b.match_score - a.match_score);
-          setJobs(sortedJobs);
+          // Map calculated score, strictly filter out irrelevant / low matches (<50%), and sort descending
+          const meaningfulJobs = jobDetails
+            .map(j => {
+              const rec = recs.find((r: any) => r.job_id === j.id);
+              const score = Math.round(Number(rec?.matching_score ?? rec?.match_score ?? 0));
+              return { ...j, match_score: score };
+            })
+            .filter(j => j.match_score >= 50)
+            .sort((a, b) => b.match_score - a.match_score);
+
+          setJobs(meaningfulJobs);
         }
       } else {
         setJobs([]);
@@ -603,6 +609,7 @@ function RecommendedJobs({ userId }: { userId: string }) {
     const channel = supabase.channel(`recs-jobs-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_roles", filter: `creator_id=eq.${userId}` }, fetchRecs)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_skills", filter: `creator_id=eq.${userId}` }, fetchRecs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "creator_specialties", filter: `user_id=eq.${userId}` }, fetchRecs)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, fetchRecs)
       .subscribe();
 
@@ -654,7 +661,7 @@ function RecommendedCreators({ userId }: { userId: string }) {
         const job = jobs[0];
         setJobTitle(job.title);
         
-        const { data: recs } = await (supabase.rpc as any)('get_recommended_creators_for_job', { p_job_id: job.id, p_limit: 5 });
+        const { data: recs } = await (supabase.rpc as any)('get_recommended_creators_for_job', { p_job_id: job.id, p_limit: 10 });
         if (!active) return;
         if (recs && recs.length > 0) {
           const creatorIds = recs.map((r: any) => r.creator_id);
@@ -663,8 +670,12 @@ function RecommendedCreators({ userId }: { userId: string }) {
           if (profs) {
             const sorted = profs.map(p => {
               const rec = recs.find((r: any) => r.creator_id === p.id);
-              return { ...p, match_score: rec?.match_score || 0 };
-            }).sort((a, b) => b.match_score - a.match_score);
+              const score = Math.round(Number(rec?.matching_score ?? rec?.match_score ?? 0));
+              return { ...p, match_score: score };
+            })
+            .filter(p => p.match_score >= 50)
+            .sort((a, b) => b.match_score - a.match_score);
+
             setCreators(sorted);
           }
         } else {
