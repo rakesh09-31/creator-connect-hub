@@ -11,6 +11,7 @@ import { ClientProjectsPanel, PortfolioPanel, PostMediaViewer, isVideoMedia } fr
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { getReadableErrorMessage } from "@/lib/errors";
+import { filterValidMediaItems, isCandidateMediaUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/user/$username")({
   component: UserProfilePage,
@@ -160,8 +161,9 @@ export function UserProfileView({ identifier }: { identifier: string }) {
           supabase.from("stories").select("*").eq("user_id", p.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: true }),
         ]);
 
+        const validPosts = await filterValidMediaItems(postsData ?? []);
         if (!active) return;
-        setPosts(postsData ?? []);
+        setPosts(validPosts);
         setSpecialties((specRows ?? []).map((x: any) => x.specialty).filter(Boolean));
         setRoles((rRows ?? []).map((x: any) => x.professional_roles).filter(Boolean));
         setSkills((skillRows ?? []).map((x: any) => x.skills).filter(Boolean));
@@ -486,24 +488,13 @@ export function UserProfileView({ identifier }: { identifier: string }) {
               <div className="col-span-full text-center py-16 text-muted-foreground text-sm border border-dashed border-border rounded-2xl">No posts yet.</div>
             ) : (
               posts.map((p) => (
-                <button key={p.id} onClick={() => setSelectedPost(p)} className="relative aspect-square bg-muted overflow-hidden group rounded-md md:rounded-xl text-left">
-                  {p.media_url ? (
-                    isVideoMedia(p) ? (
-                      <VideoPlayer src={p.media_url} poster={p.thumbnail_url} controls={false} className="w-full h-full object-cover" feature="reel" />
-                    ) : (
-                      <ProfileAvatar url={p.media_url} className="w-full h-full object-cover transition group-hover:scale-105" />
-                    )
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center p-3 text-xs text-muted-foreground text-center bg-surface border border-border">
-                      {p.caption || "Text post"}
-                    </div>
-                  )}
-                  {isVideoMedia(p) && (
-                    <div className="absolute top-2 right-2">
-                      <Play className="w-4 h-4 text-white drop-shadow-md" />
-                    </div>
-                  )}
-                </button>
+                <UserPostItem
+                  key={p.id}
+                  post={p}
+                  isVideo={isVideoMedia(p)}
+                  onSelect={setSelectedPost}
+                  onInvalid={(id) => setPosts((prev) => prev.filter((post) => post.id !== id))}
+                />
               ))
             )}
           </div>
@@ -580,6 +571,72 @@ function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
       }`}
     >
       {icon} {label}
+    </button>
+  );
+}
+
+function UserPostItem({
+  post,
+  isVideo,
+  onSelect,
+  onInvalid,
+}: {
+  post: any;
+  isVideo: boolean;
+  onSelect: (p: any) => void;
+  onInvalid?: (id: string) => void;
+}) {
+  const isCandidate = isCandidateMediaUrl(post.media_url);
+  const [mediaError, setMediaError] = useState(false);
+  const { resolvedUrl, loading, error } = useMediaUrl(
+    isVideo ? "reel" : "post",
+    isCandidate ? post.media_url : null
+  );
+
+  const isUnavailable = !isCandidate || mediaError || (error && !resolvedUrl) || (!resolvedUrl && !loading);
+
+  useEffect(() => {
+    if (isUnavailable) {
+      onInvalid?.(post.id);
+    }
+  }, [isUnavailable, post.id, onInvalid]);
+
+  if (isUnavailable) {
+    return null;
+  }
+
+  return (
+    <button onClick={() => onSelect(post)} className="relative aspect-square bg-muted overflow-hidden group rounded-md md:rounded-xl text-left">
+      {isVideo ? (
+        <VideoPlayer
+          src={post.media_url}
+          poster={post.thumbnail_url}
+          controls={false}
+          className="w-full h-full object-cover"
+          feature="reel"
+          onInvalid={() => {
+            setMediaError(true);
+            onInvalid?.(post.id);
+          }}
+        />
+      ) : resolvedUrl ? (
+        <img
+          src={resolvedUrl}
+          className="w-full h-full object-cover transition group-hover:scale-105"
+          alt={post.caption || "Post"}
+          onError={() => {
+            setMediaError(true);
+            onInvalid?.(post.id);
+          }}
+        />
+      ) : (
+        <div className="w-full h-full bg-muted animate-pulse" />
+      )}
+      {isVideo && (
+        <div className="absolute top-2 right-2">
+          <Play className="w-4 h-4 text-white drop-shadow-md" />
+        </div>
+      )}
     </button>
   );
 }

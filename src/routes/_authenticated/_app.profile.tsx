@@ -4,7 +4,7 @@ import { Grid3x3, Bookmark, Users, Plus, ExternalLink, Pencil, X, Briefcase, Map
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, ensureProfile } from "@/lib/auth";
-import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl, deleteFile, deleteByUrl } from "@/lib/storage";
+import { uploadFile, uploadVideo, optimizeImage, deleteMediaByUrl, deleteFile, deleteByUrl, filterValidMediaItems, isCandidateMediaUrl } from "@/lib/storage";
 import { getReadableErrorMessage } from "@/lib/errors";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { VideoViewer, type VideoItem } from "@/components/VideoViewer";
@@ -88,7 +88,8 @@ function ProfilePage() {
         supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", user.id),
         supabase.from("stories").select("*").eq("user_id", user.id).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: true }),
       ]);
-      setPosts(p ?? []);
+      const validPosts = await filterValidMediaItems(p ?? []);
+      setPosts(validPosts);
       setRoles((r ?? []).map((x: any) => x.professional_roles).filter(Boolean));
       setSkills((s ?? []).map((x: any) => x.skills).filter(Boolean));
       const sq = (mems ?? []).map((m: any) => m.squads).filter(Boolean);
@@ -239,6 +240,7 @@ function ProfilePage() {
                   setVideoIndex={setVideoIndex}
                   myVideos={myVideos}
                   setSelectedPost={setSelectedPost}
+                  onInvalid={(id) => setPosts((prev) => prev.filter((item) => item.id !== id))}
                 />
               ))}
             </div>
@@ -826,8 +828,9 @@ export function PortfolioPanel({ userId, isSelf }: { userId: string; isSelf?: bo
     if (!userId) return;
     setLoading(true);
     const { data } = await supabase.from("portfolios").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    const validPortfolios = await filterValidMediaItems(data ?? []);
     setItems(
-      (data ?? []).map((row) => ({
+      validPortfolios.map((row) => ({
         id: row.id,
         user_id: row.user_id,
         title: row.title,
@@ -1071,7 +1074,8 @@ function SavedPanel() {
       const ids = (saves ?? []).map((s: any) => s.post_id);
       if (ids.length) {
         const { data: ps } = await supabase.from("posts").select("*").in("id", ids);
-        setPosts(ps ?? []);
+        const validSaves = await filterValidMediaItems(ps ?? []);
+        setPosts(validSaves);
       } else setPosts([]);
       setLoading(false);
     })();
@@ -1111,18 +1115,69 @@ function SavedPanel() {
 
 // Customize portfolio modal removed in favor of the new portfolio card workflow.
 
-function ProfilePostTile({ post, isVideoMedia, setVideoIndex, myVideos, setSelectedPost }: { post: any, isVideoMedia: any, setVideoIndex: any, myVideos: any[], setSelectedPost: any }) {
+function ProfilePostTile({
+  post,
+  isVideoMedia,
+  setVideoIndex,
+  myVideos,
+  setSelectedPost,
+  onInvalid,
+}: {
+  post: any;
+  isVideoMedia: any;
+  setVideoIndex: any;
+  myVideos: any[];
+  setSelectedPost: any;
+  onInvalid?: (id: string) => void;
+}) {
   const isVid = isVideoMedia(post);
-  const { resolvedUrl } = useMediaUrl(isVid ? "reel" : "post", post.media_url);
+  const isCandidate = isCandidateMediaUrl(post.media_url);
+  const [mediaError, setMediaError] = useState(false);
+  const { resolvedUrl, loading, error } = useMediaUrl(
+    isVid ? "reel" : "post",
+    isCandidate ? post.media_url : null
+  );
+
+  const isUnavailable = !isCandidate || mediaError || (error && !resolvedUrl) || (!resolvedUrl && !loading);
+
+  useEffect(() => {
+    if (isUnavailable) {
+      onInvalid?.(post.id);
+    }
+  }, [isUnavailable, post.id, onInvalid]);
+
+  if (isUnavailable) {
+    return null;
+  }
 
   return (
     <button onClick={() => (isVid ? setVideoIndex(myVideos.findIndex((v) => v.id === post.id)) : setSelectedPost(post))} className="group relative overflow-hidden rounded-3xl border border-border bg-surface text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
       <div className="aspect-[4/5] bg-muted">
         {post.media_url ? (
           isVid ? (
-            <VideoPlayer src={post.media_url} poster={post.thumbnail_url} controls={false} className="h-full w-full" feature="reel" />
+            <VideoPlayer
+              src={post.media_url}
+              poster={post.thumbnail_url}
+              controls={false}
+              className="h-full w-full"
+              feature="reel"
+              onInvalid={() => {
+                setMediaError(true);
+                onInvalid?.(post.id);
+              }}
+            />
+          ) : resolvedUrl ? (
+            <img
+              src={resolvedUrl}
+              className="h-full w-full object-cover"
+              alt={post.caption || "Post media"}
+              onError={() => {
+                setMediaError(true);
+                onInvalid?.(post.id);
+              }}
+            />
           ) : (
-            resolvedUrl ? <img src={resolvedUrl} className="h-full w-full object-cover" alt={post.caption || "Post media"} /> : <div className="w-full h-full bg-muted animate-pulse" />
+            <div className="w-full h-full bg-muted animate-pulse" />
           )
         ) : (
           <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">{post.caption || "Media preview"}</div>

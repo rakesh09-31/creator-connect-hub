@@ -8,6 +8,7 @@ import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { useViewTracking } from "@/hooks/useViewTracking";
 import { ShareVideoDialog } from "@/components/ShareVideoDialog";
 import { getReadableErrorMessage } from "@/lib/errors";
+import { filterValidMediaItems, isCandidateMediaUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/_authenticated/_app/reels")({
   head: () => ({ meta: [{ title: "Reels — Omnicraft" }] }),
@@ -61,6 +62,9 @@ function ReelsPage() {
       } else if (start) {
         list = [list.find((r) => r.id === start)!, ...list.filter((r) => r.id !== start)];
       }
+
+      // Filter invalid media posts so broken reels are excluded completely
+      list = await filterValidMediaItems(list);
 
       // Attach authors
       const ids = Array.from(new Set(list.map((r) => r.author_id)));
@@ -136,6 +140,7 @@ function ReelsPage() {
             reel={r}
             muted={muted}
             onOpenComments={() => setActiveComments(r.id)}
+            onInvalid={(id) => setReels((prev) => prev.filter((item) => item.id !== id))}
           />
         ))}
       </div>
@@ -150,7 +155,17 @@ function ReelsPage() {
   );
 }
 
-function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean; onOpenComments: () => void }) {
+function ReelItem({
+  reel,
+  muted,
+  onOpenComments,
+  onInvalid,
+}: {
+  reel: Reel;
+  muted: boolean;
+  onOpenComments: () => void;
+  onInvalid?: (id: string) => void;
+}) {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [likes, setLikes] = useState(0);
@@ -160,12 +175,29 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
   const [following, setFollowing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [mediaError, setMediaError] = useState(false);
 
   const isVideo = reel.post_type === "video" || reel.post_type === "reel";
   const isOwn = user?.id === reel.author_id;
 
-  const { resolvedUrl: resolvedVideoUrl } = useMediaUrl("reel", reel.media_url);
+  const isCandidate = isCandidateMediaUrl(reel.media_url);
+  const { resolvedUrl: resolvedVideoUrl, loading: videoLoading, error: videoUrlError } = useMediaUrl(
+    "reel",
+    isCandidate ? reel.media_url : null
+  );
   const { resolvedUrl: resolvedPoster } = useMediaUrl("thumbnail", (reel as any).thumbnail_url);
+
+  const isUnavailable = !isCandidate || mediaError || (videoUrlError && !resolvedVideoUrl) || (!resolvedVideoUrl && !videoLoading);
+
+  useEffect(() => {
+    if (isUnavailable) {
+      onInvalid?.(reel.id);
+    }
+  }, [isUnavailable, reel.id, onInvalid]);
+
+  if (isUnavailable) {
+    return null;
+  }
 
   // Track views after 2 seconds of playback
   useViewTracking(reel.id, isPlaying);
@@ -305,12 +337,22 @@ function ReelItem({ reel, muted, onOpenComments }: { reel: Reel; muted: boolean;
           onClick={togglePlay}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
+          onError={() => {
+            setMediaError(true);
+            onInvalid?.(reel.id);
+          }}
         />
       ) : resolvedVideoUrl ? (
-        <img src={resolvedVideoUrl} className="max-h-full max-w-full object-contain" alt="" />
-      ) : (
-        <div className="text-white text-center p-8 max-w-md">{reel.caption}</div>
-      )}
+        <img
+          src={resolvedVideoUrl}
+          className="max-h-full max-w-full object-contain"
+          alt=""
+          onError={() => {
+            setMediaError(true);
+            onInvalid?.(reel.id);
+          }}
+        />
+      ) : null}
 
       {/* Big Play Overlay for autoplay blocked */}
       {!isPlaying && isVideo && resolvedVideoUrl && (

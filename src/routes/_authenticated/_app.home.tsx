@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
+import { filterValidMediaItems } from "@/lib/storage";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/_app/home")({
@@ -154,6 +155,9 @@ function HomePage() {
 
       // Diversity: avoid consecutive posts from the same creator, mix fields.
       list = diversifyByAuthor(list);
+
+      // Filter invalid media posts so only valid posts with existing media are displayed
+      list = await filterValidMediaItems(list);
 
       const allAuthorIds = Array.from(new Set(list.map((p) => p.author_id)));
       if (allAuthorIds.length) {
@@ -459,11 +463,13 @@ function HomePage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {posts.map((p) => (
+          {posts.map((p, idx) => (
             <PostCard 
               key={p.id} 
               post={p} 
+              priority={idx < 2}
               onDelete={(id) => setPosts(prev => prev.filter(post => post.id !== id))} 
+              onInvalid={(id) => setPosts(prev => prev.filter(post => post.id !== id))}
             />
           ))}
         </div>

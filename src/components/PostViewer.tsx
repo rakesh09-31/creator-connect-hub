@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { PostCard, type PostLike } from "@/components/PostCard";
 import { supabase } from "@/integrations/supabase/client";
+import { filterValidMediaItems } from "@/lib/storage";
 
 /**
  * Instagram-style Explore post viewer: fullscreen overlay showing a vertical
@@ -23,11 +24,15 @@ export function PostViewer({ startId, onClose }: { startId: string; onClose: () 
           .order("created_at", { ascending: false }).limit(60),
       ]);
       const seen = new Set<string>();
-      const list: PostLike[] = [];
+      let list: PostLike[] = [];
       if (startPost) { list.push(startPost as PostLike); seen.add((startPost as any).id); }
       (recent ?? []).forEach((p: any) => {
         if (!seen.has(p.id)) { list.push(p as PostLike); seen.add(p.id); }
       });
+
+      // Filter invalid media posts
+      list = await filterValidMediaItems(list);
+
       // Attach authors
       const ids = Array.from(new Set(list.map((p) => p.author_id)));
       if (ids.length) {
@@ -81,9 +86,13 @@ export function PostViewer({ startId, onClose }: { startId: string; onClose: () 
           </div>
         ) : (
           <div className="max-w-2xl mx-auto px-2 sm:px-4 py-3 space-y-3">
-            {posts.map((p) => (
+            {posts.map((p, idx) => (
               <div key={p.id} data-pid={p.id}>
-                <PostCard post={p} />
+                <PostCard
+                  post={p}
+                  priority={p.id === startId || idx === 0}
+                  onInvalid={(id) => setPosts((prev) => prev.filter((item) => item.id !== id))}
+                />
               </div>
             ))}
           </div>

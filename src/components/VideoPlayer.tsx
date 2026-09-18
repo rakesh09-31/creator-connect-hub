@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, AlertTriangle } from "lucide-react";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import type { StorageFeature } from "@/lib/storage";
+import { getScrollParent, isElementNearViewport } from "@/lib/utils";
 
 /**
  * Bandwidth-friendly HTML5 video.
@@ -22,6 +23,8 @@ export function VideoPlayer({
   autoPlayInView = false,
   objectFit = "cover",
   feature = "post",
+  priority = false,
+  onInvalid,
   onClick,
 }: {
   src: string;
@@ -34,24 +37,44 @@ export function VideoPlayer({
   autoPlayInView?: boolean;
   objectFit?: "cover" | "contain";
   feature?: StorageFeature;
+  priority?: boolean;
+  onInvalid?: () => void;
   onClick?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(priority);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
 
-  const { resolvedUrl: resolvedVideoUrl, loading: videoLoading, error: videoError } = useMediaUrl(feature, src);
-  const { resolvedUrl: resolvedPosterUrl } = useMediaUrl("thumbnail", poster);
+  const { resolvedUrl: resolvedVideoUrl, loading: videoLoading, error: videoError } = useMediaUrl(feature, src, {
+    enabled: visible || priority,
+  });
+  const { resolvedUrl: resolvedPosterUrl, error: posterError } = useMediaUrl("thumbnail", poster, {
+    enabled: true,
+  });
 
   useEffect(() => {
     const el = wrapRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
+    if (!el) return;
+
+    if (priority) {
+      setVisible(true);
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
       setVisible(true);
       return;
     }
+
+    const scrollParent = getScrollParent(el);
+
+    // Initial check: if already in or near viewport, mark visible immediately
+    if (isElementNearViewport(el, scrollParent, 400)) {
+      setVisible(true);
+    }
+
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) setVisible(true);
@@ -64,14 +87,24 @@ export function VideoPlayer({
           v.pause();
         }
       },
-      { rootMargin: "300px", threshold: [0, 0.6] },
+      { root: scrollParent, rootMargin: "400px", threshold: [0, 0.6] },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [autoPlayInView]);
+  }, [autoPlayInView, priority]);
 
-  const isFailed = failed || !!videoError || (!videoLoading && !resolvedVideoUrl && !!src);
+  const isFailed = failed || !!videoError || (!videoLoading && !resolvedVideoUrl && !!src && (visible || priority));
   const isLoading = loading || (videoLoading && !isFailed);
+
+  useEffect(() => {
+    if (isFailed && onInvalid) {
+      onInvalid();
+    }
+  }, [isFailed, onInvalid]);
+
+  if (isFailed && onInvalid) {
+    return null;
+  }
 
   return (
     <div ref={wrapRef} className={`relative bg-black min-h-[220px] ${className}`} onClick={onClick}>
@@ -79,7 +112,7 @@ export function VideoPlayer({
         <video
           ref={videoRef}
           src={resolvedVideoUrl}
-          poster={(!posterFailed && resolvedPosterUrl) ? resolvedPosterUrl : undefined}
+          poster={(!posterFailed && !posterError && resolvedPosterUrl) ? resolvedPosterUrl : undefined}
           className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
           preload="metadata"
           playsInline
@@ -96,12 +129,12 @@ export function VideoPlayer({
         />
       ) : (
         <div className="w-full h-full min-h-[220px] flex items-center justify-center bg-black/60">
-          {!posterFailed && resolvedPosterUrl ? (
+          {!posterFailed && !posterError && resolvedPosterUrl ? (
             <img
               src={resolvedPosterUrl}
               alt=""
               className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
-              loading="lazy"
+              loading={visible || priority ? "eager" : "lazy"}
               onError={() => setPosterFailed(true)}
             />
           ) : (

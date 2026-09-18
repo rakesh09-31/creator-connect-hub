@@ -239,6 +239,7 @@ export function buildPath(opts: {
 /* -------------------------------------------------- URLs */
 
 const signedCache = new Map<string, { url: string; expires: number }>();
+export const knownMissingKeys = new Set<string>();
 
 export const BUCKET_ALIAS_MAP: Record<string, StorageFeature> = {
   posts: "post",
@@ -293,16 +294,23 @@ export async function getSignedUrl(
   const cleanPath = (path || "").replace(/^\/+/, "");
   if (!cleanPath) return null;
 
+  const missingKey = `${cfg.bucket}:${cleanPath}`;
+  if (knownMissingKeys.has(missingKey)) return null;
+
   const key = `${cfg.bucket}:${cleanPath}:${expiresIn}`;
   const hit = signedCache.get(key);
   if (hit && hit.expires > Date.now()) return hit.url;
 
   try {
     const { data, error } = await supabase.storage.from(cfg.bucket).createSignedUrl(cleanPath, expiresIn);
-    if (error || !data?.signedUrl) return null;
+    if (error || !data?.signedUrl) {
+      knownMissingKeys.add(missingKey);
+      return null;
+    }
     signedCache.set(key, { url: data.signedUrl, expires: Date.now() + Math.min(expiresIn, 3600) * 900 });
     return data.signedUrl;
   } catch {
+    knownMissingKeys.add(missingKey);
     return null;
   }
 }
@@ -312,9 +320,11 @@ export async function getDisplayUrl(feature: StorageFeature, path: string): Prom
   const cfg = STORAGE_BUCKETS[feature];
   const cleanPath = (path || "").replace(/^\/+/, "");
   if (!cleanPath) return "";
-  if (cfg.shared && SHARED_BUCKETS_ARE_PUBLIC) return getPublicUrl(feature, cleanPath);
   const ttl = cfg.shared ? LONG_SIGNED_TTL : 60 * 60 * 24;
-  return (await getSignedUrl(feature, cleanPath, ttl)) ?? getPublicUrl(feature, cleanPath);
+  const signed = await getSignedUrl(feature, cleanPath, ttl);
+  if (signed) return signed;
+  if (cfg.shared && SHARED_BUCKETS_ARE_PUBLIC) return getPublicUrl(feature, cleanPath);
+  return "";
 }
 
 /** Best-effort: derive {feature, path} back from a stored URL. */
@@ -429,6 +439,84 @@ export async function getMediaUrl(
   const cleanRelPath = cleaned.replace(/^\/+/, "");
   const displayUrl = await getDisplayUrl(feature, cleanRelPath);
   return displayUrl || "";
+}
+
+/** Checks whether a raw media URL string is structurally valid (non-null, non-empty, and not a dummy domain) */
+export function isCandidateMediaUrl(raw: unknown): boolean {
+  if (!raw || typeof raw !== "string") return false;
+  const cleaned = cleanPathOrUrl(raw);
+  if (!cleaned || cleaned.length < 3) return false;
+  const lower = cleaned.toLowerCase();
+  if (
+    lower === "null" ||
+    lower === "undefined" ||
+    lower === "[object object]" ||
+    lower.includes("example.com") ||
+    (lower.includes("localhost") && !lower.includes("8081"))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Filter an array of feed items (posts, portfolios, reels) to ensure only items with
+ * existing, accessible media are returned.
+ * - Strips null, empty, dummy URLs immediately.
+ * - Validates Supabase storage objects asynchronously in small concurrent batches.
+ * - Leaves verified items in memory cache so render is instantaneous.
+ */
+export async function filterValidMediaItems<
+  T extends {
+    id?: string;
+    media_url?: string | null;
+    thumbnail_url?: string | null;
+    post_type?: string | null;
+  }
+>(items: T[]): Promise<T[]> {
+  if (!items || !items.length) return [];
+
+  // 1. Synchronous candidate validation
+  const candidates = items.filter((item) => {
+    if (!item) return false;
+    if (!isCandidateMediaUrl(item.media_url)) return false;
+    const isVideo = item.post_type === "video" || item.post_type === "reel";
+    // If video specifies a thumbnail_url, it must also be a candidate
+    if (isVideo && item.thumbnail_url !== undefined && item.thumbnail_url !== null) {
+      if (!isCandidateMediaUrl(item.thumbnail_url)) return false;
+    }
+    return true;
+  });
+
+  // 2. Identify storage objects needing verification
+  const storageItems: { item: T; parsed: { feature: StorageFeature; path: string } }[] = [];
+  for (const item of candidates) {
+    const parsed = parseStoragePathOrUrl(item.media_url!);
+    if (parsed) {
+      storageItems.push({ item, parsed });
+    }
+  }
+
+  if (!storageItems.length) {
+    return candidates;
+  }
+
+  // 3. Batch validate storage items (max 6 at a time to prevent API congestion)
+  const invalidItems = new Set<T>();
+  const batchSize = 6;
+  for (let i = 0; i < storageItems.length; i += batchSize) {
+    const batch = storageItems.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(async ({ item, parsed }) => {
+        const url = await getDisplayUrl(parsed.feature, parsed.path);
+        if (!url) {
+          invalidItems.add(item);
+        }
+      })
+    );
+  }
+
+  return candidates.filter((item) => !invalidItems.has(item));
 }
 
 /* -------------------------------------------------- upload */

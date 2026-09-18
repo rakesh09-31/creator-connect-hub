@@ -9,8 +9,10 @@ const localCache = new Map<string, string>();
  */
 export function useMediaUrl(
   feature: StorageFeature,
-  rawPathOrUrl: string | null | undefined
+  rawPathOrUrl: string | null | undefined,
+  options?: { enabled?: boolean }
 ) {
+  const enabled = options?.enabled ?? true;
   const pathOrUrl = cleanPathOrUrl(rawPathOrUrl);
   const cacheKey = pathOrUrl ? `${feature}:${pathOrUrl}` : "";
   const initialUrl = cacheKey ? localCache.get(cacheKey) : "";
@@ -26,7 +28,7 @@ export function useMediaUrl(
   const [resolvedUrl, setResolvedUrl] = useState<string>(
     initialUrl || (isImmediateExternal ? pathOrUrl : "")
   );
-  const [loading, setLoading] = useState<boolean>(!resolvedUrl && !!pathOrUrl);
+  const [loading, setLoading] = useState<boolean>(!resolvedUrl && !!pathOrUrl && enabled);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -48,6 +50,11 @@ export function useMediaUrl(
     if (isImmediateExternal) {
       localCache.set(cacheKey, pathOrUrl);
       setResolvedUrl(pathOrUrl);
+      setLoading(false);
+      return;
+    }
+
+    if (!enabled) {
       setLoading(false);
       return;
     }
@@ -76,7 +83,7 @@ export function useMediaUrl(
     return () => {
       active = false;
     };
-  }, [feature, pathOrUrl, cacheKey, isImmediateExternal]);
+  }, [feature, pathOrUrl, cacheKey, isImmediateExternal, enabled]);
 
   return { resolvedUrl, loading, error };
 }

@@ -6,7 +6,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, ensureProfile } from "@/lib/auth";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
-import { deleteMediaByUrl } from "@/lib/storage";
+import { deleteMediaByUrl, isCandidateMediaUrl } from "@/lib/storage";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { ShareVideoDialog } from "./ShareVideoDialog";
 import { getReadableErrorMessage } from "@/lib/errors";
@@ -14,16 +14,30 @@ import { getReadableErrorMessage } from "@/lib/errors";
 type Profile = { id: string; username: string; full_name: string | null; avatar_url: string | null; role: string | null };
 export type PostLike = {
   id: string; caption: string | null; media_url: string | null; post_type: string;
-  created_at: string; author_id: string; author?: Profile;
+  created_at: string; author_id: string; author?: Profile; thumbnail_url?: string | null;
 };
 
-export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: string) => void }) {
+export function PostCard({
+  post,
+  priority = false,
+  onDelete,
+  onInvalid,
+}: {
+  post: PostLike;
+  priority?: boolean;
+  onDelete?: (id: string) => void;
+  onInvalid?: (id: string) => void;
+}) {
   const { user } = useAuth();
   const author = post.author;
   const initial = (author?.username || "?").slice(0, 1).toUpperCase();
   const isVideo = post.post_type === "video" || post.post_type === "reel";
   const imageFeature = isVideo ? "reel" as const : "post" as const;
-  const { resolvedUrl: resolvedMediaUrl, loading: mediaLoading, error: mediaUrlError } = useMediaUrl(imageFeature, post.media_url);
+  const isCandidate = isCandidateMediaUrl(post.media_url);
+  const { resolvedUrl: resolvedMediaUrl, loading: mediaLoading, error: mediaUrlError } = useMediaUrl(
+    imageFeature,
+    isCandidate ? post.media_url : null
+  );
   const [mediaError, setMediaError] = useState(false);
 
   const [liked, setLiked] = useState(false);
@@ -150,6 +164,16 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
     }
   };
 
+  useEffect(() => {
+    if (!isCandidate || mediaError || (mediaUrlError && !resolvedMediaUrl && !mediaLoading)) {
+      onInvalid?.(post.id);
+    }
+  }, [isCandidate, mediaError, mediaUrlError, resolvedMediaUrl, mediaLoading, post.id, onInvalid]);
+
+  if (!isCandidate || mediaError || (mediaUrlError && !resolvedMediaUrl && !mediaLoading)) {
+    return null;
+  }
+
   return (
     <article className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
       <header className="flex items-center justify-between p-4">
@@ -176,39 +200,35 @@ export function PostCard({ post, onDelete }: { post: PostLike; onDelete?: (id: s
       {post.media_url && (
         <div className="bg-black/90 relative select-none overflow-hidden" onClick={onMediaTap}>
           {isVideo ? (
-            <VideoPlayer src={post.media_url} poster={(post as any).thumbnail_url} className="w-full max-h-[600px] min-h-[260px]" objectFit="contain" feature={imageFeature} />
-          ) : (
-            mediaError || (mediaUrlError && !resolvedMediaUrl) ? (
-              <div className="w-full py-16 px-6 flex flex-col items-center justify-center text-center bg-muted/10 border-y border-border/40">
-                <div className="w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
-                  <ImageIcon className="w-6 h-6" />
-                </div>
-                <p className="text-sm font-medium text-foreground/80">Media unavailable</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                  This image could not be loaded or is no longer accessible.
-                </p>
-              </div>
-            ) : resolvedMediaUrl ? (
-              <img
-                src={resolvedMediaUrl}
-                alt={post.caption || "Post media"}
-                className="w-full max-h-[600px] object-cover"
-                loading="lazy"
-                onError={() => setMediaError(true)}
-              />
-            ) : mediaLoading ? (
-              <div className="w-full h-72 bg-muted/40 animate-pulse flex items-center justify-center text-muted-foreground/30">
-                <ImageIcon className="w-8 h-8 opacity-40 animate-pulse" />
-              </div>
-            ) : (
-              <div className="w-full py-16 px-6 flex flex-col items-center justify-center text-center bg-muted/10 border-y border-border/40">
-                <div className="w-12 h-12 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
-                  <ImageIcon className="w-6 h-6" />
-                </div>
-                <p className="text-sm font-medium text-foreground/80">Media unavailable</p>
-              </div>
-            )
-          )}
+            <VideoPlayer
+              src={post.media_url}
+              poster={post.thumbnail_url ?? (post as any).thumbnail_url}
+              className="w-full max-h-[600px] min-h-[260px]"
+              objectFit="contain"
+              feature={imageFeature}
+              priority={priority}
+              onInvalid={() => {
+                setMediaError(true);
+                onInvalid?.(post.id);
+              }}
+            />
+          ) : resolvedMediaUrl ? (
+            <img
+              src={resolvedMediaUrl}
+              alt={post.caption || "Post media"}
+              className="w-full max-h-[600px] object-cover"
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+              onError={() => {
+                setMediaError(true);
+                onInvalid?.(post.id);
+              }}
+            />
+          ) : mediaLoading ? (
+            <div className="w-full h-72 bg-muted/40 animate-pulse flex items-center justify-center text-muted-foreground/30">
+              <ImageIcon className="w-8 h-8 opacity-40 animate-pulse" />
+            </div>
+          ) : null}
           {heartBurst && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <Heart className="w-24 h-24 text-white fill-rose-500 drop-shadow-lg animate-ping-once" />

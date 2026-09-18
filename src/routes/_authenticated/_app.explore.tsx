@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search, Play } from "lucide-react";
+import { Search, Play, Image as ImageIcon } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { PostViewer } from "@/components/PostViewer";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
-import type { StorageFeature } from "@/lib/storage";
+import { filterValidMediaItems, isCandidateMediaUrl, type StorageFeature } from "@/lib/storage";
+import { getScrollParent, isElementNearViewport } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/_app/explore")({
   head: () => ({ meta: [{ title: "Search — Omnicraft" }] }),
@@ -18,8 +19,8 @@ type Profile = {
   location?: string | null;
 };
 type Tile =
-  | { kind: "post"; id: string; media_url: string; post_type: string; caption: string | null; author_id: string; author?: Profile; created_at: string }
-  | { kind: "portfolio"; id: string; media_url: string; title: string; user_id: string; author?: Profile; created_at: string };
+  | { kind: "post"; id: string; media_url: string; thumbnail_url?: string | null; post_type: string; caption: string | null; author_id: string; author?: Profile; created_at: string }
+  | { kind: "portfolio"; id: string; media_url: string; thumbnail_url?: string | null; title: string; user_id: string; author?: Profile; created_at: string };
 
 // Instagram-style masonry pattern: some tiles are 2x2 (span two cols/rows) among 3-col grid.
 function tallIndex(i: number) {
@@ -39,12 +40,19 @@ function ExplorePage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: posts }, { data: ports }] = await Promise.all([
+      const [{ data: rawPosts }, { data: rawPorts }] = await Promise.all([
         supabase.from("posts").select("*").not("media_url", "is", null)
           .order("created_at", { ascending: false }).limit(180),
         supabase.from("portfolios").select("*").not("media_url", "is", null)
           .order("created_at", { ascending: false }).limit(60),
       ]);
+
+      // Pre-filter valid media items so missing/broken/deleted storage objects are excluded early
+      const [posts, ports] = await Promise.all([
+        filterValidMediaItems(rawPosts ?? []),
+        filterValidMediaItems(rawPorts ?? []),
+      ]);
+
       const authorIds = new Set<string>();
       (posts ?? []).forEach((p: any) => authorIds.add(p.author_id));
       (ports ?? []).forEach((p: any) => authorIds.add(p.user_id));
@@ -56,12 +64,12 @@ function ExplorePage() {
         profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
       }
       const postTiles: Tile[] = (posts ?? []).map((p: any) => ({
-        kind: "post", id: p.id, media_url: p.media_url, post_type: p.post_type,
+        kind: "post", id: p.id, media_url: p.media_url, thumbnail_url: p.thumbnail_url, post_type: p.post_type,
         caption: p.caption, author_id: p.author_id, author: profMap.get(p.author_id),
         created_at: p.created_at,
       }));
       const portTiles: Tile[] = (ports ?? []).map((p: any) => ({
-        kind: "portfolio", id: p.id, media_url: p.media_url, title: p.title,
+        kind: "portfolio", id: p.id, media_url: p.media_url, thumbnail_url: p.thumbnail_url, title: p.title,
         user_id: p.user_id, author: profMap.get(p.user_id), created_at: p.created_at,
       }));
       // Interleave posts & portfolios, then shuffle lightly for a natural mix
@@ -163,13 +171,16 @@ function ExplorePage() {
         <div className="grid grid-cols-3 gap-1 auto-rows-[minmax(0,1fr)]">
           {filteredTiles.map((t, i) => {
             const big = tallIndex(i);
+            const isPriority = i < 12;
             return (
               <ExploreTile
                 key={`${t.kind}-${t.id}`}
                 tile={t}
                 big={big}
+                priority={isPriority}
                 onReelClick={(id) => navigate({ to: "/reels", search: { start: id } })}
                 onPostClick={(id) => setViewerPostId(id)}
+                onInvalid={(id) => setTiles((prev) => prev.filter((item) => item.id !== id))}
               />
             );
           })}
@@ -182,23 +193,104 @@ function ExplorePage() {
   );
 }
 
-function ExploreTile({ tile, big, onReelClick, onPostClick }: {
-  tile: Tile; big?: boolean;
+function ExploreTile({
+  tile,
+  big,
+  priority = false,
+  onReelClick,
+  onPostClick,
+  onInvalid,
+}: {
+  tile: Tile;
+  big?: boolean;
+  priority?: boolean;
   onReelClick?: (id: string) => void;
   onPostClick?: (id: string) => void;
+  onInvalid?: (id: string) => void;
 }) {
+  const containerRef = useRef<HTMLElement | null>(null);
+  const [inView, setInView] = useState(priority);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    if (priority || inView) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+
+    const scrollParent = getScrollParent(el);
+
+    if (isElementNearViewport(el, scrollParent, 400)) {
+      setInView(true);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { root: scrollParent, rootMargin: "400px", threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [priority, inView]);
+
   const username = tile.author?.username ?? "";
   const isVideo = tile.kind === "post" && (tile.post_type === "video" || tile.post_type === "reel");
   const spanCls = big ? "col-span-2 row-span-2" : "";
   const feature: StorageFeature = isVideo ? "reel" : tile.kind === "portfolio" ? "portfolioImage" : "post";
-  const { resolvedUrl } = useMediaUrl(feature, tile.media_url);
+  const isCandidate = isCandidateMediaUrl(tile.media_url);
+
+  // Tiered media resolution: initial & near viewport resolve eagerly, far offscreen lazy
+  const { resolvedUrl, loading: mediaLoading, error: mediaError } = useMediaUrl(
+    feature,
+    isCandidate ? tile.media_url : null,
+    {
+      enabled: priority || inView,
+    }
+  );
+
+  const isUnavailable = !isCandidate || imgError || (!!mediaError && !resolvedUrl) || (!resolvedUrl && !mediaLoading && (priority || inView));
+
+  useEffect(() => {
+    if (isUnavailable) {
+      onInvalid?.(tile.id);
+    }
+  }, [isUnavailable, tile.id, onInvalid]);
+
+  if (isUnavailable) {
+    return null;
+  }
 
   if (isVideo && onReelClick) {
     return (
-      <button onClick={() => onReelClick(tile.id)}
-        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
-        <VideoPlayer src={tile.media_url} poster={(tile as any).thumbnail_url} controls={false} className="w-full h-full" feature="reel" />
-        <div className="absolute top-1.5 right-1.5 text-white drop-shadow"><Play className="w-4 h-4 fill-white" /></div>
+      <button
+        ref={(node) => { containerRef.current = node; }}
+        onClick={() => onReelClick(tile.id)}
+        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}
+      >
+        <VideoPlayer
+          src={tile.media_url}
+          poster={tile.thumbnail_url}
+          controls={false}
+          className="w-full h-full"
+          feature="reel"
+          priority={priority}
+          onInvalid={() => {
+            setImgError(true);
+            onInvalid?.(tile.id);
+          }}
+        />
+        <div className="absolute top-1.5 right-1.5 text-white drop-shadow">
+          <Play className="w-4 h-4 fill-white" />
+        </div>
       </button>
     );
   }
@@ -206,18 +298,53 @@ function ExploreTile({ tile, big, onReelClick, onPostClick }: {
   // Image posts open the in-app PostViewer (Instagram Explore behavior)
   if (tile.kind === "post" && onPostClick) {
     return (
-      <button onClick={() => onPostClick(tile.id)}
-        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}>
-        {resolvedUrl ? <img src={resolvedUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" /> : <div className="w-full h-full bg-muted animate-pulse" />}
+      <button
+        ref={(node) => { containerRef.current = node; }}
+        onClick={() => onPostClick(tile.id)}
+        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}
+      >
+        {resolvedUrl ? (
+          <img
+            src={resolvedUrl}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            alt=""
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            onError={() => {
+              setImgError(true);
+              onInvalid?.(tile.id);
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-muted animate-pulse" />
+        )}
       </button>
     );
   }
 
   // Portfolio tiles still route to the creator profile
   return (
-    <Link to="/user/$username" params={{ username }}
-      className={`relative aspect-square bg-muted overflow-hidden rounded-sm group ${spanCls}`}>
-      {resolvedUrl ? <img src={resolvedUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" loading="lazy" /> : <div className="w-full h-full bg-muted animate-pulse" />}
+    <Link
+      ref={(node) => { containerRef.current = node; }}
+      to="/user/$username"
+      params={{ username }}
+      className={`relative aspect-square bg-muted overflow-hidden rounded-sm group ${spanCls}`}
+    >
+      {resolvedUrl ? (
+        <img
+          src={resolvedUrl}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+          alt=""
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          onError={() => {
+            setImgError(true);
+            onInvalid?.(tile.id);
+          }}
+        />
+      ) : (
+        <div className="w-full h-full bg-muted animate-pulse" />
+      )}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition">
         <p className="text-[10px] text-white font-semibold truncate">@{username}</p>
       </div>
