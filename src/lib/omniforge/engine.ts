@@ -103,35 +103,356 @@ export const classifyOmniForgeIntent = (
 
 export function handleGeneralDialogue(
   query: string,
-  intent: OmniForgeIntent,
-  targetRole?: string
+  intent: OmniForgeIntent = "UNKNOWN",
+  targetRole?: string,
+  currentProject?: OmniForgeProject | null
 ): AIStructuredResponse {
   const lower = query.toLowerCase().trim();
   const clean = lower.replace(/[?!.,]+$/, "").trim();
 
-  // 1. Chit-chat & Casual Greetings
-  if (intent === "GENERAL_CONVERSATION") {
+  // --------------------------------------------------------------------------
+  // 1. E-COMMERCE WEBSITE DEVELOPMENT ROADMAP & STEPS
+  // --------------------------------------------------------------------------
+  if (
+    clean.includes("ecommerce") ||
+    clean.includes("e-commerce") ||
+    clean.includes("online store") ||
+    clean.includes("shopping website") ||
+    (clean.includes("store") && clean.includes("website"))
+  ) {
+    if (
+      clean.includes("step") ||
+      clean.includes("how to") ||
+      clean.includes("develop") ||
+      clean.includes("build") ||
+      clean.includes("roadmap") ||
+      clean.includes("guide") ||
+      clean.includes("make") ||
+      clean.includes("plan")
+    ) {
+      return {
+        intent: "HOW_TO",
+        responseLevel: "SIMPLE_ANSWER",
+        message: `### Comprehensive E-Commerce Website Development Roadmap
+
+Here is a structured, production-ready guide to building a scalable e-commerce platform from conception to deployment:
+
+---
+
+#### 1. Requirements & Architecture Planning
+* **Product Catalog & Business Model:** Define B2C/B2B structure, physical vs. digital inventory, SKU variants, and tax/shipping regions.
+* **Tech Stack Selection:**
+  * **Frontend:** Next.js / React (SSR/SSG for SEO and sub-second page loads), Tailwind CSS.
+  * **Backend & API:** Node.js (Express/Fastify) or Next.js Server Actions / API Routes.
+  * **Database & Auth:** PostgreSQL (Supabase / Prisma ORM) with Row-Level Security (RLS).
+  * **Payments & Infrastructure:** Stripe / Razorpay, AWS S3 / Cloudinary for assets, Vercel for hosting.
+
+---
+
+#### 2. UI/UX Design & User Flows (Figma)
+* **Design System:** Typography, accessible color tokens, responsive mobile-first grid.
+* **Key Wireframes & Screens:**
+  * Homepage with hero banner and featured collections.
+  * Product Listing Page (PLP) with multi-facet filters (category, price, rating, size).
+  * Product Detail Page (PDP) with high-res gallery, variant selector, and stock alerts.
+  * Frictionless Slide-out Cart & One-Page Checkout.
+  * User Account Portal (Order history, saved addresses, tracking).
+
+---
+
+#### 3. Database Schema & Data Modeling
+* **Users & Auth:** \`id\`, \`email\`, \`password_hash\`, \`role\` (customer/admin), \`shipping_addresses\`.
+* **Products & Categories:** \`id\`, \`title\`, \`slug\`, \`description\`, \`base_price\`, \`category_id\`.
+* **Variants & Inventory:** \`id\`, \`product_id\`, \`sku\`, \`attributes\` (JSON: color, size), \`stock_quantity\`, \`price_adjustment\`.
+* **Orders & Line Items:** \`id\`, \`user_id\`, \`status\` (pending, paid, fulfilled, refunded), \`total_amount\`, \`payment_intent_id\`.
+
+---
+
+#### 4. Frontend & Storefront Implementation
+* **Product Discovery:** Instant search with debouncing, category breadcrumbs, pagination, and sorting.
+* **State Management:** Persistent cart store (Zustand / React Context + LocalStorage sync).
+* **Micro-Interactions:** Optimistic UI cart updates, skeleton loaders, and toast notifications.
+
+---
+
+#### 5. Backend APIs & Authentication
+* **Authentication:** Secure session cookies (JWT / Supabase Auth) with OAuth (Google/GitHub).
+* **REST/GraphQL Endpoints:**
+  * \`GET /api/products\`, \`GET /api/products/:slug\`
+  * \`POST /api/cart\`, \`POST /api/checkout/session\`
+  * \`GET /api/orders\`, \`POST /api/webhooks/stripe\`
+
+---
+
+#### 6. Payment Integration & Security
+* **Gateway Setup:** Stripe Elements or Razorpay Checkout with webhooks for asynchronous fulfillment.
+* **Idempotency & Webhooks:** Validate Stripe signature headers (\`stripe-signature\`) and ensure orders are only fulfilled once.
+* **Compliance & Security:** PCI-DSS compliance (no raw card data on server), HTTPS/SSL, CORS whitelisting, and rate limiting.
+
+---
+
+#### 7. Order Processing & Admin Dashboard
+* **Order Lifecycle:** Automated confirmation emails, invoice PDF generation, tracking number dispatch.
+* **Admin Capabilities:** Inventory replenishment alerts, revenue analytics, customer lookup, and order status overrides.
+
+---
+
+#### 8. Testing, Deployment & Monitoring
+* **Testing:** Automated unit tests for cart calculation, integration tests for checkout, E2E tests with Playwright.
+* **CI/CD & Deployment:** GitHub Actions pipeline to Vercel/Docker, production database migrations, CDN asset caching.
+* **Performance & SEO:** Schema.org Product JSON-LD markup, dynamic Open Graph tags, Core Web Vitals optimization.`,
+        suggestedFollowUps: [
+          "What database schema is best for products?",
+          "How do I integrate Stripe webhooks?",
+          "Find creators for my e-commerce team",
+        ],
+      };
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 2. GENERAL WEBSITE & APP DEVELOPMENT ROADMAP
+  // --------------------------------------------------------------------------
+  if (
+    clean.includes("steps to develop a website") ||
+    clean.includes("steps to make a website") ||
+    clean.includes("steps to build a website") ||
+    clean.includes("steps to develop the website") ||
+    clean.includes("steps to develop a web app") ||
+    clean.includes("steps to develop an app") ||
+    clean.includes("guide to develop a website") ||
+    clean.includes("how to develop a website") ||
+    clean.includes("how to build a website") ||
+    clean.includes("roadmap to develop a website") ||
+    clean.includes("make the steps to develop a website")
+  ) {
+    return {
+      intent: "HOW_TO",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `### End-to-End Website Development Roadmap
+
+Here are the essential stages for developing a high-performance modern website:
+
+---
+
+#### 1. Discovery & Project Scoping
+* **Define Goals:** Target audience, core value proposition, key performance indicators (KPIs).
+* **Information Architecture:** Sitemap hierarchy, content outline, user journey mapping.
+
+---
+
+#### 2. UI/UX Design & Prototyping
+* **Wireframing:** Low-fidelity sketches to establish visual hierarchy and layout balance.
+* **Visual Design System:** Typography, color palettes, responsive breakpoints (Desktop, Tablet, Mobile) in Figma.
+* **Interactive Prototype:** Test user navigation, button states, and flow transitions.
+
+---
+
+#### 3. Frontend Architecture
+* **Framework:** React / Next.js / Vite for component-driven UI.
+* **Styling:** Tailwind CSS or Modern Modular CSS for fluid, maintainable styling.
+* **Accessibility (a11y):** Semantic HTML5, ARIA attributes, keyboard navigation, and contrast compliance.
+
+---
+
+#### 4. Backend & Database (If Dynamic)
+* **API Layer:** Node.js, Express, or Next.js server endpoints for data operations.
+* **Database:** PostgreSQL / Supabase for structured relational storage with automated migrations.
+* **Authentication:** Secure user login with OAuth and encrypted session tokens.
+
+---
+
+#### 5. Content Integration & SEO
+* **Content:** Engaging copywriting, high-resolution optimized images (WebP/AVIF format).
+* **On-Page SEO:** Meta title/description tags, Open Graph preview tags, and XML sitemaps.
+
+---
+
+#### 6. Quality Assurance & Testing
+* **Cross-Browser & Device Testing:** Verify layout on Chrome, Safari, Firefox, iOS, and Android.
+* **Performance Audit:** Google Lighthouse audit targeting 90+ across Performance, Accessibility, Best Practices, and SEO.
+
+---
+
+#### 7. Deployment, CI/CD & Launch
+* **Hosting:** Vercel, Netlify, or Cloudflare Pages with SSL certification and custom domain DNS routing.
+* **CI/CD Automation:** Automated linting, test suites, and build validation on every Git commit.
+* **Analytics & Health Monitoring:** Real-user analytics, uptime checks, and error logging with Sentry.`,
+      suggestedFollowUps: [
+        "What tech stack should I choose?",
+        "How do I structure the frontend components?",
+        "Find a UI/UX designer and web developer",
+      ],
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. SCREENPLAY & CREATIVE WRITING
+  // --------------------------------------------------------------------------
+  if (
+    clean.includes("write a screenplay") ||
+    clean.includes("write a script") ||
+    clean.includes("write a short film screenplay") ||
+    clean.includes("screenplay about") ||
+    clean.includes("write a suspense thriller") ||
+    clean.includes("write a scene")
+  ) {
+    let subject = "A Missing Student";
+    if (clean.includes("lost key")) subject = "The Lost Key";
+    else if (clean.includes("village girl")) subject = "The Village Singer";
+    else if (clean.includes("detective") || clean.includes("mystery")) subject = "Midnight Investigation";
+
+    return {
+      intent: "EXPLANATION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `### Short Film Screenplay: *"${subject}"*
+
+**TITLE: ${subject.toUpperCase()}**
+**GENRE:** Suspense / Drama
+**FORMAT:** Short Film (5 Minutes)
+
+---
+
+**EXT. UNIVERSITY ARCHIVES - NIGHT**
+
+A heavy thunderstorm hammers the gothic stone facade. Rain cascades down the gargoyles. Lightning fractures across the black sky.
+
+MAYA (22), soaked in an oversized yellow raincoat, clutches a cracked tablet against her chest. Her eyes dart nervously across the empty courtyard.
+
+She reaches the heavy brass door. It is ajar. A single beam of flickering amber light spills out into the dark.
+
+**MAYA**
+*(whispering into her voice recorder)*
+If I'm not back by sunrise... check Professor Vance's basement terminal. File 804.
+
+She pushes the door open. It GROANS against the wind.
+
+---
+
+**INT. ARCHIVES - CONTINUOUS**
+
+Towering bookshelves vanish into the vaulted shadows. Dust motes dance in the amber light. Water DRIPS into a rusted metal bucket with rhythmic precision: *TICK... TICK... TICK.*
+
+Maya steps inside. Her wet sneakers SQUEAK against the polished marble floor.
+
+**MAYA**
+Rohan? Are you in here?
+
+No answer. Only the low HUM of an antique server rack in the corner.
+
+She approaches the reading desk. In the center sits an open leather notebook. Fresh blue ink glistens under the green desk lamp.
+
+Maya leans closer. The page reads:
+*"THEY KNOW YOU'RE COMING, MAYA."*
+
+A FLOORBOARD CREAKS directly behind her.
+
+Maya FREEZES. She slowly turns around.
+
+Standing in the shadow between two book stacks is a TALL FIGURE in a dark trench coat, clutching an iron key card.
+
+**FIGURE (O.S.)**
+You shouldn't have dug into the archives, Maya.
+
+Lightning FLASHES through the stained glass, illuminating the Figure's face for a split second—
+
+**FADE OUT.**
+
+---
+*Would you like to expand this into a multi-scene shooting script, generate a shot list, or plan casting for the actors?*`,
+      suggestedFollowUps: [
+        "Generate a shot list for this scene",
+        "Plan the shooting schedule",
+        "Find actors for Maya and the Figure",
+      ],
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. "EXPLAIN THE NEXT STEP" / "WHAT IS THE NEXT STEP"
+  // --------------------------------------------------------------------------
+  if (
+    clean.includes("explain the next step") ||
+    clean.includes("what is the next step") ||
+    clean.includes("what is next") ||
+    clean.includes("what should we do next") ||
+    clean.includes("what should i do next") ||
+    clean.includes("explain next step")
+  ) {
+    if (currentProject) {
+      const activePhase = currentProject.phases?.find((p) => p.tasks?.some((t) => t.status === "to_do" || t.status === "in_progress")) || currentProject.phases?.[0];
+      const pendingTasks = activePhase?.tasks?.filter((t) => t.status === "to_do" || t.status === "in_progress") || [];
+
+      if (pendingTasks.length > 0) {
+        const topTask = pendingTasks[0];
+        const taskList = pendingTasks.map((t) => `• **${t.title}** (${t.requiredRole} — Est. ${t.estimatedDuration})`).join("\n");
+        return {
+          intent: "PROJECT_STATUS",
+          responseLevel: "CONTEXTUAL_ANSWER",
+          message: `### Next Step for **${currentProject.title}**
+
+Your immediate priority is **${topTask.title}** within **${activePhase?.name || "Stage 1"}**.
+
+#### Why this comes next:
+Completing this milestone establishes the core foundation before downstream production and execution can proceed.
+
+#### Current actionable tasks:
+${taskList}
+
+You can assign tasks, invite creators, or adjust milestone dates directly in your workspace!`,
+          suggestedFollowUps: [
+            "Find creators for this step",
+            "What comes after this stage?",
+            "View Workspace Roadmap",
+          ],
+        };
+      }
+    }
+
+    return {
+      intent: "PROJECT_STATUS",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `### Recommended Next Step
+
+Based on standard development best practices:
+1. **Solidify the Scope:** Define the minimum viable deliverable (MVP) features or core script scenes.
+2. **Assign Core Roles:** Confirm who is handling design/architecture or directing/cinematography.
+3. **Set Milestones:** Establish a clear target timeline for Pre-Production / Sprint 1.
+
+Would you like to generate a detailed project plan or explore verified creators for your team?`,
+      suggestedFollowUps: [
+        "Generate a project blueprint",
+        "Find verified creators",
+        "What is Skill Swap?",
+      ],
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. CHIT-CHAT & CASUAL GREETINGS
+  // --------------------------------------------------------------------------
+  if (intent === "GENERAL_CONVERSATION" || clean === "hi" || clean === "hello" || clean === "hey") {
     if (clean.includes("joke") || clean.includes("laugh")) {
       return {
         intent: "GENERAL_CONVERSATION",
         responseLevel: "SIMPLE_ANSWER",
-        message: "Why did the video editor break up with the timeline? Because there were too many cuts and zero commitment! 😄\n\nWhat are you working on or planning to build today?",
-        suggestedFollowUps: ["I want to make a short film", "I want to build a website", "What can you do?"],
+        message: "Why did the developer go broke? Because they used up all their cache! 😄\n\nWhat are you working on or planning to build today?",
+        suggestedFollowUps: ["I want to build a website", "I want to make a short film", "What can you do?"],
       };
     }
     if (clean.includes("how are you") || clean.includes("how's it going") || clean.includes("whats up")) {
       return {
         intent: "GENERAL_CONVERSATION",
         responseLevel: "SIMPLE_ANSWER",
-        message: "I'm doing well, thanks for asking! What would you like to explore or create today?",
-        suggestedFollowUps: ["I have an idea for an app", "I want to make a film", "What is Skill Swap?"],
+        message: "I'm doing great and ready to build! What would you like to explore or create today?",
+        suggestedFollowUps: ["I want to build an e-commerce website", "I want to make a film", "What is Skill Swap?"],
       };
     }
     if (clean.includes("thank") || clean.includes("thanks") || clean.includes("helpful")) {
       return {
         intent: "GENERAL_CONVERSATION",
         responseLevel: "SIMPLE_ANSWER",
-        message: "You're very welcome! Let me know whenever you'd like to brainstorm an idea, find creators, or ask any question.",
+        message: "You're very welcome! Let me know whenever you'd like to brainstorm an idea, write code, outline steps, or find creators.",
         suggestedFollowUps: ["What can you do?", "How does Skill Swap work?"],
       };
     }
@@ -139,7 +460,7 @@ export function handleGeneralDialogue(
       return {
         intent: "GENERAL_CONVERSATION",
         responseLevel: "SIMPLE_ANSWER",
-        message: "No problem at all! Feel free to brainstorm with me, ask questions about different creative and technical disciplines, or explore what's possible on OmniCraft whenever you're ready.",
+        message: "No problem at all! Feel free to brainstorm with me, ask questions about tech and filmmaking, or explore what's possible on OmniCraft whenever you're ready.",
         suggestedFollowUps: ["What can you do?", "What is a director?", "How does Skill Swap work?"],
       };
     }
@@ -155,148 +476,76 @@ export function handleGeneralDialogue(
       return {
         intent: "GENERAL_CONVERSATION",
         responseLevel: "SIMPLE_ANSWER",
-        message: "Sounds good! Where would you like to go next?",
+        message: "Sounds great! Where would you like to go next?",
         suggestedFollowUps: ["I want to make a short film", "I want to build a website", "What is Skill Swap?"],
-      };
-    }
-    if (clean === "hlo" || clean === "hlw") {
-      return {
-        intent: "GENERAL_CONVERSATION",
-        responseLevel: "SIMPLE_ANSWER",
-        message: "Hey! Welcome to OmniForge. What are you thinking of creating today?",
-        suggestedFollowUps: ["I want to make a short film", "I want to build a website", "What can you do?"],
       };
     }
     return {
       intent: "GENERAL_CONVERSATION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "Hi! I'm OmniForge, your AI Project Architect & Creator Orchestrator on OmniCraft. What would you like to create or work on today?",
+      message: "Hello! I'm OmniForge AI, your intelligent project architect and conversational creator assistant. How can I help you today? You can ask me technical questions, brainstorm creative ideas, plan website or film roadmaps, or discover creators.",
       suggestedFollowUps: [
-        "I want to build a website",
+        "Can you provide the steps to develop the ecommerce website?",
         "I have an idea for a short film",
-        "I wrote a song",
+        "What is React?",
         "What can you do?",
       ],
     };
   }
 
-  // 2. Capabilities & General Help
-  if (clean.includes("help me") || clean === "help" || clean.includes("can you help")) {
+  // --------------------------------------------------------------------------
+  // 6. CAPABILITIES & DEFINITIONS
+  // --------------------------------------------------------------------------
+  if (clean.includes("what can you do") || clean.includes("who are you") || clean.includes("help me")) {
     return {
       intent: "GENERAL_QUESTION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "Of course! Tell me what you're trying to create, solve, or learn — whether it's software development, film production, music, events, or finding verified collaborators.",
-      suggestedFollowUps: ["I want to build a website", "I want to make a short film", "What is Skill Swap?"],
+      message: `I'm OmniForge AI, your comprehensive project architect and creative partner. Here's what I can do for you:
+
+1. **Conversational Assistant:** Answer technical, creative, and planning questions (programming, screenwriting, architecture).
+2. **Project Roadmaps:** Provide comprehensive step-by-step blueprints for websites, e-commerce stores, apps, films, and events.
+3. **Creator Discovery:** Search and match real verified creators from the OmniCraft network (directors, developers, editors, designers).
+4. **Squad Orchestration:** Form cross-functional teams and set up collaborative workspaces.
+5. **Skill Swap:** Connect you with creators willing to trade skills without cash transactions.`,
+      suggestedFollowUps: [
+        "Can you provide the steps to develop the ecommerce website?",
+        "I want to make a short film",
+        "Explain Skill Swap",
+      ],
     };
   }
 
-  if (clean.includes("what can you do") || clean.includes("who are you")) {
-    return {
-      intent: "GENERAL_QUESTION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "I can help you in four interconnected ways:\n\n1. **Answer Questions:** Explain creative and technical concepts, roles, workflows, and best practices.\n2. **Architect Projects:** Break your raw ideas into simple, meaningful stages, clear requirements, and actionable tasks.\n3. **Match Real Creators:** Discover verified OmniCraft talent with matching skills and portfolio evidence.\n4. **Build Squads & Skill Swaps:** Assemble cross-functional teams, coordinate skill trades, and initialize collaborative workspaces.",
-      suggestedFollowUps: ["I want to build a website", "I have an idea for a film", "Explain Skill Swap"],
-    };
-  }
-
-  // 3. Definitions & Explanations
-  // Roles
-  if (clean.includes("what is a director") || clean.includes("what does a director do") || clean.includes("director of photography") || clean.includes("what is a dop")) {
-    if (clean.includes("cinematographer") || clean.includes("dop") || clean.includes("photography")) {
-      return {
-        intent: "DEFINITION",
-        responseLevel: "SIMPLE_ANSWER",
-        message: "A cinematographer (Director of Photography / DoP) oversees camera operation, camera movement, and lighting design. They translate the director's creative vision into captivating visual compositions and cinematic color moods.",
-        suggestedFollowUps: ["What does a director do?", "Find a cinematographer"],
-      };
-    }
+  // Technical definitions
+  if (clean.includes("what is react") || clean === "react") {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "A director guides the creative vision of a film, working closely with actors on their performances and with the cinematographer on camera framing, pacing, and visual style.",
-      suggestedFollowUps: ["Why do I need a director?", "Find me a director"],
+      message: `### What is React?
+
+**React** is an open-source, component-based JavaScript library created by Meta for building dynamic, high-performance user interfaces, particularly Single-Page Applications (SPAs) and web applications.
+
+#### Key Core Concepts:
+* **Components:** Reusable, self-contained building blocks of UI (functional components with JSX).
+* **Virtual DOM:** React keeps an in-memory representation of the real DOM and computes minimal diffs to update the page efficiently.
+* **State & Hooks:** Reactive state management using built-in hooks like \`useState\`, \`useEffect\`, \`useMemo\`, and \`useCallback\`.
+* **Unidirectional Data Flow:** Data flows down from parent to child components via props, making applications predictable and easier to debug.
+* **Ecosystem:** Powers modern frameworks like Next.js, Remix, and React Native for cross-platform mobile apps.`,
+      suggestedFollowUps: [
+        "What is Next.js?",
+        "What is an API?",
+        "Can you provide the steps to develop the ecommerce website?",
+      ],
     };
   }
 
-  if (clean.includes("producer do") || clean.includes("what is a producer")) {
+  if (clean.includes("what is next.js") || clean.includes("what is nextjs")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "A producer oversees a film or creative project from inception to release. They secure funding, manage the budget, hire key department heads (director, DoP, editor), and coordinate logistics and distribution.",
-      suggestedFollowUps: ["What is a director?", "I want to make a short film"],
-    };
-  }
+      message: `### What is Next.js?
 
-  if (clean.includes("what is an editor") || clean.includes("what does an editor do") || clean.includes("video editor")) {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "A video editor cuts, arranges, and polishes raw camera footage into a cohesive narrative with smooth pacing, transitions, and audio sync.",
-      suggestedFollowUps: ["Why do I need an editor?", "Find an editor"],
-    };
-  }
-
-  if (clean.includes("cinematography") || clean.includes("what is cinematography")) {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "Cinematography is the art and technique of capturing visual images for film. It encompasses camera choice, lenses, framing, camera movement, and lighting design to evoke emotion and tell a story visually.",
-      suggestedFollowUps: ["What does a director do?", "What is color grading?"],
-    };
-  }
-
-  if (clean.includes("color grading") || clean.includes("what is color grading")) {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "Color grading is the process of adjusting a video's colors, contrast, and overall look to create a particular mood or visual style. For example, a filmmaker might use warm golden tones for a happy summer scene and cool blue tones for suspense or sadness.",
-      suggestedFollowUps: ["What does an editor do?", "What is cinematography?"],
-    };
-  }
-
-  if (clean.includes("what is a squad") || clean.includes("what is a squad in omnicraft") || clean === "what is a squad?") {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "A Squad in OmniCraft is a cross-functional collaborative team formed around a specific project. Squad members share an integrated workspace, task dependency board, shared files, group chat, and milestone tracking.",
-      suggestedFollowUps: ["Can I create a Squad for my project?", "How does Skill Swap work?"],
-    };
-  }
-
-  if (clean.includes("skill swap") || clean.includes("what is skill swap")) {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "Skill Swap is OmniCraft's peer-to-peer collaboration model where creators trade expertise directly without money. For example, a video editor can exchange color grading for soundtrack composition.",
-      suggestedFollowUps: ["How do I start a Skill Swap?", "Can I swap skills for my project?"],
-    };
-  }
-
-  if (clean.includes("difference between a writer and a director") || clean.includes("writer vs director")) {
-    return {
-      intent: "EXPLANATION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "A screenwriter creates the story on paper — writing the plot, scene descriptions, and dialogue. A director translates that written script into living visuals and performances on screen, deciding how scenes are shot, performed, and paced.",
-      suggestedFollowUps: ["Can the director also write?", "I wrote a story"],
-    };
-  }
-
-  if (clean.includes("ui/ux") || clean.includes("ui designer") || clean.includes("ux designer") || clean.includes("difference between a designer and a ui/ux designer")) {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "A graphic designer focuses on visual aesthetics, branding, marketing artwork, and illustrations, while a UI/UX designer specializes in user experience flows, wireframes, interface layouts, and digital product usability in tools like Figma.",
-      suggestedFollowUps: ["Find me a designer", "I want to build a website"],
-    };
-  }
-
-  // Technical
-  if (clean.includes("what is react")) {
-    return {
-      intent: "DEFINITION",
-      responseLevel: "SIMPLE_ANSWER",
-      message: "React is an open-source JavaScript library developed by Meta for building interactive user interfaces, particularly single-page and web applications with reusable components.",
-      suggestedFollowUps: ["What is an API?", "What is HTML?", "I want to build a website"],
+**Next.js** is a full-stack React framework created by Vercel that adds server-side rendering (SSR), static site generation (SSG), server actions, optimized routing, and automatic asset optimization on top of React.`,
+      suggestedFollowUps: ["What is React?", "What is an API?"],
     };
   }
 
@@ -304,7 +553,7 @@ export function handleGeneralDialogue(
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "HTML (HyperText Markup Language) is the fundamental standard markup language used to structure web pages and their content (headings, paragraphs, links, images, and forms).",
+      message: "HTML (HyperText Markup Language) is the fundamental standard markup language used to structure web pages and their content (headings, paragraphs, links, images, forms, and media).",
       suggestedFollowUps: ["What is React?", "What is an API?"],
     };
   }
@@ -313,26 +562,62 @@ export function handleGeneralDialogue(
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "An API (Application Programming Interface) is a connection that allows different software systems or parts of an application to communicate and exchange data securely.",
-      suggestedFollowUps: ["What is React?", "I want to build a web application"],
+      message: "An API (Application Programming Interface) is a defined set of protocols that allows different software applications and systems to communicate, exchange data, and execute actions securely.",
+      suggestedFollowUps: ["What is React?", "What is a database?"],
     };
   }
 
-  if (clean.includes("what is ai") || clean.includes("explain ai") || clean.includes("artificial intelligence in simple words")) {
+  if (clean.includes("what is a database") || clean.includes("what is postgresql") || clean.includes("what is supabase")) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "A database is an organized collection of structured data stored electronically. PostgreSQL is an advanced open-source relational SQL database, and Supabase is an open-source Firebase alternative providing PostgreSQL with real-time subscriptions, authentication, and storage.",
+      suggestedFollowUps: ["What is an API?", "What is React?"],
+    };
+  }
+
+  if (clean.includes("what is ai") || clean.includes("explain ai")) {
     return {
       intent: "EXPLANATION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "Artificial Intelligence (AI) is computer software that can learn patterns from data and perform tasks like recognizing images, understanding language, or making smart suggestions.",
+      message: "Artificial Intelligence (AI) refers to computational systems engineered to perform complex cognitive tasks historically requiring human intelligence—including natural language processing, visual recognition, pattern synthesis, and decision making.",
       suggestedFollowUps: ["What is machine learning?", "How does an API work?"],
     };
   }
 
-  if (clean.includes("how do i learn python") || clean.includes("how to learn python")) {
+  if (clean.includes("what is a director") || clean.includes("what does a director do")) {
     return {
-      intent: "HOW_TO",
+      intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
-      message: "To learn Python: start with basic syntax and data types, build small hands-on projects (like a simple script or calculator), practice problem solving, and explore domain libraries like FastAPI or PyTorch based on your interest.",
-      suggestedFollowUps: ["What is an API?", "What is React?"],
+      message: "A film director is the lead creative visionary who guides the artistic and dramatic aspects of a film—working with actors on performances and collaborating with the cinematographer, sound designer, and editor to shape the overall visual narrative.",
+      suggestedFollowUps: ["What does a cinematographer do?", "Find me a director"],
+    };
+  }
+
+  if (clean.includes("what is a cinematographer") || clean.includes("what is a dop") || clean.includes("director of photography")) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "A Cinematographer (Director of Photography / DoP) oversees camera operation, lenses, composition, and lighting design. They translate the director's script into evocative visual shots, moods, and color palettes.",
+      suggestedFollowUps: ["What does a director do?", "Find a cinematographer"],
+    };
+  }
+
+  if (clean.includes("what is a squad") || clean.includes("what is a squad in omnicraft")) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "A Squad in OmniCraft is a cross-functional collaborative team assembled around a specific project. Squad members share an integrated workspace, task dependency board, shared assets, group chat, and milestone tracking.",
+      suggestedFollowUps: ["Can I create a Squad for my project?", "How does Skill Swap work?"],
+    };
+  }
+
+  if (clean.includes("skill swap") || clean.includes("what is skill swap")) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Skill Swap is OmniCraft's peer-to-peer collaboration model where creators trade expertise directly without money. For example, a video editor can exchange color grading for original soundtrack composition or UI/UX design.",
+      suggestedFollowUps: ["How do I start a Skill Swap?", "Can I swap skills for my project?"],
     };
   }
 
@@ -345,15 +630,31 @@ export function handleGeneralDialogue(
     };
   }
 
+  // --------------------------------------------------------------------------
+  // 7. DEFAULT CONVERSATIONAL RESPONSE
+  // --------------------------------------------------------------------------
+  if (currentProject) {
+    return {
+      intent: "GENERAL_CONVERSATION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `I'm here to assist you with **${currentProject.title}** or answer any creative, technical, and development questions! You can ask about next steps, roadmap roadmaps, coding architecture, screenplay writing, or finding verified creators.`,
+      suggestedFollowUps: [
+        "What should we do next?",
+        "Can you provide the steps to develop the ecommerce website?",
+        "Find creators for my project",
+      ],
+    };
+  }
+
   return {
-    intent: "UNKNOWN",
+    intent: "GENERAL_CONVERSATION",
     responseLevel: "SIMPLE_ANSWER",
-    message: "I'm here to help you explore ideas, understand creative and technical disciplines, or architect projects with verified OmniCraft creators. What are you working on or curious about?",
+    message: `I'm ready to help! You can ask me technical development questions, request detailed website or film roadmaps, brainstorm creative screenplays, or search for verified OmniCraft creators. What's on your mind?`,
     suggestedFollowUps: [
-      "I want to build a website",
+      "Can you provide the steps to develop the ecommerce website?",
+      "Can you make the steps to develop a website?",
+      "What is React?",
       "I have an idea for a short film",
-      "What is a director?",
-      "What is Skill Swap?",
     ],
   };
 }
@@ -922,8 +1223,11 @@ export async function processConversationalOmniForgeMessage(
   const clean = text.toLowerCase().trim().replace(/[?!.,]+$/, "").trim();
   const lower = clean;
 
-  // 1. Direct Knowledge & Definitions (Must NOT create a project!)
-  if (
+  // 1. Direct Knowledge & Definitions (Answers directly without forcing project creation!)
+  const isDirectInfoQuery =
+    clean.includes("cinematography") ||
+    clean.includes("what is a database") ||
+    clean.includes("what is database") ||
     clean.includes("what does a film director do") ||
     clean.includes("what does a director do") ||
     clean === "what is a director" ||
@@ -931,8 +1235,17 @@ export async function processConversationalOmniForgeMessage(
     clean.includes("what is skill swap") ||
     clean.includes("what's skill swap") ||
     clean.includes("how does skill swap work") ||
-    clean.includes("what is react")
-  ) {
+    clean.includes("what is react") ||
+    clean.includes("what is an api") ||
+    clean.includes("what is api") ||
+    clean.includes("how do i learn python") ||
+    clean.includes("how to learn python") ||
+    clean.includes("writer and a director") ||
+    clean.includes("writer vs director") ||
+    clean.includes("return to my film") ||
+    clean.includes("back to my film");
+
+  if (isDirectInfoQuery) {
     const res = await generateContextualConversationResponse(
       currentState,
       text,
@@ -967,8 +1280,30 @@ export async function processConversationalOmniForgeMessage(
     };
   }
 
-  // 3. Project Discovery & Requirements Investigation Flow (Short film, website)
+  const decision = classifyMessageSemanticIntent(text, currentProject, conversationHistory);
+  const { intent, targetRole } = decision;
+
+  // 3. Informational, Definition, How-To, Explanation & Creator Search Questions are ALWAYS answered first
+  const isDirectQuestion =
+    intent === "HOW_TO" ||
+    intent === "EXPLANATION" ||
+    intent === "DEFINITION" ||
+    intent === "GENERAL_QUESTION" ||
+    intent === "GENERAL_CONVERSATION" ||
+    intent === "CREATOR_SEARCH" ||
+    intent === "CREATOR_DISCOVERY" ||
+    intent === "SKILL_SWAP_QUESTION" ||
+    intent === "SKILL_SWAP_SEARCH" ||
+    intent === "PROJECT_STATUS" ||
+    clean.includes("step") ||
+    clean.includes("what is") ||
+    clean.includes("how to") ||
+    clean.includes("how do") ||
+    clean.includes("explain");
+
+  // 3b. Project Discovery & Requirements Investigation Flow (Only if not asking a direct question/explanation)
   if (
+    !isDirectQuestion &&
     (currentState.stage === "PROJECT_DISCOVERY" || currentState.stage === "REQUIREMENTS_INVESTIGATION") &&
     !clean.includes("show me the plan") &&
     !clean.includes("show me plan") &&
@@ -986,9 +1321,6 @@ export async function processConversationalOmniForgeMessage(
       conversationState: res.conversationState,
     };
   }
-
-  const decision = classifyMessageSemanticIntent(text, currentProject, conversationHistory);
-  const { intent, targetRole } = decision;
 
   // 4. Squad Authorization Confirmation ("Yes" / "Confirm")
   if (
@@ -1044,15 +1376,12 @@ export async function processConversationalOmniForgeMessage(
     };
   }
 
-  // 9. HOW_TO & PROJECT_PLANNING ("How do I make it?", "Show me the plan")
-  if (intent === "HOW_TO" && currentProject) {
-    const phasesSummary = currentProject.phases.map((p, i) => `${i + 1}. **${p.name}:** ${p.description}`).join("\n");
+  // 9. HOW_TO & EXPLANATIONS ("How do I develop...", "Provide steps...", etc.)
+  if (intent === "HOW_TO") {
+    const genRes = handleGeneralDialogue(text, intent, targetRole, currentProject);
     return {
-      intent: "HOW_TO",
-      responseLevel: "CONTEXTUAL_ANSWER",
-      message: `To make **${currentProject.title}**, here is the recommended execution roadmap:\n\n${phasesSummary}\n\nWould you like to review the required creators, or should I show you the full deliverable blueprint?`,
+      ...genRes,
       conversationState: currentState,
-      suggestedFollowUps: ["Show me the plan", "Who do I need?", "Can I use Skill Swap?"],
     };
   }
 
@@ -1096,7 +1425,7 @@ export async function processConversationalOmniForgeMessage(
 
   // 7. LEVEL 1: General Knowledge, Definitions & How-To (NO PROJECT CREATION)
   if (intent === "GENERAL_QUESTION" || intent === "DEFINITION" || intent === "EXPLANATION" || intent === "HOW_TO") {
-    return handleGeneralDialogue(text, intent, targetRole);
+    return handleGeneralDialogue(text, intent, targetRole, currentProject);
   }
 
   // 7. LEVEL 2: Contextual Role & Project Questions
@@ -1417,18 +1746,8 @@ export async function processConversationalOmniForgeMessage(
     };
   }
 
-  // 16. Contextual Fallback on an Active Project
-  if (currentProject) {
-    return {
-      intent: "GENERAL_PROJECT_QUESTION",
-      responseLevel: "CONTEXTUAL_ANSWER",
-      message: `I'm tracking your **${currentProject.title}** plan. You can ask role definitions, request creator searches, optimize team size, or ask what to do first.`,
-      suggestedFollowUps: ["What should we do first?", "Create the squad", "Do I need a director?"],
-    };
-  }
-
-  // 17. General Fallback
-  return handleGeneralDialogue(text, "UNKNOWN");
+  // 16. Contextual & General Fallback
+  return handleGeneralDialogue(text, intent, undefined, currentProject);
 }
 
 // ============================================================================
@@ -1454,7 +1773,7 @@ export function processWorkspaceAssistantQuery(
     else if (q.includes("developer") || q.includes("engineer")) affectedRole = "developer";
 
     return {
-      reply: `⚠️ **Impact & Schedule Conflict Analysis:**\nThe **${affectedRole}** is on the critical path for shooting milestones. A delay or unavailability directly impacts dependent shooting and editing tasks.\n\n**Recommended Next Actions:**\n1. **Find an available replacement creator** from the OmniCraft network to protect the target release date.\n2. **Shift downstream shooting dates** while advancing pre-production script polish and music composition in parallel.\n3. **Redistribute responsibilities** if another team member can cover camera operation.`,
+      reply: `⚠️ **Impact & Schedule Conflict Analysis:**\nThe **${affectedRole}** is on the critical path for milestones. A delay or unavailability directly impacts dependent development and delivery tasks.\n\n**Recommended Next Actions:**\n1. **Find an available replacement creator** from the OmniCraft network to protect the target release date.\n2. **Shift downstream milestones** while advancing prerequisite tasks in parallel.\n3. **Redistribute responsibilities** if another team member can cover these tasks.`,
       suggestedAction: {
         type: "replace_creator",
       },
@@ -1462,22 +1781,22 @@ export function processWorkspaceAssistantQuery(
   }
 
   if (q.includes("what should we do first") || q.includes("what should we do now") || q.includes("what should we do next") || q.includes("what should i do next") || q.includes("next step") || q.includes("status") || q.includes("what is pending")) {
-    const activePhase = project.phases.find((p) => p.tasks.some((t) => t.status === "to_do" || t.status === "in_progress")) || project.phases[0];
-    const pendingTasks = activePhase.tasks.filter((t) => t.status === "to_do" || t.status === "in_progress");
+    const activePhase = project.phases?.find((p) => p.tasks?.some((t) => t.status === "to_do" || t.status === "in_progress")) || project.phases?.[0];
+    const pendingTasks = activePhase?.tasks?.filter((t) => t.status === "to_do" || t.status === "in_progress") || [];
 
     if (pendingTasks.length > 0) {
       const topTask = pendingTasks[0];
       const taskList = pendingTasks.map((t) => `• **${t.title}** (${t.requiredRole} — Est. ${t.estimatedDuration})`).join("\n");
 
       return {
-        reply: `Your immediate first step is **${topTask.title}** in **${activePhase.name}** because subsequent casting, location planning, and production depend on it.\n\nCurrent actionable tasks:\n${taskList}\n\nYou can review or invite creators directly from the Creator Team tab!`,
+        reply: `Your immediate first step is **${topTask.title}** in **${activePhase?.name || "Stage 1"}** because subsequent milestones depend on it.\n\nCurrent actionable tasks:\n${taskList}\n\nYou can review or invite creators directly from the Creator Team tab!`,
         suggestedAction: {
           type: "highlight_task",
         },
       };
     } else {
       return {
-        reply: `All tasks in **${activePhase.name}** are completed! You can proceed to the next stage in your Workspace Roadmap.`,
+        reply: `All tasks in **${activePhase?.name || "current stage"}** are completed! You can proceed to the next stage in your Workspace Roadmap.`,
       };
     }
   }
@@ -1492,8 +1811,10 @@ export function processWorkspaceAssistantQuery(
     };
   }
 
+  // Answer normal questions, roadmaps, technical queries, or creative writing
+  const genResponse = handleGeneralDialogue(query, "HOW_TO", undefined, project);
   return {
-    reply: `I'm monitoring your **${project.title}** project blueprint. You can ask about next steps, analyze critical path dependencies, find replacement creators, or adjust milestone dates.`,
+    reply: genResponse.message,
   };
 }
 

@@ -56,7 +56,7 @@ export const OMNIFORGE_TOOL_DEFINITIONS: LLMToolDefinition[] = [
   },
   {
     name: "GenerateProjectBlueprint",
-    description: "Generates a structured multi-phase project blueprint from an idea, including stages, tasks, dependencies, and roles.",
+    description: "Instantiates and persists a structured multi-phase project blueprint in OmniCraft when the user explicitly requests to generate, create, or build a project blueprint from their idea. Do not call this tool for general questions, development roadmaps, explanations, coding guides, or conversational Q&A.",
     parameters: {
       type: "object",
       properties: {

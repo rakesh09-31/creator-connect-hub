@@ -5,6 +5,7 @@ export interface LLMMessage {
   content: string;
   name?: string;
   toolCallId?: string;
+  toolCalls?: LLMToolCall[];
 }
 
 export interface LLMToolDefinition {
@@ -40,6 +41,18 @@ export interface LLMExecutionResult {
 }
 
 /**
+ * Strips API keys, Bearer tokens, and secrets from error messages before logging or returning.
+ */
+export function sanitizeErrorMessage(raw: string): string {
+  if (!raw) return "Unknown provider error";
+  return raw
+    .replace(/Bearer\s+[A-Za-z0-9_\-\.]+/gi, "Bearer [REDACTED]")
+    .replace(/gsk_[A-Za-z0-9]+/gi, "gsk_[REDACTED]")
+    .replace(/sk-[A-Za-z0-9]+/gi, "sk-[REDACTED]")
+    .replace(/key=[A-Za-z0-9_\-]+/gi, "key=[REDACTED]");
+}
+
+/**
  * Detects the active LLM provider based on available environment variables.
  */
 export function getActiveLLMProvider(config: ServerConfig): {
@@ -51,7 +64,7 @@ export function getActiveLLMProvider(config: ServerConfig): {
   if (config.groqApiKey) {
     return {
       provider: "groq",
-      model: config.groqModel || "llama-3.3-70b-versatile",
+      model: config.groqModel || "qwen/qwen3.8-27b",
       apiKey: config.groqApiKey,
       baseUrl: "https://api.groq.com/openai/v1",
     };
@@ -147,14 +160,15 @@ export async function executeLLMChatCompletion(params: {
       error: `Unsupported provider: ${active.provider}`,
     };
   } catch (err: any) {
-    console.error(`[LLM Provider ${active.provider}] Error:`, err.message || err);
+    const sanitized = sanitizeErrorMessage(err.message || String(err));
+    console.error(`[LLM Provider ${active.provider}] Error:`, sanitized);
     return {
       success: false,
       text: "",
       provider: active.provider,
       model: active.model,
       latencyMs: Date.now() - startTime,
-      error: err.name === "AbortError" ? "TIMEOUT" : err.message || "PROVIDER_REQUEST_FAILED",
+      error: err.name === "AbortError" ? "TIMEOUT" : sanitized,
     };
   }
 }
@@ -180,6 +194,20 @@ async function callOpenAICompatible(
             role: "tool",
             content: m.content,
             tool_call_id: m.toolCallId,
+          };
+        }
+        if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+          return {
+            role: "assistant",
+            content: m.content || null,
+            tool_calls: m.toolCalls.map((tc) => ({
+              id: tc.id,
+              type: "function",
+              function: {
+                name: tc.name,
+                arguments: typeof tc.arguments === "string" ? tc.arguments : JSON.stringify(tc.arguments || {}),
+              },
+            })),
           };
         }
         return {
@@ -219,13 +247,21 @@ async function callOpenAICompatible(
 
     if (!res.ok) {
       const errText = await res.text();
+      let sanitized = "";
+      try {
+        const json = JSON.parse(errText);
+        sanitized = json?.error?.message || errText;
+      } catch {
+        sanitized = errText;
+      }
+      sanitized = sanitizeErrorMessage(sanitized);
       return {
         success: false,
         text: "",
         provider: active.provider,
         model: active.model,
         latencyMs: Date.now() - startTime,
-        error: `HTTP ${res.status}: ${errText.slice(0, 300)}`,
+        error: `HTTP ${res.status}: ${sanitized.slice(0, 300)}`,
       };
     }
 

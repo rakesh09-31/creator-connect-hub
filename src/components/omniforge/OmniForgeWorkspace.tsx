@@ -21,15 +21,12 @@ import {
   RefreshCw,
   Trophy,
 } from "lucide-react";
-import {
-  OmniForgeProject,
-  ProjectTask,
-  TaskStatus,
-  CreatorRecommendation,
-} from "@/lib/omniforge/types";
+import { OmniForgeProject, ProjectTask, TaskStatus, CreatorRecommendation } from "@/lib/omniforge/types";
 import { processWorkspaceAssistantQuery } from "@/lib/omniforge/engine";
+import { omniforgeChatServerFn } from "@/lib/api/omniforge.functions";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { ProjectVisualGraph } from "./ProjectVisualGraph";
+import { ChatMarkdown } from "./ChatMarkdown";
 
 interface OmniForgeWorkspaceProps {
   project: OmniForgeProject;
@@ -51,7 +48,7 @@ export function OmniForgeWorkspace({
   const [assistantMessages, setAssistantMessages] = useState<Array<{ sender: "user" | "ai"; text: string }>>([
     {
       sender: "ai",
-      text: `Hello! I'm your OmniForge Project Assistant for **${project.title}**. You can ask me about next steps, critical path tasks, creator replacements, or roadmap timeline adjustments.`,
+      text: `Hello! I'm your OmniForge AI Assistant for **${project.title}**. Ask me anything—from development roadmaps, technical architecture, and coding steps, to milestone tracking, task prioritization, or team roles.`,
     },
   ]);
   const [isAssistantThinking, setIsAssistantThinking] = useState(false);
@@ -62,20 +59,44 @@ export function OmniForgeWorkspace({
   const inProgressTasks = allTasks.filter((t) => t.status === "in_progress");
   const progressPercent = allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0;
 
-  const handleSendAssistant = (e: React.FormEvent) => {
+  const handleSendAssistant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assistantInput.trim() || isAssistantThinking) return;
 
     const userMsg = assistantInput.trim();
-    setAssistantMessages((prev) => [...prev, { sender: "user", text: userMsg }]);
+    const updatedHistory = [...assistantMessages, { sender: "user" as const, text: userMsg }];
+    setAssistantMessages(updatedHistory);
     setAssistantInput("");
     setIsAssistantThinking(true);
 
-    setTimeout(() => {
+    try {
+      const serverRes = await omniforgeChatServerFn({
+        data: {
+          text: userMsg,
+          activeProject: project,
+          conversationHistory: updatedHistory.map((m, idx) => ({
+            id: `msg-ws-${idx}`,
+            sender: m.sender,
+            text: m.text,
+            timestamp: new Date().toISOString(),
+          })),
+          userType: "creator",
+          userId: "workspace-user",
+        },
+      });
+
+      if (serverRes?.success && serverRes.response?.message) {
+        setAssistantMessages((prev) => [...prev, { sender: "ai", text: serverRes.response.message }]);
+      } else {
+        const { reply } = processWorkspaceAssistantQuery(userMsg, project);
+        setAssistantMessages((prev) => [...prev, { sender: "ai", text: reply }]);
+      }
+    } catch {
       const { reply } = processWorkspaceAssistantQuery(userMsg, project);
       setAssistantMessages((prev) => [...prev, { sender: "ai", text: reply }]);
+    } finally {
       setIsAssistantThinking(false);
-    }, 600);
+    }
   };
 
   const handleToggleDeliverable = (delId: string) => {
@@ -460,7 +481,11 @@ export function OmniForgeWorkspace({
                         : "bg-surface-muted border border-border/60 text-foreground rounded-tl-xs"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    {msg.sender === "user" ? (
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                    ) : (
+                      <ChatMarkdown content={msg.text} />
+                    )}
                   </div>
                 </div>
               ))}
@@ -468,7 +493,7 @@ export function OmniForgeWorkspace({
               {isAssistantThinking && (
                 <div className="flex gap-2.5 items-center text-xs text-brand animate-fade-up">
                   <Sparkles className="w-3.5 h-3.5 animate-spin-slow" />
-                  <span>Analyzing project dependencies & state...</span>
+                  <span>OmniForge AI is thinking...</span>
                 </div>
               )}
             </div>
@@ -476,9 +501,10 @@ export function OmniForgeWorkspace({
             {/* Quick Prompt Suggestions */}
             <div className="flex flex-wrap gap-2">
               {[
+                "Can you provide the steps to develop the ecommerce website?",
                 "What should we do next?",
-                "The cinematographer is unavailable for 2 weeks",
                 "How do we optimize our timeline?",
+                "What is React?",
               ].map((qp, i) => (
                 <button
                   key={i}

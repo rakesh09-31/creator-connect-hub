@@ -264,6 +264,49 @@ export function classifyMessageSemanticIntent(
   }
 
   if (
+    cleanLower.includes("steps to develop") ||
+    cleanLower.includes("steps to build") ||
+    cleanLower.includes("steps to make") ||
+    cleanLower.includes("steps to create") ||
+    cleanLower.includes("steps for developing") ||
+    cleanLower.includes("provide the steps") ||
+    cleanLower.includes("make the steps") ||
+    cleanLower.includes("guide to develop") ||
+    cleanLower.includes("roadmap to develop") ||
+    cleanLower.includes("how to develop") ||
+    cleanLower.includes("how to build an ecommerce") ||
+    cleanLower.includes("how to build a website") ||
+    cleanLower.includes("how do i develop") ||
+    cleanLower.includes("how do i build")
+  ) {
+    return {
+      intent: "HOW_TO",
+      entities: [{ type: "query", value: trimmed }],
+      isActionable: false,
+      requiresClarification: false,
+      confidence: 0.96,
+    };
+  }
+
+  if (
+    cleanLower.startsWith("write a screenplay") ||
+    cleanLower.startsWith("write a script") ||
+    cleanLower.startsWith("write a short film screenplay") ||
+    cleanLower.startsWith("write a story") ||
+    cleanLower.includes("write a short film screenplay") ||
+    cleanLower.includes("write screenplay") ||
+    cleanLower.includes("screenplay about")
+  ) {
+    return {
+      intent: "EXPLANATION",
+      entities: [{ type: "query", value: trimmed }],
+      isActionable: false,
+      requiresClarification: false,
+      confidence: 0.96,
+    };
+  }
+
+  if (
     cleanLower.startsWith("how do i make it") ||
     cleanLower.startsWith("how would i make it") ||
     cleanLower.startsWith("how to make it") ||
@@ -284,7 +327,7 @@ export function classifyMessageSemanticIntent(
   }
 
   if (
-    /^(explain |how does |how do i learn |how to learn )\b/i.test(cleanLower) &&
+    /^(explain |how does |how do i learn |how to learn |can you explain |tell me about |give me )\b/i.test(cleanLower) &&
     !referencesCurrentProject &&
     !cleanLower.includes("make it") &&
     !cleanLower.includes("turn this into")
@@ -402,16 +445,33 @@ export function classifyMessageSemanticIntent(
   }
 
   if (
-    cleanLower === "i want to build a website" ||
-    cleanLower === "i want to create a website" ||
-    cleanLower === "i want to build a web app" ||
-    cleanLower === "i want to build an app" ||
-    cleanLower === "i want to make a short film" ||
-    cleanLower === "i want to make a film"
+    cleanLower.includes("want to build a website") ||
+    cleanLower.includes("want to create a website") ||
+    cleanLower.includes("want to build a web app") ||
+    cleanLower.includes("want to make a short film") ||
+    cleanLower.includes("want to make a film") ||
+    cleanLower.includes("make a short film") ||
+    cleanLower.includes("making a short film") ||
+    cleanLower.includes("shoot a short film") ||
+    cleanLower.includes("have a story idea") ||
+    cleanLower.includes("develop a story") ||
+    cleanLower.includes("help me develop a story") ||
+    cleanLower.includes("have a completed script") ||
+    cleanLower.includes("need short film ideas") ||
+    cleanLower.includes("create a 5-minute") ||
+    cleanLower.includes("write a short film script") ||
+    cleanLower.includes("make a production schedule") ||
+    cleanLower.includes("plan the shooting schedule")
   ) {
-    const isFilm = cleanLower.includes("film");
+    const isFilm =
+      cleanLower.includes("film") ||
+      cleanLower.includes("script") ||
+      cleanLower.includes("schedule") ||
+      cleanLower.includes("story");
     return {
-      intent: "PROJECT_IDEA",
+      intent: (cleanLower.includes("script") || cleanLower.includes("schedule"))
+        ? "PROJECT_PLANNING"
+        : "PROJECT_IDEA",
       entities: [
         { type: "project_type", value: isFilm ? "short film" : "website" },
         { type: "domain", value: isFilm ? "Film" : "Web App" },
@@ -809,13 +869,13 @@ export function classifyMessageSemanticIntent(
       };
     }
 
-    // Default to general project inquiry if working on an active project
+    // If not matching project-specific role queries, allow general dialogue resolution
     return {
-      intent: "GENERAL_PROJECT_QUESTION",
+      intent: "UNKNOWN",
       entities: [{ type: "query", value: trimmed }],
       isActionable: false,
       requiresClarification: false,
-      confidence: 0.7,
+      confidence: 0.6,
     };
   }
 

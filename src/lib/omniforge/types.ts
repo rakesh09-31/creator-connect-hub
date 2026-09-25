@@ -385,6 +385,14 @@ export interface ChatMessage {
   timestamp: string;
   intent?: OmniForgeIntent;
   responseLevel?: AIResponseLevel;
+  sourceMeta?: {
+    provider: string;
+    model: string;
+    isRealLLM: boolean;
+    fallbackUsed?: boolean;
+    status?: string;
+    statusMessage?: string;
+  };
   clarifications?: ClarificationQuestion[];
   blueprintPreview?: Partial<OmniForgeProject>;
   actionPrompt?: {

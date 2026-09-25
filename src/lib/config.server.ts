@@ -23,7 +23,10 @@ function loadLocalEnvFilesOnce() {
             if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
               val = val.slice(1, -1);
             }
-            if (process.env[key] === undefined) {
+            // .env.local takes precedence over .env and default process.env
+            if (file === ".env.local") {
+              process.env[key] = val;
+            } else if (process.env[key] === undefined || process.env[key] === "") {
               process.env[key] = val;
             }
           }
@@ -52,7 +55,7 @@ export function getServerConfig() {
     openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
     
     groqApiKey: process.env.GROQ_API_KEY,
-    groqModel: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+    groqModel: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
     
     geminiApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
     geminiModel: process.env.GEMINI_MODEL || "gemini-2.0-flash",

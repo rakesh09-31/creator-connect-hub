@@ -1,8 +1,10 @@
-import { OmniForgeProject, ChatMessage } from "./types";
+import { OmniForgeProject, ChatMessage, ConversationState } from "./types";
 
 const LOCAL_PROJECTS_KEY = "omnicraft_omniforge_projects";
 const LOCAL_ACTIVE_PROJECT_KEY = "omnicraft_omniforge_active_id";
 const LOCAL_CHAT_HISTORY_KEY = "omnicraft_omniforge_chat_history";
+const LOCAL_DRAFT_CHAT_KEY = "omnicraft_omniforge_draft_chat";
+const LOCAL_DRAFT_STATE_KEY = "omnicraft_omniforge_draft_state";
 
 export function loadProjectsFromStorage(): OmniForgeProject[] {
   if (typeof window === "undefined") return [];
@@ -77,5 +79,40 @@ export function loadChatHistoryFromStorage(projectId: string): ChatMessage[] {
   } catch (err) {
     console.error("Failed to load chat history:", err);
     return [];
+  }
+}
+
+export function saveActiveDraftSession(messages: ChatMessage[], state: ConversationState): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_DRAFT_CHAT_KEY, JSON.stringify(messages));
+    localStorage.setItem(LOCAL_DRAFT_STATE_KEY, JSON.stringify(state));
+  } catch (err) {
+    console.error("Failed to save draft session:", err);
+  }
+}
+
+export function loadActiveDraftSession(): { messages: ChatMessage[]; state: ConversationState | null } {
+  if (typeof window === "undefined") return { messages: [], state: null };
+  try {
+    const rawMsgs = localStorage.getItem(LOCAL_DRAFT_CHAT_KEY);
+    const rawState = localStorage.getItem(LOCAL_DRAFT_STATE_KEY);
+    return {
+      messages: rawMsgs ? JSON.parse(rawMsgs) : [],
+      state: rawState ? JSON.parse(rawState) : null,
+    };
+  } catch (err) {
+    console.error("Failed to load draft session:", err);
+    return { messages: [], state: null };
+  }
+}
+
+export function clearActiveDraftSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LOCAL_DRAFT_CHAT_KEY);
+    localStorage.removeItem(LOCAL_DRAFT_STATE_KEY);
+  } catch (err) {
+    console.error("Failed to clear draft session:", err);
   }
 }

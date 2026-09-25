@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { orchestrateOmniForgeConversation } from "../omniforge/server/orchestrator.server";
-import { inspectLLMProviderConfiguration } from "../omniforge/server/llm-provider.server";
+import {
+  inspectLLMProviderConfiguration,
+  sanitizeErrorMessage,
+} from "../omniforge/server/llm-provider.server";
 import { ChatMessage, OmniForgeProject } from "../omniforge/types";
 
 /**
@@ -70,17 +73,18 @@ export const omniforgeChatServerFn = createServerFn({ method: "POST" })
         meta: result.meta,
       };
     } catch (err: any) {
-      console.error("[OmniForge ServerFn Error]:", err);
+      const sanitized = sanitizeErrorMessage(err.message || "Failed to process chat message on server");
+      console.error("[OmniForge ServerFn Error]:", sanitized);
       return {
         success: false,
-        error: err.message || "Failed to process chat message on server",
+        error: sanitized,
         meta: {
           provider: "error",
           model: "none",
           isRealLLM: false,
           latencyMs: 0,
           status: "provider_error" as const,
-          statusMessage: err.message || "Server function error",
+          statusMessage: sanitized,
         },
       };
     }

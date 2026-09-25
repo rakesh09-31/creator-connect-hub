@@ -39,6 +39,9 @@ import {
   deleteProjectFromStorage,
   loadChatHistoryFromStorage,
   saveChatHistoryToStorage,
+  loadActiveDraftSession,
+  saveActiveDraftSession,
+  clearActiveDraftSession,
 } from "@/lib/omniforge/storage";
 import { convertProjectToSquad } from "@/lib/omniforge/squad-bridge";
 import { OmniForgeChat } from "@/components/omniforge/OmniForgeChat";
@@ -102,6 +105,15 @@ function OmniForgePage() {
           }
         }
       }
+    } else {
+      // Restore draft conversation and state across page refresh (TEST G)
+      const draft = loadActiveDraftSession();
+      if (draft.messages.length > 0) {
+        setMessages(draft.messages);
+        if (draft.state) {
+          setConversationState(draft.state);
+        }
+      }
     }
 
     // Inspect server-side LLM provider availability safely
@@ -145,6 +157,7 @@ function OmniForgePage() {
 
     try {
       let response: any;
+      let responseMeta: any = null;
       try {
         // 1. Invoke Server Function executing LLM + Backend Tools
         const serverResult = await omniforgeChatServerFn({
@@ -160,6 +173,7 @@ function OmniForgePage() {
 
         if (serverResult.success && serverResult.response) {
           response = serverResult.response;
+          responseMeta = serverResult.meta;
           if (response.conversationState) {
             setConversationState(response.conversationState);
           }
@@ -179,6 +193,14 @@ function OmniForgePage() {
           user?.id || "anon",
           conversationState
         );
+        responseMeta = {
+          provider: "local-semantic",
+          model: "hybrid-orchestrator",
+          isRealLLM: false,
+          fallbackUsed: true,
+          status: "fallback_active",
+          statusMessage: "Deterministic semantic fallback active",
+        };
         if (response.conversationState) {
           setConversationState(response.conversationState);
         }
@@ -226,6 +248,14 @@ function OmniForgePage() {
         timestamp: new Date().toISOString(),
         intent: response.intent,
         responseLevel: response.responseLevel,
+        sourceMeta: responseMeta || {
+          provider: "local-semantic",
+          model: "hybrid-orchestrator",
+          isRealLLM: false,
+          fallbackUsed: true,
+          status: "fallback_active",
+          statusMessage: "Deterministic semantic fallback active",
+        },
         clarifications: response.clarifications,
         roleCard: response.roleCard,
         creatorCards: response.creatorCards,
@@ -249,6 +279,8 @@ function OmniForgePage() {
 
       if (currentActive) {
         saveChatHistoryToStorage(currentActive.id, finalMessages);
+      } else {
+        saveActiveDraftSession(finalMessages, response.conversationState || conversationState);
       }
     } catch (err) {
       console.error("Error processing conversational message:", err);
@@ -267,6 +299,7 @@ function OmniForgePage() {
   const handleStartOver = () => {
     setActiveProject(null);
     setActiveProjectId(null);
+    clearActiveDraftSession();
     setMessages([]);
     setConversationState(createInitialConversationState());
     setViewMode("chat");
