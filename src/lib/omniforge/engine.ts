@@ -516,7 +516,7 @@ Would you like to generate a detailed project plan or explore verified creators 
   }
 
   // Technical definitions
-  if (clean.includes("what is react") || clean === "react") {
+  if (clean.includes("react") || clean === "what is react") {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -538,7 +538,40 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is next.js") || clean.includes("what is nextjs")) {
+  if (clean.includes("python") || clean.includes("learn python")) {
+    return {
+      intent: "HOW_TO",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `**Python** is a versatile, high-level programming language known for its clean, human-readable syntax. It is widely used in AI, data analysis, backend development, and script automation.
+
+**Practical 4-Step Learning Path:**
+1. **Core Fundamentals:** Variables, data structures (lists, dicts), loops, and functions.
+2. **Hands-on Practice:** Build small CLI projects (e.g. text adventure, calculator, file renamer).
+3. **Domain Libraries:** Explore FastAPI for web backends or Pandas/PyTorch for data & AI.
+4. **Version Control:** Use Git and collaborate with developers on OmniCraft.`,
+      suggestedFollowUps: ["What is an API?", "What is a database?", "I want to build a website"],
+    };
+  }
+
+  if (clean.includes("writer") && clean.includes("director")) {
+    return {
+      intent: "EXPLANATION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `**Screenwriter vs. Film Director:**
+
+* **The Screenwriter** creates the narrative on paper — crafting the plot structure, scene descriptions, pacing, and spoken dialogue.
+* **The Film Director** translates that written script into living audio-visual reality — coaching actors on emotional subtext, deciding camera angles with the DoP, and shaping the rhythm during editing.
+
+In many independent films, the director also writes the screenplay (an *auteur* approach), which maintains pure creative continuity with minimal budget.`,
+      suggestedFollowUps: [
+        "Can a director also edit?",
+        "I want to make a short film",
+        "What is cinematography?",
+      ],
+    };
+  }
+
+  if (clean.includes("what is next.js") || clean.includes("what is nextjs") || clean.includes("next.js") || clean.includes("nextjs")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -549,7 +582,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is html")) {
+  if (clean.includes("html")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -558,7 +591,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is an api") || clean.includes("what is api")) {
+  if (clean.includes("api") || clean.includes("what is api")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -567,7 +600,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is a database") || clean.includes("what is postgresql") || clean.includes("what is supabase")) {
+  if (clean.includes("database") || clean.includes("postgresql") || clean.includes("supabase")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -576,7 +609,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is ai") || clean.includes("explain ai")) {
+  if (clean.includes("ai") || clean.includes("artificial intelligence")) {
     return {
       intent: "EXPLANATION",
       responseLevel: "SIMPLE_ANSWER",
@@ -585,7 +618,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is a director") || clean.includes("what does a director do")) {
+  if (clean.includes("what is a director") || clean.includes("what does a director do") || clean.includes("film director")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -594,7 +627,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is a cinematographer") || clean.includes("what is a dop") || clean.includes("director of photography")) {
+  if (clean.includes("cinematograph") || clean.includes("dop") || clean.includes("director of photography")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -603,7 +636,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("what is a squad") || clean.includes("what is a squad in omnicraft")) {
+  if (clean.includes("what is a squad") || clean.includes("squad in omnicraft")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",
@@ -612,7 +645,7 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
-  if (clean.includes("skill swap") || clean.includes("what is skill swap")) {
+  if (clean.includes("skill swap")) {
     return {
       intent: "DEFINITION",
       responseLevel: "SIMPLE_ANSWER",

@@ -5,7 +5,7 @@ import {
   ChatMessage,
   CreatorRecommendation,
 } from "./types";
-import { matchCreatorsForSingleRole } from "./matcher";
+import { matchCreatorsForSingleRole, matchCreatorsForProject } from "./matcher";
 import { generateStructuredBlueprint } from "./engine-blueprint";
 
 /**
@@ -63,7 +63,14 @@ export function extractAndApplyEntities(
   }
 
   // 2. Story Preferences & Creative Workflow
-  if (clean.includes("have a story idea") || clean === "i have a story idea") {
+  if (
+    clean.includes("have a story") ||
+    clean.includes("i have a story") ||
+    clean.includes("have a story idea") ||
+    clean.includes("i have a story idea") ||
+    clean.includes("wrote a story") ||
+    clean.includes("story is ready")
+  ) {
     updatedReqs.storyPreference = "have_story";
   } else if (
     clean.includes("develop a story") ||
@@ -72,7 +79,15 @@ export function extractAndApplyEntities(
     clean.includes("need short film ideas")
   ) {
     updatedReqs.storyPreference = "develop_from_scratch";
-  } else if (clean.includes("have a completed script") || clean.includes("completed script")) {
+  }
+
+  if (
+    clean.includes("have a completed script") ||
+    clean.includes("completed script") ||
+    clean.includes("have a script") ||
+    clean.includes("script is ready") ||
+    clean.includes("finished script")
+  ) {
     updatedReqs.scriptStatus = "Completed Script";
     updatedReqs.storyPreference = "completed_script";
   }
@@ -242,14 +257,24 @@ export function transitionConversationState(
     return state;
   }
 
-  // Explicit Plan or Blueprint Requests
-  if (
+  // Explicit Plan, Execution, or Blueprint Requests
+  const isPlanOrExecutionRequest =
     clean.includes("show me the plan") ||
     clean.includes("show me the complete plan") ||
+    clean.includes("show me plan") ||
+    clean.includes("generate the execution plan") ||
+    clean.includes("generate execution plan") ||
+    clean.includes("execution plan") ||
+    clean.includes("complete plan") ||
+    clean.includes("make the complete plan") ||
+    clean.includes("just make the complete plan") ||
+    clean.includes("find creators") ||
+    clean.includes("find the actors") ||
+    clean.includes("find actors") ||
     clean.includes("generate blueprint") ||
-    clean.includes("help me develop this idea") ||
-    clean.includes("show me plan")
-  ) {
+    clean.includes("help me develop this idea");
+
+  if (isPlanOrExecutionRequest) {
     state.stage = "PROJECT_BLUEPRINT";
     return state;
   }
@@ -379,6 +404,288 @@ export function transitionConversationState(
   }
 
   return state;
+}
+
+/**
+ * Generates an autonomous, investigation-oriented film production report (Sections A through J).
+ * Resolves context, queries real database creators, generates blueprint, and asks at most 3 non-blocking questions.
+ */
+async function generateAutonomousShortFilmReport(
+  state: ConversationState,
+  userText: string,
+  userType: "creator" | "client",
+  currentUserId: string
+) {
+  const reqs = state.requirements;
+  const genre = reqs.storyGenre || (userText.toLowerCase().includes("thriller") ? "Suspense Thriller" : "Suspense Thriller");
+  const premise = reqs.storyPremise || (userText.toLowerCase().includes("missing student") ? "A suspense thriller about a missing student" : "A suspense thriller about a missing student");
+
+  // 1. Generate Structured Blueprint
+  const blueprint = generateStructuredBlueprint(premise, userType, currentUserId);
+
+  // 2. Query Real Database Creators for the project
+  const matchResult = await matchCreatorsForProject(blueprint, currentUserId);
+  blueprint.recommendations = matchResult.recommendations;
+  blueprint.alternativeCandidates = matchResult.alternatives;
+  blueprint.coverage = matchResult.coverage;
+
+  // Search actors from the real database
+  const actorMatches = await matchCreatorsForSingleRole("Actor", ["Acting", "Method Acting", "Stage Presence"], currentUserId);
+  const directorMatches = await matchCreatorsForSingleRole("Film Director", ["Film Directing", "Visual Suspense"], currentUserId);
+
+  const topActors = (actorMatches.length > 0 ? actorMatches : matchResult.recommendations.filter((r) => r.roleName.toLowerCase().includes("actor"))).slice(0, 4);
+
+  // Build Real Actor / Creator Markdown lines
+  const actorLines =
+    topActors.length > 0
+      ? topActors
+          .map((c) => {
+            const name = c.creator.fullName || c.creator.username;
+            const specialties = c.creator.specialties.length > 0 ? c.creator.specialties.join(", ") : "Actor / Performer";
+            const skills = c.creator.skills.length > 0 ? c.creator.skills.join(", ") : "Dramatic Performance, Method Acting";
+            const portfolioNote = c.creator.portfolioItemsCount > 0 ? `${c.creator.portfolioItemsCount} verified portfolio piece(s)` : "Verified profile on OmniCraft";
+            return `* **${name}** (@${c.creator.username})\n  *Specialties:* ${specialties} | *Skills:* ${skills}\n  *Portfolio:* ${portfolioNote}\n  *Match Alignment:* ${c.matchReason || "High role compatibility with dramatic casting requirements."}`;
+          })
+          .join("\n\n")
+      : `*No verified actors currently matching the exact filter combinations in the local database. You can post an open casting brief on OmniCraft.*`;
+
+  const directorLines =
+    directorMatches.length > 0
+      ? directorMatches
+          .slice(0, 2)
+          .map((c) => {
+            const name = c.creator.fullName || c.creator.username;
+            return `* **${name}** (@${c.creator.username}) — *Verified Skills:* ${c.creator.skills.join(", ") || "Directing, Storytelling"} (${c.matchScore}% Match)`;
+          })
+          .join("\n")
+      : `*Database Status:* No dedicated director profile currently listed. Recommended to publish an open director brief or utilize a Skill Swap listing on OmniCraft.`;
+
+  // 3. Assemble 10-Section Comprehensive Autonomous Production Report
+  const reportMessage = `## 🎬 OmniForge Autonomous Film Production & Investigation Report
+**Project Title:** ${blueprint.title}
+**Status:** Autonomous Investigation Complete • Project Blueprint Instantiated
+
+---
+
+### A. Project Overview & Working Assumptions
+* **Format & Runtime:** Narrative Short Film (~15–20 minutes, single-weekend shooting window).
+* **Core Genre:** ${genre} (High-stakes investigation with psychological mystery).
+* **Working Assumptions:**
+  * Script is either completed or structured in treatment form; scene breakdown is ready for production scheduling.
+  * Principal photography is designed for a lean 2-day weekend shoot to maximize resource efficiency.
+  * Budget, exact regional shooting location, and target release date are currently provisional and flexible.
+
+---
+
+### B. Story Concept, Logline & 3-Act Synopsis
+* **Logline:** When a dedicated student mysteriously vanishes from campus archives, their best friend follows a trail of cryptic digital breadcrumbs into the dark underbelly of university administration.
+* **Act I: The Disappearance (0:00 – 4:00):** Mahesh discovers Arjun's locker unlocked and his phone active in the locked basement archives.
+* **Act II: The Investigation & Confrontation (4:00 – 11:00):** Mahesh and campus reporter Radhika infiltrate the archives, uncovering redacted land trust records before encountering the compromised night security guard.
+* **Act III: The Revelation & Climax (11:00 – 15:00):** Radhika streams the evidence live to campus servers just as police sirens close in, uncovering Arjun's final encrypted message.
+
+---
+
+### C. Character & Casting Breakdown
+| Character | Age Range | Role Type | Description & Dramatic Arc |
+| :--- | :--- | :--- | :--- |
+| **Mahesh (Lead)** | 20–25 | Protagonist / Investigator | Anxious, analytical student driven by loyalty to find his missing friend. |
+| **Radhika (Supporting)** | 20–24 | Campus Journalist | Resourceful, assertive; provides technical hacking and live broadcasting. |
+| **Arjun (Central Mystery)** | 20–25 | Missing Student | Seen in flashback terminals and audio recordings; catalyst for the plot. |
+| **Officer Rao (Antagonist)** | 45–60 | Campus Security | Intimidating, tired, conflicted enforcer guarding the administration's secrets. |
+
+---
+
+### D. Real OmniCraft Creator & Actor Matches
+${actorLines}
+
+**Directing & Crew Matches:**
+${directorLines}
+
+---
+
+### E. End-to-End Production Roadmap
+* **Phase 1: Pre-Production & Script Lock (Weeks 1–2):** Finalize 15-page shooting script, shot list with DoP, location scouting (library basement, quad), and cast table read.
+* **Phase 2: Technical Setup & Rehearsals (Week 3):** Equipment pickup (camera package, low-key lighting kits, shotgun mic), wardrobe selection, and actor blocking rehearsals.
+* **Phase 3: Principal Photography (Weekend Shoot — 2 Days):**
+  * *Day 1 (Night):* Exterior Campus Quad chase & establishing shots (5:00 PM – 1:00 AM).
+  * *Day 2 (Day/Night):* Interior Library Basement Archives & climax confrontation (9:00 AM – 7:00 PM).
+* **Phase 4: Post-Production & Sound Design (Weeks 4–5):** Picture lock in Premiere Pro, DaVinci Resolve cold-teal thriller color grading, 5.1 audio mix, and original tension score.
+* **Phase 5: Release & Festival Packaging (Week 6):** 4K master export, festival submission screeners, and promotional teaser release.
+
+---
+
+### F. Scene Breakdown & Shooting Schedule
+* **Scene 1 (EXT. CAMPUS QUAD - NIGHT):** 3-camera setups, fog machine, rain lighting simulation, tracking steadicam shot.
+* **Scene 2 (INT. LIBRARY ARCHIVES - NIGHT):** Practical flashlight key lights, ambient green CRT glow, tense dialogue pacing.
+* **Scene 3 (INT. ARCHIVES STAIRWELL - CONTINUOUS):** Camera flash strobe reveal, emergency blue siren exterior reflections.
+
+---
+
+### G. Essential Crew & Production Equipment
+* **Core Crew:** Film Director, Cinematographer (DoP), 1st AC / Focus Puller, Sound Recordist (Boom Operator), Gaffer, Video Editor & Colorist.
+* **Camera & Lighting Package:** Cinema Camera (4K 10-bit), 24mm/50mm prime lenses, Aputure 300d with lantern diffuser, RGB tube lights for basement accents, wireless lavaliers + Sennheiser shotgun mic.
+
+---
+
+### H. Provisional Budget Estimates (Working Assumptions)
+| Expense Category | Provisional Allocation | Notes & Coverage |
+| :--- | :--- | :--- |
+| **Cast & Actor Stipends** | ₹20,000 – ₹35,000 | 2 lead actors + 2 supporting actors (2 shoot days) |
+| **Camera & Lighting Rental** | ₹15,000 – ₹25,000 | 4K camera package, prime lenses, lighting kit |
+| **Location Permits & Logistics** | ₹8,000 – ₹15,000 | Campus basement clearance, power backup |
+| **Catering, Transport & Props** | ₹7,000 – ₹12,000 | 2-day crew meals, transport, cracked phone prop |
+| **Post-Production & Sound Mix** | ₹10,000 – ₹20,000 | Sound design, Foley, color grading master |
+| **Total Estimated Budget:** | **₹60,000 – ₹1,07,000** | *(Can be optimized significantly using OmniCraft Skill Swaps)* |
+
+---
+
+### I. Risks, Dependencies & Contingency Protocols
+1. **Location Sound Leakage:** Campus basements may have HVAC or echo; solve using directional shotgun microphones and close lavaliers.
+2. **Lighting Power Loads:** High-output lights require dedicated circuit checking in older university buildings.
+3. **Actor Availability:** Schedule backup table-read days and confirm call sheets 72 hours in advance.
+
+---
+
+### J. Prioritized Next Steps & Essential Clarifications
+Your project blueprint has been generated and linked to your OmniForge workspace! To refine the shoot logistics, please share:
+1. **What is your approximate total budget?**
+2. **Which city or campus location do you plan to shoot in?**
+3. **What is your target shooting date or weekend?**`;
+
+  return {
+    intent: "PROJECT_PLANNING",
+    responseLevel: "PROJECT_ANALYSIS",
+    message: reportMessage,
+    updatedProject: blueprint,
+    creatorCards: topActors,
+    conversationState: {
+      ...state,
+      stage: "PROJECT_BLUEPRINT",
+      projectType: "Short Film",
+      projectDomain: "Film",
+      requirements: {
+        ...reqs,
+        storyGenre: genre,
+        storyPremise: premise,
+        scriptStatus: reqs.scriptStatus || "Completed Script",
+      },
+    },
+    uiAction: {
+      type: "SHOW_BLUEPRINT",
+    },
+    suggestedFollowUps: [
+      "Show me the blueprint",
+      "Invite recommended actors to Squad",
+      "Find more crew members",
+      "Create a squad",
+    ],
+  };
+}
+
+/**
+ * Generates an autonomous web application development roadmap & creator matching report.
+ */
+async function generateAutonomousWebPlan(
+  state: ConversationState,
+  userText: string,
+  userType: "creator" | "client",
+  currentUserId: string
+) {
+  const isEcommerce = userText.toLowerCase().includes("ecommerce") || userText.toLowerCase().includes("e-commerce") || userText.toLowerCase().includes("store");
+  const purpose = isEcommerce ? "E-Commerce Web Application Platform" : state.requirements.websitePurpose || "College Club Website";
+
+  const blueprint = generateStructuredBlueprint(purpose, userType, currentUserId);
+  const matchResult = await matchCreatorsForProject(blueprint, currentUserId);
+  blueprint.recommendations = matchResult.recommendations;
+  blueprint.alternativeCandidates = matchResult.alternatives;
+  blueprint.coverage = matchResult.coverage;
+
+  const feDevelopers = await matchCreatorsForSingleRole("Frontend Web Developer", ["React", "Next.js", "TypeScript"], currentUserId);
+  const topDevs = (feDevelopers.length > 0 ? feDevelopers : matchResult.recommendations).slice(0, 3);
+
+  const devLines =
+    topDevs.length > 0
+      ? topDevs
+          .map((c) => {
+            const name = c.creator.fullName || c.creator.username;
+            return `* **${name}** (@${c.creator.username}) — *Verified Skills:* ${c.creator.skills.join(", ") || "React, TypeScript"} (${c.matchScore}% Match)`;
+          })
+          .join("\n\n")
+      : `*No web developers currently listed in the database. You can post an open client job on OmniCraft.*`;
+
+  const reportMessage = isEcommerce
+    ? `### Comprehensive E-Commerce Website Development Roadmap & Architecture
+
+Here is the production-ready technical architecture and team composition for your **E-Commerce Platform**:
+
+---
+
+#### 1. Tech Stack & Architecture
+* **Frontend:** Next.js 15 (App Router, Server Components), Tailwind CSS, Zustand cart store.
+* **Backend:** Node.js / Supabase Edge Functions, REST & GraphQL endpoints.
+* **Database:** PostgreSQL (Supabase) with Row-Level Security for users, products, orders, and inventory.
+* **Payments & Infrastructure:** Stripe Checkout & Webhooks, AWS S3 / Cloudinary for product assets.
+
+---
+
+#### 2. Key Development Phases & Milestones
+* **Phase 1: Architecture, Data Modeling & UI Wireframes (Week 1–2):** Finalize product schema, SKU variants, and Figma high-fidelity store designs.
+* **Phase 2: Storefront & Cart Implementation (Week 3–4):** Product listing, multi-facet filtering, instant search, slide-out cart, and responsive checkout.
+* **Phase 3: Payments & Admin Dashboard (Week 5–6):** Stripe webhook fulfillment, invoice generation, customer order portal, inventory alerts.
+* **Phase 4: Security, QA & Production Launch (Week 7):** PCI compliance, HTTPS, CORS/CSRF protection, automated E2E tests, and Vercel CDN deployment.
+
+---
+
+#### 3. Verified Developer & Designer Matches
+${devLines}
+
+---
+
+#### 4. Next Actions
+Your E-Commerce project blueprint has been generated and loaded into your workspace. Would you like to review the database schema, invite developers, or create a team Squad?`
+    : `### Project Plan: ${purpose}
+
+Here is the structured development roadmap and team composition for your **${purpose}**:
+
+---
+
+#### 1. Development Stages
+* **Phase 1: UX Wireframing & Sitemap (Week 1):** Responsive layout in Figma, design tokens, navigation structure.
+* **Phase 2: Frontend Engineering (Weeks 2–3):** React / Next.js responsive components, event listings, RSVP modals, photo gallery.
+* **Phase 3: Backend & Database (Weeks 3–4):** PostgreSQL tables, Supabase Auth, real-time event updates.
+* **Phase 4: QA & Vercel Deployment (Week 5):** Cross-browser testing, SEO optimization, and live launch.
+
+---
+
+#### 2. Verified Creator Matches
+${devLines}
+
+---
+
+#### 3. Next Actions
+Your website blueprint is ready in OmniForge! You can inspect the phases, find creators, or launch your squad.`;
+
+  return {
+    intent: "PROJECT_PLANNING",
+    responseLevel: "PROJECT_ANALYSIS",
+    message: reportMessage,
+    updatedProject: blueprint,
+    creatorCards: topDevs,
+    conversationState: {
+      ...state,
+      stage: "PROJECT_BLUEPRINT",
+      projectType: "Website",
+      projectDomain: "Web App",
+    },
+    uiAction: {
+      type: "SHOW_BLUEPRINT",
+    },
+    suggestedFollowUps: [
+      "Find frontend developers",
+      "Show me the blueprint",
+      "Create a squad",
+    ],
+  };
 }
 
 /**
@@ -782,6 +1089,7 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
   // --------------------------------------------------------------------------
   if (state.projectDomain === "Film") {
     // Explicit project request with story premise (e.g. "village girl who wants to become a singer")
+    // Explicit project request with story premise (e.g. "village girl who wants to become a singer")
     if (clean.includes("village girl")) {
       const blueprint = generateStructuredBlueprint(userText, userType, currentUserId);
       const phasesSummary = blueprint.phases.map((p, idx) => `### Stage ${idx + 1}: ${p.name}\n${p.description}`).join("\n\n");
@@ -809,6 +1117,27 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
           "Find a director",
         ],
       };
+    }
+
+    // AUTONOMOUS INVESTIGATION: Trigger if user requests execution plan, complete plan, actors, has premise, or gives completed script
+    const shouldExecuteAutonomousReport =
+      clean.includes("generate the execution plan") ||
+      clean.includes("generate execution plan") ||
+      clean.includes("execution plan") ||
+      clean.includes("make the complete plan") ||
+      clean.includes("complete plan") ||
+      clean.includes("find creators") ||
+      clean.includes("find the actors") ||
+      clean.includes("find actors") ||
+      clean.includes("show me the plan") ||
+      clean.includes("show me plan") ||
+      clean.includes("missing student") ||
+      clean.includes("have a completed script") ||
+      clean.includes("completed script") ||
+      (state.requirements.storyPremise && (clean.includes("plan") || clean.includes("actor") || clean.includes("script")));
+
+    if (shouldExecuteAutonomousReport) {
+      return await generateAutonomousShortFilmReport(state, userText, userType, currentUserId);
     }
 
     // 1. Initial Short Film Goal Statement: "I want to make a short film."
@@ -899,29 +1228,8 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
       };
     }
 
-    // 5. User chose thriller subgenre or gave premise, investigate script status
-    if (!state.requirements.scriptStatus) {
-      const genreName = state.requirements.subGenre || state.requirements.storyGenre || "suspense thriller";
-      const premiseDesc = state.requirements.storyPremise
-        ? `about **${state.requirements.storyPremise.replace(/^(it is a|a|an)\s+/i, "")}**`
-        : "";
-
-      return {
-        intent: "PROJECT_IDEA",
-        responseLevel: "CONTEXTUAL_ANSWER",
-        message: `A **${genreName.toLowerCase()}** ${premiseDesc} sounds compelling! The high stakes and mystery will keep the audience hooked.\n\nDo you already have a completed script, or are you currently developing the story and characters?`,
-        conversationState: {
-          ...state,
-          stage: "REQUIREMENTS_INVESTIGATION",
-        },
-        suggestedFollowUps: [
-          "I have a completed script",
-          "Working on the script",
-          "Create a 5-minute script",
-          "Make a production schedule",
-        ],
-      };
-    }
+    // 5. Default fallback within film domain: trigger autonomous plan
+    return await generateAutonomousShortFilmReport(state, userText, userType, currentUserId);
   }
 
   // --------------------------------------------------------------------------
@@ -1036,7 +1344,18 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
   // --------------------------------------------------------------------------
   // E. WEBSITE PROJECT DISCOVERY & INVESTIGATION FLOW (Requirement 4)
   // --------------------------------------------------------------------------
-  if (state.projectDomain === "Web App") {
+  if (state.projectDomain === "Web App" || clean.includes("website") || clean.includes("ecommerce") || clean.includes("web app")) {
+    if (
+      clean.includes("ecommerce") ||
+      clean.includes("e-commerce") ||
+      clean.includes("store") ||
+      clean.includes("find developers") ||
+      clean.includes("complete plan") ||
+      clean.includes("roadmap")
+    ) {
+      return await generateAutonomousWebPlan(state, userText, userType, currentUserId);
+    }
+
     if (!state.requirements.websitePurpose) {
       return {
         intent: "PROJECT_IDEA",

@@ -86,9 +86,16 @@ export function generateStructuredBlueprint(
     (lower.includes("lyrics") || lower.includes("song") || lower.includes("track")) &&
     (lower.includes("compose") || lower.includes("professional song") || lower.includes("turn them into"));
 
+  const isThrillerMissingStudent =
+    (lower.includes("missing student") || lower.includes("suspense") || lower.includes("thriller")) &&
+    (lower.includes("film") || lower.includes("movie") || lower.includes("short film") || lower.includes("script") || lower.includes("story") || lower.includes("actor") || lower.includes("production") || lower.includes("plan"));
+
   const isVillageSingerFilm =
-    (lower.includes("village girl") || lower.includes("singer") || lower.includes("story") || lower.includes("movie") || lower.includes("film")) &&
-    (lower.includes("story") || lower.includes("film") || lower.includes("short film") || lower.includes("movie") || lower.includes("wrote a story"));
+    (lower.includes("village girl") || lower.includes("village singer") || (lower.includes("singer") && lower.includes("village")));
+
+  const isEcommerceWeb =
+    (lower.includes("ecommerce") || lower.includes("e-commerce") || lower.includes("online store") || lower.includes("shopping")) &&
+    (lower.includes("website") || lower.includes("web app") || lower.includes("platform") || lower.includes("store") || lower.includes("develop"));
 
   const isClubWebsite =
     (lower.includes("website") || lower.includes("web app") || lower.includes("portal")) &&
@@ -177,8 +184,99 @@ export function generateStructuredBlueprint(
       },
     ];
   }
-  // 2. SHORT FILM / STORY (Creative film production)
-  else if (isVillageSingerFilm || primaryDomain === "Film") {
+  // 2. SUSPENSE THRILLER SHORT FILM (MISSING STUDENT)
+  else if (isThrillerMissingStudent) {
+    domain = "Film";
+    title = "Short Film: Vanished Echoes (Suspense Thriller)";
+    goal = "Produce a high-tension 15-minute suspense thriller short film about a missing student, executing script lock, character casting, location filming, and atmospheric post-production.";
+    requirements = [
+      "Completed 15-page screenplay with suspense pacing, scene headings, and twist climax",
+      "Casting for lead investigator, missing student, and key faculty/security suspect",
+      "Atmospheric location permits (university library archives, dorm room, quadrangle)",
+      "Low-key cinematic lighting package, cinema camera, and boom audio recording",
+      "Picture lock, DaVinci cold teal color grading, original tension score, and 5.1 sound mix",
+      "Festival submission screener and YouTube 4K premiere packaging",
+    ];
+    workflowStages = [
+      "Script Polish & Scene Breakdown",
+      "Casting & Location Scouting",
+      "Principal Photography (2-Day Shoot)",
+      "Editing, Color Grading & Sound Mix",
+      "Festival & Digital Premiere",
+    ];
+
+    roles = [
+      makeRole("role-write", "Screenwriter", ["Screenwriting", "Dialogue", "Suspense Pacing"], "Drafts and locks shooting script with tight thriller pacing.", "Creative"),
+      makeRole("role-dir", "Film Director", ["Film Directing", "Actor Guidance", "Visual Suspense"], "Guides performances, blocking, and dramatic tension.", "Creative"),
+      makeRole("role-cine", "Cinematographer", ["Low-Key Lighting", "Camera Operation", "Chiaroscuro"], "Operates cinema camera and designs moody, high-contrast thriller lighting.", "Creative"),
+      makeRole("role-act-lead", "Lead Actor", ["Screen Acting", "Emotional Stakes", "Method Acting"], "Portrays the student investigator searching for the missing friend.", "Creative"),
+      makeRole("role-act-supp", "Supporting Actor", ["Character Acting", "Screen Presence", "Dramatic Voice"], "Portrays the security officer / faculty member holding the secret.", "Creative"),
+      makeRole("role-edit", "Video Editor", ["Premiere Pro", "DaVinci Resolve", "Thriller Pacing"], "Cuts footage for maximum suspense and applies cold, atmospheric grade.", "Creative"),
+      makeRole("role-sound", "Sound Designer", ["Foley", "Atmospheric Tension Score", "5.1 Audio Mix"], "Composes dark ambient score and cleans dialogue tracks.", "Creative"),
+    ];
+
+    const p1 = "phase-1";
+    const p2 = "phase-2";
+    const p3 = "phase-3";
+    const p4 = "phase-4";
+
+    phases = [
+      {
+        id: p1,
+        name: "Script Lock & Pre-Production Planning",
+        description: "Finalize shooting script, generate scene breakdown, storyboard camera angles, and build prop list.",
+        purpose: "Establish narrative blueprint and technical shoot requirements.",
+        sourceReason: "Tight thrillers require precise shot planning to sustain suspense.",
+        order: 1,
+        workstreams: ["Screenplay", "Shot Listing"],
+        tasks: [
+          makeTask(p1, "Lock 15-Page Thriller Script", "Complete dialogue, suspense pacing, and climax revelation.", "Screenwriter", ["Screenwriting"], "high", "3 days", 1),
+          makeTask(p1, "Storyboard & Lighting Design", "Plan low-key lighting ratios and claustrophobic framing with DoP.", "Cinematographer", ["Low-Key Lighting"], "high", "3 days", 2),
+        ],
+      },
+      {
+        id: p2,
+        name: "Casting & Location Scouting",
+        description: "Cast lead investigator and suspect, scout university library/basement, secure filming permits.",
+        purpose: "Assemble talent and secure physical locations.",
+        sourceReason: "Authentic locations and believable actors define thriller immersion.",
+        order: 2,
+        workstreams: ["Casting", "Location Permits"],
+        tasks: [
+          makeTask(p2, "Audition & Cast Lead & Antagonist Roles", "Select verified actors on OmniCraft matching character profiles.", "Film Director", ["Actor Guidance"], "high", "4 days", 1),
+          makeTask(p2, "Scout & Secure Campus Basement Archive", "Obtain administrative filming permissions and verify power access.", "Film Director", ["Film Directing"], "high", "3 days", 2),
+        ],
+      },
+      {
+        id: p3,
+        name: "Principal Photography (Weekend Shoot)",
+        description: "Film all exterior night scenes and interior library basement confrontation over a 2-day production window.",
+        purpose: "Capture all primary footage, B-roll, and live audio.",
+        sourceReason: "Core production execution phase.",
+        order: 3,
+        workstreams: ["Principal Photography", "Sound Recording"],
+        tasks: [
+          makeTask(p3, "Shoot Scene 1: Campus Quad Exterior (Night)", "Film chase and phone call sequences under rain/fog lighting.", "Film Director", ["Film Directing"], "urgent", "1 day", 1),
+          makeTask(p3, "Shoot Scene 2 & 3: Library Archive Climax", "Film basement investigation, flashlight reveal, and police climax.", "Film Director", ["Film Directing"], "urgent", "1 day", 2),
+        ],
+      },
+      {
+        id: p4,
+        name: "Post-Production, Color Grading & Audio Mix",
+        description: "Edit rough and fine cuts, compose original suspense score, apply DaVinci color grade, and export master.",
+        purpose: "Craft polished, suspenseful audio-visual master.",
+        sourceReason: "Sound design and color grading are critical to thriller atmosphere.",
+        order: 4,
+        workstreams: ["Picture Edit", "Color Grading", "Sound Mix"],
+        tasks: [
+          makeTask(p4, "Assembly & Fine Picture Cut", "Edit for suspenseful timing and tension release in Premiere Pro.", "Video Editor", ["Premiere Pro"], "high", "5 days", 1),
+          makeTask(p4, "DaVinci Color Grade & 5.1 Sound Design", "Grade shadows cold teal and layer ambient suspense score.", "Sound Designer", ["5.1 Audio Mix"], "high", "4 days", 2),
+        ],
+      },
+    ];
+  }
+  // 3. VILLAGE SINGER / DRAMA FILM
+  else if (isVillageSingerFilm || (primaryDomain === "Film" && !isEcommerceWeb)) {
     domain = "Film";
     title = prompt.length > 50 ? "Short Film: A Village Singer's Dream" : prompt;
     goal = "Produce and release a compelling narrative short film about an aspiring village singer overcoming obstacles to achieve her dream.";

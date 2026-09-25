@@ -486,14 +486,21 @@ export function classifyMessageSemanticIntent(
     /^(i have an idea|i have a story|i want to build something|i want to make something|i want to do something|i want to create something)\b/i;
 
   if (ambiguousIdeaRegex.test(cleanLower)) {
-    // If it lacks explicit, full-scope deliverable definition, clarify!
+    // If it has actionable execution plan, creators, or specific domain outcome, do NOT treat as vague clarification!
     const hasSpecificOutcome =
       cleanLower.includes("website for our college club") ||
       cleanLower.includes("short film about a village girl") ||
       cleanLower.includes("documentary about traditional") ||
       cleanLower.includes("professional song") ||
       cleanLower.includes("cultural festival") ||
-      cleanLower.includes("turn my lyrics into");
+      cleanLower.includes("turn my lyrics into") ||
+      cleanLower.includes("execution plan") ||
+      cleanLower.includes("find creators") ||
+      cleanLower.includes("find the actors") ||
+      cleanLower.includes("find actors") ||
+      cleanLower.includes("complete plan") ||
+      cleanLower.includes("production plan") ||
+      cleanLower.includes("roadmap");
 
     if (!hasSpecificOutcome) {
       return {
