@@ -109,14 +109,22 @@ function SquadsPage() {
             shared place.
           </p>
         </div>
-        {profile?.role !== "client" && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-fuchsia-700 shadow-lg transition hover:scale-[1.01]"
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/omniforge"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/20 border border-white/40 px-4 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:bg-white/30"
           >
-            <Plus className="h-4 w-4" /> Create Squad
-          </button>
-        )}
+            <Sparkles className="h-4 w-4 animate-pulse-slow" /> Architect with AI
+          </Link>
+          {profile?.role !== "client" && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-fuchsia-700 shadow-lg transition hover:scale-[1.01]"
+            >
+              <Plus className="h-4 w-4" /> Create Squad
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">

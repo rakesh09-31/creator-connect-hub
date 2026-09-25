@@ -24,6 +24,7 @@ import { Route as AuthenticatedAppHomeRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppJobsRouteImport } from './routes/_authenticated/_app.jobs'
 import { Route as AuthenticatedAppMessagesRouteImport } from './routes/_authenticated/_app.messages'
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app.notifications'
+import { Route as AuthenticatedAppOmniforgeRouteImport } from './routes/_authenticated/_app.omniforge'
 import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app.profile'
 import { Route as AuthenticatedAppReelsRouteImport } from './routes/_authenticated/_app.reels'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/_app.settings'
@@ -111,6 +112,12 @@ const AuthenticatedAppNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppOmniforgeRoute =
+  AuthenticatedAppOmniforgeRouteImport.update({
+    id: '/omniforge',
+    path: '/omniforge',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -189,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/jobs': typeof AuthenticatedAppJobsRoute
   '/messages': typeof AuthenticatedAppMessagesRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/omniforge': typeof AuthenticatedAppOmniforgeRoute
   '/profile': typeof AuthenticatedAppProfileRouteWithChildren
   '/reels': typeof AuthenticatedAppReelsRoute
   '/settings': typeof AuthenticatedAppSettingsRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/jobs': typeof AuthenticatedAppJobsRoute
   '/messages': typeof AuthenticatedAppMessagesRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/omniforge': typeof AuthenticatedAppOmniforgeRoute
   '/profile': typeof AuthenticatedAppProfileRouteWithChildren
   '/reels': typeof AuthenticatedAppReelsRoute
   '/settings': typeof AuthenticatedAppSettingsRoute
@@ -244,6 +253,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/jobs': typeof AuthenticatedAppJobsRoute
   '/_authenticated/_app/messages': typeof AuthenticatedAppMessagesRoute
   '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/_authenticated/_app/omniforge': typeof AuthenticatedAppOmniforgeRoute
   '/_authenticated/_app/profile': typeof AuthenticatedAppProfileRouteWithChildren
   '/_authenticated/_app/reels': typeof AuthenticatedAppReelsRoute
   '/_authenticated/_app/settings': typeof AuthenticatedAppSettingsRoute
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/jobs'
     | '/messages'
     | '/notifications'
+    | '/omniforge'
     | '/profile'
     | '/reels'
     | '/settings'
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/jobs'
     | '/messages'
     | '/notifications'
+    | '/omniforge'
     | '/profile'
     | '/reels'
     | '/settings'
@@ -326,6 +338,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/jobs'
     | '/_authenticated/_app/messages'
     | '/_authenticated/_app/notifications'
+    | '/_authenticated/_app/omniforge'
     | '/_authenticated/_app/profile'
     | '/_authenticated/_app/reels'
     | '/_authenticated/_app/settings'
@@ -457,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/_app/omniforge': {
+      id: '/_authenticated/_app/omniforge'
+      path: '/omniforge'
+      fullPath: '/omniforge'
+      preLoaderRoute: typeof AuthenticatedAppOmniforgeRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/_app/profile': {
       id: '/_authenticated/_app/profile'
       path: '/profile'
@@ -572,6 +592,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppJobsRoute: typeof AuthenticatedAppJobsRoute
   AuthenticatedAppMessagesRoute: typeof AuthenticatedAppMessagesRoute
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
+  AuthenticatedAppOmniforgeRoute: typeof AuthenticatedAppOmniforgeRoute
   AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRouteWithChildren
   AuthenticatedAppReelsRoute: typeof AuthenticatedAppReelsRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
@@ -587,6 +608,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppJobsRoute: AuthenticatedAppJobsRoute,
   AuthenticatedAppMessagesRoute: AuthenticatedAppMessagesRoute,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
+  AuthenticatedAppOmniforgeRoute: AuthenticatedAppOmniforgeRoute,
   AuthenticatedAppProfileRoute: AuthenticatedAppProfileRouteWithChildren,
   AuthenticatedAppReelsRoute: AuthenticatedAppReelsRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,

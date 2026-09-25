@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, Briefcase, LogOut, Sun, Moon, Settings } from "lucide-react";
+import { Home as HomeIcon, Search, PlusSquare, User as UserIcon, MessageCircle, Briefcase, LogOut, Sun, Moon, Settings, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -57,7 +57,18 @@ function AppShell() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            <Link
+              to="/omniforge"
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                isActive("/omniforge")
+                  ? "bg-gradient-brand text-white shadow-brand"
+                  : "bg-brand-soft text-brand hover:bg-brand hover:text-white"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 animate-pulse-slow" />
+              <span>OmniForge AI</span>
+            </Link>
             <NotificationBell active={isActive("/notifications")} />
             <HeaderBtn to="/messages" active={isActive("/messages")}>
               <MessageCircle className="w-5 h-5" />
@@ -91,9 +102,9 @@ function AppShell() {
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-around">
           <NavLink to="/home" icon={<HomeIcon className="w-5 h-5" />} label="Home" active={isActive("/home")} />
           <NavLink to="/explore" icon={<Search className="w-5 h-5" />} label="Explore" active={isActive("/explore")} />
+          <NavLink to="/omniforge" icon={<Sparkles className="w-5 h-5 text-brand" />} label="OmniForge" active={isActive("/omniforge")} />
           <NavLink to="/create" icon={<PlusSquare className="w-5 h-5" />} label="Create" active={isActive("/create")} />
           <NavLink to="/jobs" icon={<Briefcase className="w-5 h-5" />} label="Jobs" active={isActive("/jobs")} />
-
           <NavLink to="/profile" icon={<UserIcon className="w-5 h-5" />} label="Profile" active={isActive("/profile")} />
         </div>
       </nav>

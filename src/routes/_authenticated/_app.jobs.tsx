@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import SkillSwapPanel from "@/components/skill-swap/SkillSwapPanel";
+import { OmniForgeBanner } from "@/components/omniforge/OmniForgeBanner";
 import {
   calculateJobMatchScore,
   calculateCreatorMatchForBrief,
@@ -103,6 +104,8 @@ function JobsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
+      <OmniForgeBanner className="mb-6" />
+
       <div className="mb-5">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Opportunities</p>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">

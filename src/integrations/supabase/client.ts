@@ -10,12 +10,11 @@ const DEPRECATED_PROJECT_REF = "njgfixexgkflpmojmzao";
 function createSupabaseClient() {
   // Check client-side Vite variables first, then server-side process.env
   let SUPABASE_URL =
-    import.meta.env.VITE_SUPABASE_URL ||
+    (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_SUPABASE_URL : undefined) ||
     (typeof process !== 'undefined' ? (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) : undefined);
 
   let SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    (typeof import.meta !== 'undefined' && import.meta.env ? (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY) : undefined) ||
     (typeof process !== 'undefined'
       ? (process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
          process.env.VITE_SUPABASE_ANON_KEY ||

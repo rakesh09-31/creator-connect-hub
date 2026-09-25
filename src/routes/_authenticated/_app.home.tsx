@@ -9,6 +9,7 @@ import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { filterValidMediaItems } from "@/lib/storage";
 import { toast } from "sonner";
+import { OmniForgeBanner } from "@/components/omniforge/OmniForgeBanner";
 
 export const Route = createFileRoute("/_authenticated/_app/home")({
   head: () => ({ meta: [{ title: "Home — Omnicraft" }] }),
@@ -434,6 +435,9 @@ function HomePage() {
         </div>
 
       </section>
+
+      {/* OmniForge AI Architect Banner */}
+      <OmniForgeBanner className="mb-4" />
 
       {/* Recommendations */}
       {user && isCreator && <RecommendedJobs userId={user.id} />}
