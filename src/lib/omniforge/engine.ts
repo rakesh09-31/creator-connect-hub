@@ -14,6 +14,7 @@ import {
   AIStructuredResponse,
   CreatorRecommendation,
   SkillSwapListingMatch,
+  ConversationState,
 } from "./types";
 import { matchCreatorsForSingleRole, matchCreatorsForProject } from "./matcher";
 import { generateStructuredBlueprint, modifyBlueprintFromInstruction } from "./engine-blueprint";
@@ -24,6 +25,11 @@ import {
   ClassifiedDecision,
 } from "./intent-classifier";
 import { searchRealSkillSwapListings } from "./skill-swap-matcher";
+import {
+  createInitialConversationState,
+  transitionConversationState,
+  generateContextualConversationResponse,
+} from "./conversation-state";
 
 // ============================================================================
 // 1. DOMAIN DETECTION ENGINE
@@ -537,6 +543,41 @@ export function handleClarificationQuery(query: string): AIStructuredResponse {
     };
   }
 
+  if (lower.includes("actor") || lower.includes("actress") || lower.includes("casting")) {
+    return {
+      intent: "CREATOR_SEARCH",
+      responseLevel: "CONTEXTUAL_ANSWER",
+      message:
+        "Absolutely! Let's find an actor who fits your short film. I'll ask a few questions to understand the character and your requirements.\n\nWhat type of role is it — lead, supporting, antagonist, or another character?",
+      suggestedFollowUps: ["Lead actor", "Supporting actor", "Villain or antagonist", "I need multiple actors"],
+    };
+  }
+
+  if (lower.includes("film") || lower.includes("short film") || lower.includes("movie")) {
+    return {
+      intent: "PROJECT_IDEA",
+      responseLevel: "SIMPLE_ANSWER",
+      message:
+        "Great! What is the central idea or story you're planning? Tell me a little about the premise, genre, or the message you want to convey.",
+      suggestedFollowUps: ["Suspense thriller", "Drama / Emotional", "Comedy short", "Sci-Fi / Concept"],
+    };
+  }
+
+  if (lower.includes("website") || lower.includes("web app")) {
+    return {
+      intent: "PROJECT_IDEA",
+      responseLevel: "SIMPLE_ANSWER",
+      message:
+        "Great! What is the website for — a business, college project, portfolio, e-commerce store, or something else?",
+      suggestedFollowUps: [
+        "College club website",
+        "Personal portfolio",
+        "Business / Startup site",
+        "E-commerce store",
+      ],
+    };
+  }
+
   return {
     intent: "CLARIFICATION",
     responseLevel: "SIMPLE_ANSWER",
@@ -549,7 +590,7 @@ export function handleClarificationQuery(query: string): AIStructuredResponse {
         options: ["Website or Web App", "Short Film or Video", "Music Production", "College Event or Fest"],
       },
     ],
-    suggestedFollowUps: ["I want to create a website for our college club", "I want to make a short film"],
+    suggestedFollowUps: ["I want to create a website for our college club", "I have an idea for a short film"],
   };
 }
 
@@ -869,13 +910,87 @@ export async function processConversationalOmniForgeMessage(
   currentProject: OmniForgeProject | null,
   conversationHistory: ChatMessage[],
   userType: "creator" | "client",
-  currentUserId: string = "anon"
+  currentUserId: string = "anon",
+  conversationState?: ConversationState | null
 ): Promise<AIStructuredResponse> {
+  const currentState = transitionConversationState(
+    conversationState || createInitialConversationState(text),
+    text,
+    conversationHistory
+  );
+
+  const clean = text.toLowerCase().trim().replace(/[?!.,]+$/, "").trim();
+  const lower = clean;
+
+  // 1. Direct Knowledge & Definitions (Must NOT create a project!)
+  if (
+    clean.includes("what does a film director do") ||
+    clean.includes("what does a director do") ||
+    clean === "what is a director" ||
+    clean.includes("what is a director") ||
+    clean.includes("what is skill swap") ||
+    clean.includes("what's skill swap") ||
+    clean.includes("how does skill swap work") ||
+    clean.includes("what is react")
+  ) {
+    const res = await generateContextualConversationResponse(
+      currentState,
+      text,
+      currentProject,
+      userType,
+      currentUserId
+    );
+    return {
+      ...res,
+      conversationState: res.conversationState,
+    };
+  }
+
+  // 2. Casting & Creator Search Flow
+  if (
+    currentState.investigationArea === "casting" ||
+    currentState.stage === "CREATOR_MATCHING" ||
+    clean.includes("need an actor") ||
+    clean.includes("actor for my short film") ||
+    clean.includes("suggest the best")
+  ) {
+    const res = await generateContextualConversationResponse(
+      currentState,
+      text,
+      currentProject,
+      userType,
+      currentUserId
+    );
+    return {
+      ...res,
+      conversationState: res.conversationState,
+    };
+  }
+
+  // 3. Project Discovery & Requirements Investigation Flow (Short film, website)
+  if (
+    (currentState.stage === "PROJECT_DISCOVERY" || currentState.stage === "REQUIREMENTS_INVESTIGATION") &&
+    !clean.includes("show me the plan") &&
+    !clean.includes("show me plan") &&
+    !clean.includes("complete plan")
+  ) {
+    const res = await generateContextualConversationResponse(
+      currentState,
+      text,
+      currentProject,
+      userType,
+      currentUserId
+    );
+    return {
+      ...res,
+      conversationState: res.conversationState,
+    };
+  }
+
   const decision = classifyMessageSemanticIntent(text, currentProject, conversationHistory);
   const { intent, targetRole } = decision;
-  const lower = text.toLowerCase().trim();
 
-  // 1. Squad Authorization Confirmation ("Yes" / "Confirm")
+  // 4. Squad Authorization Confirmation ("Yes" / "Confirm")
   if (
     decision.targetAction === "CONFIRM_SQUAD_CREATION" &&
     currentProject
@@ -884,6 +999,7 @@ export async function processConversationalOmniForgeMessage(
       intent: "SQUAD_REQUEST",
       responseLevel: "SIMPLE_ANSWER",
       message: `✓ Confirmed! Launching your project Squad for **${currentProject.title}**. Opening your collaborative workspace and dispatching creator invitations.`,
+      conversationState: currentState,
       projectAction: {
         type: "CREATE_SQUAD",
         payload: { projectId: currentProject.id },
@@ -892,41 +1008,62 @@ export async function processConversationalOmniForgeMessage(
     };
   }
 
-  // 2. Skill Swap Inquiry & Search
+  // 5. Skill Swap Inquiry & Search
   if (intent === "SKILL_SWAP_QUESTION" || intent === "SKILL_SWAP_SEARCH") {
-    return await handleSkillSwapQuery(text, currentUserId, currentProject);
+    const ssRes = await handleSkillSwapQuery(text, currentUserId, currentProject);
+    return {
+      ...ssRes,
+      conversationState: currentState,
+    };
   }
 
-  // 3. Ambiguous Project Ideas (CLARIFICATION)
+  // 6. Ambiguous Project Ideas (CLARIFICATION)
   if (intent === "CLARIFICATION") {
-    return handleClarificationQuery(text);
+    const clarRes = handleClarificationQuery(text);
+    return {
+      ...clarRes,
+      conversationState: currentState,
+    };
   }
 
-  // 4. Indirect Problem Statements (e.g. Restaurant Ordering, College Club)
+  // 7. Indirect Problem Statements (e.g. Restaurant Ordering, College Club)
   if (intent === "PROJECT_PROBLEM") {
-    return handleIndirectProjectProblem(text);
+    const probRes = handleIndirectProjectProblem(text);
+    return {
+      ...probRes,
+      conversationState: currentState,
+    };
   }
 
-  // 5. LEVEL 0: General Greetings & Casual Dialogue (NO PROJECT CREATION)
+  // 8. LEVEL 0: General Greetings & Casual Dialogue (NO PROJECT CREATION)
   if (intent === "GENERAL_CONVERSATION") {
-    return handleGeneralDialogue(text, intent, targetRole);
+    const genRes = handleGeneralDialogue(text, intent, targetRole);
+    return {
+      ...genRes,
+      conversationState: currentState,
+    };
   }
 
-  // 6. HOW_TO & PROJECT_PLANNING ("How do I make it?", "Show me the plan")
+  // 9. HOW_TO & PROJECT_PLANNING ("How do I make it?", "Show me the plan")
   if (intent === "HOW_TO" && currentProject) {
     const phasesSummary = currentProject.phases.map((p, i) => `${i + 1}. **${p.name}:** ${p.description}`).join("\n");
     return {
       intent: "HOW_TO",
       responseLevel: "CONTEXTUAL_ANSWER",
       message: `To make **${currentProject.title}**, here is the recommended execution roadmap:\n\n${phasesSummary}\n\nWould you like to review the required creators, or should I show you the full deliverable blueprint?`,
+      conversationState: currentState,
       suggestedFollowUps: ["Show me the plan", "Who do I need?", "Can I use Skill Swap?"],
     };
   }
 
-  if (intent === "PROJECT_PLANNING") {
+  if (
+    intent === "PROJECT_PLANNING" ||
+    clean.includes("show me the plan") ||
+    clean.includes("show me the complete plan")
+  ) {
     let proj = currentProject;
     if (!proj) {
-      const projIdea = extractProjectIdeaFromHistory(conversationHistory);
+      const projIdea = currentState.requirements.storyPremise || currentState.requirements.websitePurpose || extractProjectIdeaFromHistory(conversationHistory) || text;
       proj = generateStructuredBlueprint(projIdea, userType, currentUserId);
     }
 
@@ -942,6 +1079,10 @@ export async function processConversationalOmniForgeMessage(
       responseLevel: "PROJECT_ANALYSIS",
       message,
       updatedProject: proj,
+      conversationState: {
+        ...currentState,
+        stage: "PROJECT_BLUEPRINT",
+      },
       projectAction: {
         type: "CREATE_BLUEPRINT",
         payload: proj,

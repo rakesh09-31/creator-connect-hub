@@ -345,8 +345,83 @@ export function classifyMessageSemanticIntent(
   }
 
   // --------------------------------------------------------------------------
-  // 7. AMBIGUOUS PROJECT IDEAS (Decision: CLARIFICATION — NEVER CREATE)
+  // 7. SPECIFIC & AMBIGUOUS PROJECT IDEAS (Decision: Progressive Investigation)
   // --------------------------------------------------------------------------
+  if (
+    cleanLower.includes("idea for a short film") ||
+    cleanLower.includes("idea for a film") ||
+    cleanLower.includes("idea for a movie") ||
+    (cleanLower.includes("short film") && cleanLower.includes("idea"))
+  ) {
+    return {
+      intent: "PROJECT_IDEA",
+      entities: [
+        { type: "project_type", value: "short film" },
+        { type: "domain", value: "Film" },
+      ],
+      isActionable: false,
+      requiresClarification: true,
+      confidence: 0.96,
+    };
+  }
+
+  if (
+    cleanLower.includes("suspense thriller") ||
+    cleanLower.includes("missing student") ||
+    cleanLower.includes("about a missing student") ||
+    cleanLower === "suspense thriller" ||
+    cleanLower === "drama / emotional" ||
+    cleanLower === "comedy short" ||
+    cleanLower === "sci-fi / concept"
+  ) {
+    return {
+      intent: "PROJECT_IDEA",
+      entities: [
+        { type: "genre", value: "Suspense Thriller" },
+        { type: "premise", value: trimmed },
+        { type: "domain", value: "Film" },
+      ],
+      isActionable: false,
+      requiresClarification: true,
+      confidence: 0.96,
+    };
+  }
+
+  if (cleanLower.includes("college club") && (cleanLower.includes("website") || cleanLower.includes("site") || cleanLower.includes("web"))) {
+    return {
+      intent: "PROJECT_IDEA",
+      entities: [
+        { type: "project_type", value: "college club website" },
+        { type: "domain", value: "Web App" },
+        { type: "purpose", value: "College Club Website" },
+      ],
+      isActionable: false,
+      requiresClarification: true,
+      confidence: 0.96,
+    };
+  }
+
+  if (
+    cleanLower === "i want to build a website" ||
+    cleanLower === "i want to create a website" ||
+    cleanLower === "i want to build a web app" ||
+    cleanLower === "i want to build an app" ||
+    cleanLower === "i want to make a short film" ||
+    cleanLower === "i want to make a film"
+  ) {
+    const isFilm = cleanLower.includes("film");
+    return {
+      intent: "PROJECT_IDEA",
+      entities: [
+        { type: "project_type", value: isFilm ? "short film" : "website" },
+        { type: "domain", value: isFilm ? "Film" : "Web App" },
+      ],
+      isActionable: false,
+      requiresClarification: true,
+      confidence: 0.95,
+    };
+  }
+
   const ambiguousIdeaRegex =
     /^(i have an idea|i have a story|i want to build something|i want to make something|i want to do something|i want to create something)\b/i;
 
@@ -396,7 +471,34 @@ export function classifyMessageSemanticIntent(
   // 8. CREATOR DISCOVERY & SEARCH ACTIONS (Decision: Search real DB creators)
   // --------------------------------------------------------------------------
   const isCreatorSearch =
-    /^(find |find me |get me |recommend |show me creators|show me directors|show me editors|who can direct|who can edit|who can sing|i need someone to|i need someone who|who can handle)\b/i.test(cleanLower) ||
+    /^(find |find me |get me |recommend |show me creators|show me directors|show me editors|who can direct|who can edit|who can sing|i need someone to|i need someone who|who can handle|i need an actor|i need a director|i need an editor|i need a cinematographer|i need a|looking for an actor|looking for a|can you suggest the best|suggest the best|suggest an actor|suggest a|cast an actor|casting for)\b/i.test(cleanLower) ||
+    cleanLower.includes("need an actor") ||
+    cleanLower.includes("find an actor") ||
+    cleanLower.includes("suggest the best") ||
+    cleanLower.includes("suggest an actor") ||
+    cleanLower.includes("cast an actor") ||
+    cleanLower.includes("actor for my short film") ||
+    cleanLower.includes("lead actor") ||
+    cleanLower.includes("supporting actor") ||
+    cleanLower.includes("villain or antagonist") ||
+    cleanLower.includes("multiple actors") ||
+    cleanLower.includes("need a male lead") ||
+    cleanLower.includes("need a female lead") ||
+    cleanLower.includes("male lead actor") ||
+    cleanLower.includes("female lead actor") ||
+    cleanLower.includes("aged 20-25") ||
+    cleanLower.includes("aged 20–25") ||
+    cleanLower.includes("aged 18-25") ||
+    cleanLower.includes("aged 18–25") ||
+    cleanLower === "18–25" ||
+    cleanLower === "18-25" ||
+    cleanLower === "20–25" ||
+    cleanLower === "20-25" ||
+    cleanLower === "25–35" ||
+    cleanLower === "25-35" ||
+    cleanLower === "35–50" ||
+    cleanLower === "35-50" ||
+    (cleanLower.includes("telugu") && (cleanLower.includes("actor") || cleanLower.includes("short film") || cleanLower.includes("film"))) ||
     cleanLower.includes("find someone") ||
     cleanLower.includes("find me one") ||
     cleanLower.includes("find one") ||
@@ -414,7 +516,7 @@ export function classifyMessageSemanticIntent(
       entities: [{ type: "role", value: role }],
       isActionable: true,
       requiresClarification: false,
-      confidence: 0.93,
+      confidence: 0.95,
     };
   }
 
@@ -626,13 +728,8 @@ export function classifyMessageSemanticIntent(
   // 15. EXPLICIT PROJECT CREATION INTENT
   // --------------------------------------------------------------------------
   const isExplicitProjectCreation =
-    cleanLower.startsWith("i want to create a website") ||
-    cleanLower.startsWith("i want to build a website") ||
     cleanLower.startsWith("i want to build a modern portfolio") ||
     cleanLower.startsWith("i want to build a portfolio") ||
-    cleanLower.startsWith("i want to build an app") ||
-    cleanLower.startsWith("i want to make a short film") ||
-    cleanLower.startsWith("i want to make a film") ||
     cleanLower.startsWith("i want to make a documentary") ||
     cleanLower.startsWith("i want to turn my lyrics into a song") ||
     cleanLower.startsWith("turn my lyrics into a song") ||

@@ -60,7 +60,7 @@ function AppShell() {
           <div className="flex items-center gap-1.5">
             <Link
               to="/omniforge"
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                 isActive("/omniforge")
                   ? "bg-gradient-brand text-white shadow-brand"
                   : "bg-brand-soft text-brand hover:bg-brand hover:text-white"
@@ -99,10 +99,9 @@ function AppShell() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-md border-t border-border z-50">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-around">
+        <div className="max-w-md sm:max-w-lg md:max-w-xl mx-auto px-4 h-16 grid grid-cols-5 items-center justify-items-center">
           <NavLink to="/home" icon={<HomeIcon className="w-5 h-5" />} label="Home" active={isActive("/home")} />
-          <NavLink to="/explore" icon={<Search className="w-5 h-5" />} label="Explore" active={isActive("/explore")} />
-          <NavLink to="/omniforge" icon={<Sparkles className="w-5 h-5 text-brand" />} label="OmniForge" active={isActive("/omniforge")} />
+          <NavLink to="/explore" icon={<Search className="w-5 h-5" />} label="Search" active={isActive("/explore")} />
           <NavLink to="/create" icon={<PlusSquare className="w-5 h-5" />} label="Create" active={isActive("/create")} />
           <NavLink to="/jobs" icon={<Briefcase className="w-5 h-5" />} label="Jobs" active={isActive("/jobs")} />
           <NavLink to="/profile" icon={<UserIcon className="w-5 h-5" />} label="Profile" active={isActive("/profile")} />
@@ -129,8 +128,8 @@ function NavLink({ to, icon, label, active }: { to: string; icon: React.ReactNod
   return (
     <Link
       to={to}
-      className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-md transition min-w-[56px] ${
-        active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+      className={`flex flex-col items-center justify-center gap-0.5 px-1 py-1.5 rounded-md transition w-full ${
+        active ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"
       }`}
     >
       <span className={active ? "text-brand" : ""}>{icon}</span>

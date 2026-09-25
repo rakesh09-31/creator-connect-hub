@@ -113,8 +113,8 @@ export function OmniForgeChat({
     onSendMessage(p);
   };
 
-  const handleOptionSelect = (q: ClarificationQuestion, option: string) => {
-    onSendMessage(`Regarding ${q.fieldTarget}: ${option}`);
+  const handleOptionSelect = (_q: ClarificationQuestion, option: string) => {
+    onSendMessage(option);
   };
 
   return (
@@ -196,15 +196,18 @@ export function OmniForgeChat({
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
-            const isUser = msg.sender === "user";
-            return (
-              <div key={msg.id} className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} animate-fade-up`}>
-                {!isUser && (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
-                    <Bot className="w-4 h-4" />
-                  </div>
-                )}
+          (() => {
+            const latestAIMsgId = [...messages].reverse().find((m) => m.sender === "ai")?.id;
+            return messages.map((msg) => {
+              const isUser = msg.sender === "user";
+              const isLatestAIMessage = !isUser && msg.id === latestAIMsgId;
+              return (
+                <div key={msg.id} className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} animate-fade-up`}>
+                  {!isUser && (
+                    <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                  )}
                 <div
                   className={`max-w-[88%] rounded-2xl px-4 py-3 text-xs leading-relaxed space-y-3 ${
                     isUser
@@ -450,7 +453,7 @@ export function OmniForgeChat({
                             <HelpCircle className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" />
                             <span>{q.question}</span>
                           </div>
-                          {q.options && (
+                          {isLatestAIMessage && q.options && (
                             <div className="flex flex-wrap gap-1.5">
                               {q.options.map((opt: string, i: number) => (
                                 <button
@@ -483,7 +486,7 @@ export function OmniForgeChat({
                   )}
 
                   {/* 8. Suggested Follow-Up Action Pills */}
-                  {msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
+                  {isLatestAIMessage && msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
                     <div className="pt-2 border-t border-border/30 space-y-1.5">
                       <span className="text-[10px] text-muted-foreground font-semibold">Suggested next questions:</span>
                       <div className="flex flex-wrap gap-1.5">
@@ -491,7 +494,7 @@ export function OmniForgeChat({
                           <button
                             key={idx}
                             onClick={() => onSendMessage(promptText)}
-                            className="text-[11px] px-2.5 py-1 rounded-full bg-surface hover:bg-brand-soft hover:text-brand border border-border/60 text-foreground transition flex items-center gap-1"
+                            className="text-[11px] px-2.5 py-1 rounded-full bg-surface hover:bg-brand-soft hover:text-brand border border-border/60 text-foreground transition flex items-center gap-1 shadow-xs hover:border-brand/50"
                           >
                             <Sparkles className="w-3 h-3 text-brand" />
                             {promptText}
@@ -508,8 +511,9 @@ export function OmniForgeChat({
                 )}
               </div>
             );
-          })
-        )}
+          });
+        })()
+      )}
 
         {isLoading && (
           <div className="flex gap-3 items-start animate-fade-up">

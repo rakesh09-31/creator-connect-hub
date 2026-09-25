@@ -21,7 +21,9 @@ import {
   ChatMessage,
   CreatorRecommendation,
   TaskStatus,
+  ConversationState,
 } from "@/lib/omniforge/types";
+import { createInitialConversationState } from "@/lib/omniforge/conversation-state";
 import {
   generateStructuredBlueprint,
   modifyBlueprintFromInstruction,
@@ -59,6 +61,7 @@ function OmniForgePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"chat" | "blueprint" | "team" | "workspace">("chat");
+  const [conversationState, setConversationState] = useState<ConversationState>(() => createInitialConversationState());
   const [intelligenceInfo, setIntelligenceInfo] = useState<{
     provider: string;
     model: string;
@@ -93,6 +96,10 @@ function OmniForgePage() {
         const history = loadChatHistoryFromStorage(found.id);
         if (history.length > 0) {
           setMessages(history);
+          const lastAiWithState = [...history].reverse().find((m) => m.conversationState);
+          if (lastAiWithState?.conversationState) {
+            setConversationState(lastAiWithState.conversationState);
+          }
         }
       }
     }
@@ -145,6 +152,7 @@ function OmniForgePage() {
             text,
             activeProject,
             conversationHistory: newMessages,
+            conversationState,
             userType,
             userId: user?.id || "anon",
           },
@@ -152,6 +160,9 @@ function OmniForgePage() {
 
         if (serverResult.success && serverResult.response) {
           response = serverResult.response;
+          if (response.conversationState) {
+            setConversationState(response.conversationState);
+          }
           if (serverResult.meta) {
             setIntelligenceInfo(serverResult.meta);
           }
@@ -165,8 +176,12 @@ function OmniForgePage() {
           activeProject,
           newMessages,
           userType,
-          user?.id || "anon"
+          user?.id || "anon",
+          conversationState
         );
+        if (response.conversationState) {
+          setConversationState(response.conversationState);
+        }
       }
 
       let currentActive = activeProject;
@@ -219,6 +234,7 @@ function OmniForgePage() {
         confirmationCard: response.confirmationCard,
         comparisonCard: response.comparisonCard,
         suggestedFollowUps: response.suggestedFollowUps,
+        conversationState: response.conversationState || conversationState,
         actionPrompt:
           response.uiAction?.type === "SHOW_BLUEPRINT"
             ? {
@@ -252,6 +268,7 @@ function OmniForgePage() {
     setActiveProject(null);
     setActiveProjectId(null);
     setMessages([]);
+    setConversationState(createInitialConversationState());
     setViewMode("chat");
   };
 
@@ -261,6 +278,12 @@ function OmniForgePage() {
     setViewMode(proj.stage === "in_progress" || proj.stage === "team_ready" ? "workspace" : "blueprint");
     const history = loadChatHistoryFromStorage(proj.id);
     setMessages(history);
+    const lastAiWithState = [...history].reverse().find((m) => m.conversationState);
+    if (lastAiWithState?.conversationState) {
+      setConversationState(lastAiWithState.conversationState);
+    } else {
+      setConversationState(createInitialConversationState());
+    }
   };
 
   const handleFindCreatorsForRole = async (roleName: string) => {

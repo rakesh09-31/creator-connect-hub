@@ -251,6 +251,47 @@ export type OmniForgeIntent =
   | "CLARIFICATION"
   | "UNKNOWN";
 
+export type ConversationStage =
+  | "GENERAL_CHAT"
+  | "INTENT_IDENTIFICATION"
+  | "PROJECT_DISCOVERY"
+  | "REQUIREMENTS_INVESTIGATION"
+  | "CREATOR_MATCHING"
+  | "PROJECT_BLUEPRINT"
+  | "COMPLETED";
+
+export interface ConversationState {
+  stage: ConversationStage;
+  userOriginalRequest?: string;
+  projectType?: string;
+  projectDomain?: ProjectDomain;
+  projectDescription?: string;
+  targetRole?: string;
+  requirements: {
+    roleType?: string;
+    gender?: string;
+    ageRange?: string;
+    language?: string;
+    actingStyle?: string;
+    shootingLocation?: string;
+    compensation?: string;
+    storyGenre?: string;
+    storyPremise?: string;
+    scriptStatus?: string;
+    duration?: string;
+    budget?: string;
+    crewNeeded?: string[];
+    websitePurpose?: string;
+    targetAudience?: string;
+    keyFeatures?: string[];
+    [key: string]: any;
+  };
+  previouslyAskedQuestions: string[];
+  investigationArea?: "casting" | "story" | "production" | "crew" | "website_purpose" | "features" | "general";
+  matchedCreators?: CreatorRecommendation[];
+  lastSelectedOption?: string;
+}
+
 export type AIResponseLevel =
   | "SIMPLE_ANSWER"
   | "CONTEXTUAL_ANSWER"
@@ -264,6 +305,7 @@ export interface AIStructuredResponse {
   targetRole?: string;
   responseLevel: AIResponseLevel;
   message: string;
+  conversationState?: ConversationState;
   projectAction?: {
     type:
       | "CREATE_BLUEPRINT"
@@ -375,5 +417,6 @@ export interface ChatMessage {
     analysis: string;
   };
   suggestedFollowUps?: string[];
+  conversationState?: ConversationState;
   isThinking?: boolean;
 }

@@ -135,8 +135,16 @@ export async function matchCreatorsForProject(
         const bioLower = (creator.bio || "").toLowerCase();
 
         // 1. Role alignment check
+        const isActorRole = roleLower.includes("actor") || roleLower.includes("actress") || roleLower.includes("acting");
+        const hasActorAffiliation =
+          creator.specialties.some((s) => s.toLowerCase().includes("actor") || s.toLowerCase().includes("acting")) ||
+          creator.skills.some((s) => s.toLowerCase().includes("acting") || s.toLowerCase().includes("actor")) ||
+          (creator.username && creator.username.toLowerCase().includes("actor"));
+
         if (
           creator.roles.some((r) => r.toLowerCase().includes(roleLower) || roleLower.includes(r.toLowerCase())) ||
+          creator.specialties.some((s) => s.toLowerCase().includes(roleLower) || roleLower.includes(s.toLowerCase())) ||
+          (isActorRole && hasActorAffiliation) ||
           bioLower.includes(roleLower.split(" ")[0]) ||
           (creator.role && creator.role.toLowerCase().includes(roleLower.split(" ")[0]))
         ) {

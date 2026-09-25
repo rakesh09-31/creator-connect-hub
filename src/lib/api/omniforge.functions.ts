@@ -11,6 +11,7 @@ const OmniForgeChatInputSchema = z.object({
   text: z.string().min(1, "Message text is required"),
   activeProject: z.any().optional().nullable(),
   conversationHistory: z.array(z.any()).optional().default([]),
+  conversationState: z.any().optional().nullable(),
   userType: z.enum(["creator", "client"]).default("creator"),
   userId: z.string().optional().default("anon"),
 });
@@ -52,11 +53,13 @@ export const omniforgeChatServerFn = createServerFn({ method: "POST" })
     try {
       const activeProject = (data.activeProject as OmniForgeProject) || null;
       const conversationHistory = (data.conversationHistory as ChatMessage[]) || [];
+      const conversationState = data.conversationState || null;
 
       const result = await orchestrateOmniForgeConversation({
         text: data.text,
         activeProject,
         conversationHistory,
+        conversationState,
         userType: data.userType,
         userId: data.userId,
       });
