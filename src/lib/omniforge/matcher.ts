@@ -21,11 +21,11 @@ export async function matchCreatorsForProject(
   coverage: CapabilityCoverage;
 }> {
   try {
-    // 1. Fetch real profiles marked as creators from Supabase
+    // 1. Fetch real profiles marked as creators from Supabase (all 193+ directory profiles)
     const { data: profiles, error: profileErr } = await supabase
       .from("profiles")
-      .select("id, username, full_name, avatar_url, role, bio")
-      .limit(60);
+      .select("id, username, full_name, avatar_url, role, bio, portfolio_url, website, experience_level, availability, account_type")
+      .limit(500);
 
     if (profileErr || !profiles || profiles.length === 0) {
       console.warn("Could not fetch profiles for matching:", profileErr);
@@ -39,11 +39,13 @@ export async function matchCreatorsForProject(
       { data: skillsData },
       { data: specData },
       { data: portfolioData },
+      { data: portfolioItemsData },
       { data: rolesData },
     ] = await Promise.all([
       supabase.from("creator_skills").select("creator_id, skill_id, skills:skill_id(name)").in("creator_id", creatorIds),
       supabase.from("creator_specialties").select("user_id, specialty").in("user_id", creatorIds),
-      supabase.from("portfolios").select("id, user_id, title, media_url, media_type").in("user_id", creatorIds),
+      supabase.from("portfolios").select("id, user_id, title, description, media_url, media_type, project_link").in("user_id", creatorIds),
+      (supabase as any).from("portfolio_items").select("id, user_id, title, description, media_url, media_type, url, tech").in("user_id", creatorIds),
       supabase.from("creator_roles").select("creator_id, role_id, professional_roles:role_id(name)").in("creator_id", creatorIds),
     ]);
 
@@ -54,7 +56,9 @@ export async function matchCreatorsForProject(
       const sname = row.skills?.name || row.skill_id;
       if (sname) {
         const arr = skillsByCreator.get(cid) ?? [];
-        arr.push(String(sname));
+        if (!arr.includes(String(sname))) {
+          arr.push(String(sname));
+        }
         skillsByCreator.set(cid, arr);
       }
     });
@@ -64,17 +68,65 @@ export async function matchCreatorsForProject(
       const cid = row.user_id;
       if (row.specialty) {
         const arr = specsByCreator.get(cid) ?? [];
-        arr.push(String(row.specialty));
+        if (!arr.includes(String(row.specialty))) {
+          arr.push(String(row.specialty));
+        }
         specsByCreator.set(cid, arr);
       }
     });
 
-    const portfolioByCreator = new Map<string, Array<{ title: string; url?: string; mediaType?: string }>>();
+    const portfolioByCreator = new Map<
+      string,
+      Array<{
+        title: string;
+        url?: string;
+        mediaType?: string;
+        description?: string;
+        tech?: string[];
+        projectLink?: string;
+      }>
+    >();
+
+    // Add entries from `portfolios`
     (portfolioData ?? []).forEach((row: any) => {
       const cid = row.user_id || row.creator_id;
       const arr = portfolioByCreator.get(cid) ?? [];
-      arr.push({ title: row.title || "Portfolio Project", url: row.media_url, mediaType: row.media_type });
+      const primaryUrl = row.project_link || row.media_url;
+      arr.push({
+        title: row.title || "Portfolio Project",
+        url: primaryUrl,
+        mediaType: row.media_type,
+        description: row.description,
+        projectLink: row.project_link,
+      });
       portfolioByCreator.set(cid, arr);
+    });
+
+    // Add entries from `portfolio_items` and extract tech skills
+    (portfolioItemsData ?? []).forEach((row: any) => {
+      const cid = row.user_id;
+      const arr = portfolioByCreator.get(cid) ?? [];
+      const primaryUrl = row.url || row.media_url;
+      const techList: string[] = Array.isArray(row.tech) ? row.tech : [];
+      arr.push({
+        title: row.title || "Portfolio Showcase",
+        url: primaryUrl,
+        mediaType: row.media_type,
+        description: row.description,
+        tech: techList,
+      });
+      portfolioByCreator.set(cid, arr);
+
+      // Merge verified tech skills into creator skills lookup
+      if (techList.length > 0) {
+        const creatorSkills = skillsByCreator.get(cid) ?? [];
+        for (const t of techList) {
+          if (t && !creatorSkills.includes(t)) {
+            creatorSkills.push(t);
+          }
+        }
+        skillsByCreator.set(cid, creatorSkills);
+      }
     });
 
     const rolesByCreator = new Map<string, string[]>();
@@ -83,26 +135,40 @@ export async function matchCreatorsForProject(
       const rname = row.professional_roles?.name;
       if (rname) {
         const arr = rolesByCreator.get(cid) ?? [];
-        arr.push(String(rname));
+        if (!arr.includes(String(rname))) {
+          arr.push(String(rname));
+        }
         rolesByCreator.set(cid, arr);
       }
     });
 
     // Assemble RealCreatorProfile objects
-    const realCreators: RealCreatorProfile[] = profiles.map((p) => ({
-      id: p.id,
-      username: p.username || "creator",
-      fullName: p.full_name || p.username || "Creator",
-      avatarUrl: p.avatar_url,
-      role: p.role,
-      bio: p.bio,
-      skills: skillsByCreator.get(p.id) ?? [],
-      specialties: specsByCreator.get(p.id) ?? [],
-      roles: rolesByCreator.get(p.id) ?? [],
-      portfolioItemsCount: (portfolioByCreator.get(p.id) ?? []).length,
-      portfolioSamples: portfolioByCreator.get(p.id) ?? [],
-      availability: "available",
-    }));
+    const realCreators: RealCreatorProfile[] = profiles.map((p) => {
+      const pSamples = portfolioByCreator.get(p.id) ?? [];
+      const primaryPortfolioUrl =
+        p.portfolio_url ||
+        p.website ||
+        pSamples.find((s) => s.url && s.url.startsWith("http"))?.url ||
+        null;
+
+      return {
+        id: p.id,
+        username: p.username || "creator",
+        fullName: p.full_name || p.username || "Creator",
+        avatarUrl: p.avatar_url,
+        role: p.role,
+        bio: p.bio,
+        portfolioUrl: primaryPortfolioUrl,
+        website: p.website,
+        experienceLevel: p.experience_level,
+        skills: skillsByCreator.get(p.id) ?? [],
+        specialties: specsByCreator.get(p.id) ?? [],
+        roles: rolesByCreator.get(p.id) ?? [],
+        portfolioItemsCount: pSamples.length,
+        portfolioSamples: pSamples,
+        availability: (p.availability as any) || "available",
+      };
+    });
 
     // 3. Match real creators against each project role
     const recommendations: CreatorRecommendation[] = [];
@@ -133,23 +199,44 @@ export async function matchCreatorsForProject(
 
         const roleLower = role.roleName.toLowerCase();
         const bioLower = (creator.bio || "").toLowerCase();
+        const uLower = (creator.username || "").toLowerCase();
+        const fLower = (creator.fullName || "").toLowerCase();
+
+        // Direct username or full name match boost
+        const isNameDirectMatch =
+          (uLower && (roleLower.includes(uLower) || role.requiredSkills.some(s => s.toLowerCase().includes(uLower)))) ||
+          (fLower && (roleLower.includes(fLower) || role.requiredSkills.some(s => s.toLowerCase().includes(fLower))));
+
+        if (isNameDirectMatch) {
+          roleAlignment = true;
+          score += 60;
+        }
 
         // 1. Role alignment check
-        const isActorRole = roleLower.includes("actor") || roleLower.includes("actress") || roleLower.includes("acting");
+        const isActorRole = roleLower.includes("actor") || roleLower.includes("actress") || roleLower.includes("acting") || roleLower.includes("performer");
         const hasActorAffiliation =
-          creator.specialties.some((s) => s.toLowerCase().includes("actor") || s.toLowerCase().includes("acting")) ||
-          creator.skills.some((s) => s.toLowerCase().includes("acting") || s.toLowerCase().includes("actor")) ||
-          (creator.username && creator.username.toLowerCase().includes("actor"));
+          creator.roles.some((r) => /act|theat|drama|perform/i.test(r)) ||
+          creator.specialties.some((s) => /act|theat|drama|perform/i.test(s)) ||
+          creator.skills.some((s) => /act|theat|drama|perform/i.test(s)) ||
+          (creator.username && /actor|actress/i.test(creator.username)) ||
+          (bioLower && /actor|actress|acting/i.test(bioLower));
+
+        const isSingerRole = roleLower.includes("singer") || roleLower.includes("vocalist") || roleLower.includes("vocal");
+        const hasSingerAffiliation =
+          creator.roles.some((r) => /sing|vocal|music/i.test(r)) ||
+          creator.specialties.some((s) => /sing|vocal|music/i.test(s)) ||
+          creator.skills.some((s) => /sing|vocal|music/i.test(s));
 
         if (
           creator.roles.some((r) => r.toLowerCase().includes(roleLower) || roleLower.includes(r.toLowerCase())) ||
           creator.specialties.some((s) => s.toLowerCase().includes(roleLower) || roleLower.includes(s.toLowerCase())) ||
           (isActorRole && hasActorAffiliation) ||
+          (isSingerRole && hasSingerAffiliation) ||
           bioLower.includes(roleLower.split(" ")[0]) ||
           (creator.role && creator.role.toLowerCase().includes(roleLower.split(" ")[0]))
         ) {
           roleAlignment = true;
-          score += 35;
+          score += 40;
         }
 
         // 2. Required skills check
@@ -199,7 +286,8 @@ export async function matchCreatorsForProject(
           // Construct explicit evidence-backed match reason
           const reasonParts: string[] = [];
           if (roleAlignment) {
-            reasonParts.push(`specializes in ${role.roleName}`);
+            const displayRole = isActorRole ? "Actor" : isSingerRole ? "Singer" : role.roleName;
+            reasonParts.push(`specializes as a verified ${displayRole}`);
           }
           if (skillsMatched.length > 0) {
             reasonParts.push(`verified skills in ${skillsMatched.slice(0, 3).join(", ")}`);
@@ -383,6 +471,87 @@ export async function matchCreatorsForSingleRole(
   const matched = result.recommendations.filter((r) => r.roleName.toLowerCase().includes(roleName.toLowerCase()) || roleName.toLowerCase().includes(r.roleName.toLowerCase()));
   const alts = result.alternatives[dummyRole.id] || [];
   return [...matched, ...alts];
+}
+
+/**
+ * Searches real creators based directly on extracted conversation requirements:
+ * roles, required skills, budget, project type, and duration.
+ */
+export async function matchCreatorsFromRequirements(
+  reqs: {
+    roles?: string[];
+    targetRole?: string;
+    skills?: string[];
+    domain?: string;
+    projectType?: string;
+    budget?: string;
+    duration?: string;
+  },
+  currentUserId?: string
+): Promise<{
+  recommendations: CreatorRecommendation[];
+  alternatives: Record<string, CreatorRecommendation[]>;
+  coverage: CapabilityCoverage;
+}> {
+  const rolesList: string[] = [];
+  if (reqs.roles && reqs.roles.length > 0) {
+    rolesList.push(...reqs.roles);
+  }
+  if (reqs.targetRole && !rolesList.some((r) => r.toLowerCase() === reqs.targetRole!.toLowerCase())) {
+    rolesList.unshift(reqs.targetRole);
+  }
+
+  if (rolesList.length === 0) {
+    if (reqs.domain === "Film") {
+      rolesList.push("Lead Actor", "Video Editor");
+    } else if (reqs.domain === "Web App") {
+      rolesList.push("Frontend Web Developer", "UI/UX Designer");
+    } else {
+      rolesList.push("Creative Collaborator");
+    }
+  }
+
+  const projectRoles: ProjectRole[] = rolesList.map((roleName, index) => ({
+    id: `role-req-${index}-${Date.now()}`,
+    roleName,
+    category: "Creative",
+    description: `Match for required role: ${roleName}`,
+    requiredCapabilities: [roleName],
+    requiredSkills: reqs.skills && reqs.skills.length > 0 ? reqs.skills : [roleName],
+    estimatedHeadcount: 1,
+    isFilled: false,
+  }));
+
+  const dummyProject: OmniForgeProject = {
+    id: `proj-req-${Date.now()}`,
+    ownerId: currentUserId || "anon",
+    title: reqs.projectType || "Project Requirements",
+    description: "",
+    domain: (reqs.domain as any) || "Film",
+    userType: "creator",
+    stage: "planning",
+    goal: "",
+    targetAudience: "",
+    expectedFinalOutcome: "",
+    complexity: "Moderate",
+    estimatedTotalDuration: reqs.duration || "",
+    deliverables: [],
+    phases: [],
+    roles: projectRoles,
+    parallelWorkstreams: [],
+    recommendations: [],
+    coverage: {
+      totalRequired: projectRoles.length,
+      totalCovered: 0,
+      percentage: 0,
+      coveredCapabilities: [],
+      missingCapabilities: [],
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  return await matchCreatorsForProject(dummyProject, currentUserId);
 }
 
 function createEmptyCoverage(roles: ProjectRole[]): {

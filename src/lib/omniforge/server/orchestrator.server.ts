@@ -238,7 +238,7 @@ export async function orchestrateOmniForgeConversation(
             const sections: string[] = [];
             if (updatedProject) {
               sections.push(`### 📋 Project Architecture: ${updatedProject.title}\n\n**Domain:** ${updatedProject.domain} | **Total Phases:** ${updatedProject.phases.length} | **Roles Required:** ${updatedProject.roles.map(r => r.roleName).join(", ")}\n\n#### Execution Roadmap\n` +
-                updatedProject.phases.map((p, idx) => `**Phase ${idx + 1}: ${p.name}** (${p.estimatedDuration})\n${p.tasks.map(t => `- ${t.name}: ${t.description}`).join("\n")}`).join("\n\n")
+                updatedProject.phases.map((p, idx) => `**Phase ${idx + 1}: ${p.name}** (${p.tasks.length} tasks)\n${p.tasks.map(t => `- ${t.title}: ${t.description}`).join("\n")}`).join("\n\n")
               );
             }
 

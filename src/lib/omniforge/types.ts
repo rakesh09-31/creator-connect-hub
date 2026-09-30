@@ -1,3 +1,5 @@
+export * from "./intent";
+
 export type ProjectDomain =
   | "Film"
   | "Music"
@@ -127,11 +129,21 @@ export interface RealCreatorProfile {
   avatarUrl: string | null;
   role: string | null;
   bio?: string | null;
+  portfolioUrl?: string | null;
+  website?: string | null;
+  experienceLevel?: string | null;
   skills: string[];
   specialties: string[];
   roles: string[];
   portfolioItemsCount: number;
-  portfolioSamples: Array<{ title: string; url?: string; mediaType?: string }>;
+  portfolioSamples: Array<{
+    title: string;
+    url?: string;
+    mediaType?: string;
+    description?: string;
+    tech?: string[];
+    projectLink?: string;
+  }>;
   verifiedAssessmentsCount?: number;
   availability?: "available" | "busy" | "unknown";
 }
@@ -152,6 +164,7 @@ export interface CreatorRecommendation {
   };
   status: RecommendationStatus;
   invitationId?: string;
+  invitationStatus?: "pending" | "accepted" | "declined" | "rejected" | "cancelled";
 }
 
 export interface MissingCapability {
@@ -200,6 +213,8 @@ export interface OmniForgeProject {
   coverage: CapabilityCoverage;
   squadId?: string | null;
   conversationId?: string | null;
+  budget?: string;
+  storyPremise?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -378,12 +393,22 @@ export interface AIStructuredResponse {
   suggestedFollowUps?: string[];
 }
 
+export interface SuggestedRole {
+  role: string;
+  reason: string;
+  skills: string[];
+  priority: "essential" | "optional";
+}
+
 export interface ChatMessage {
   id: string;
   sender: "user" | "ai" | "system";
   text: string;
   timestamp: string;
   intent?: OmniForgeIntent;
+  userIntent?: import("./intent").UserIntent;
+  projectAction?: import("./intent").ProjectActionType;
+  matchingAction?: import("./intent").MatchingActionType;
   responseLevel?: AIResponseLevel;
   sourceMeta?: {
     provider: string;
@@ -399,6 +424,7 @@ export interface ChatMessage {
     type: "generate_blueprint" | "review_team" | "create_squad" | "refine_blueprint";
     label: string;
   };
+  suggestedRoles?: SuggestedRole[];
   roleCard?: {
     roleId?: string;
     roleName: string;
@@ -407,6 +433,9 @@ export interface ChatMessage {
     skills: string[];
   };
   creatorCards?: CreatorRecommendation[];
+  missingCapabilities?: MissingCapability[];
+  matchingStatus?: "idle" | "loading" | "matched" | "empty" | "error";
+  matchingError?: string;
   skillSwapCards?: SkillSwapListingMatch[];
   updateCard?: {
     title: string;
@@ -427,4 +456,8 @@ export interface ChatMessage {
   suggestedFollowUps?: string[];
   conversationState?: ConversationState;
   isThinking?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
+  failedPrompt?: string;
 }
+

@@ -654,12 +654,53 @@ In many independent films, the director also writes the screenplay (an *auteur* 
     };
   }
 
-  if (clean.includes("speed of light")) {
+  if (
+    intent === "HOW_TO" ||
+    clean.includes("how do i make") ||
+    clean.includes("how to make") ||
+    clean.includes("how would i make") ||
+    clean.includes("steps to develop") ||
+    clean.includes("steps to make") ||
+    clean.includes("steps to build")
+  ) {
+    if (currentProject) {
+      const isFilm =
+        currentProject.domain === "Film" ||
+        currentProject.title.toLowerCase().includes("film") ||
+        currentProject.title.toLowerCase().includes("singer") ||
+        currentProject.title.toLowerCase().includes("village");
+
+      if (isFilm) {
+        return {
+          intent: "HOW_TO",
+          responseLevel: "PROJECT_ANALYSIS",
+          message: `To execute **${currentProject.title}**, follow these key production stages:\n\n1. **Pre-Production:** Finalize script, cast lead talent (e.g. Lead Actor / Singer), and scout authentic locations.\n2. **Production:** Direct scenes, capture cinematic footage with natural lighting, and record high-quality location audio.\n3. **Post-Production:** Picture editing, color grading, sound design, and scoring.\n\nWould you like to review the required creators, or should I show you the full plan?`,
+          suggestedFollowUps: [
+            "Show me the plan",
+            "Who do I need?",
+            "Can the director also edit?",
+            "Create a Squad",
+          ],
+        };
+      }
+
+      return {
+        intent: "HOW_TO",
+        responseLevel: "PROJECT_ANALYSIS",
+        message: `To execute **${currentProject.title}**, follow these key development stages:\n\n1. **Design & Planning:** Finalize wireframes, user flows, and tech stack architecture.\n2. **Development:** Build core frontend interfaces and backend API services.\n3. **Testing & QA:** Run integration tests, bug fixes, and deploy to staging/production.\n\nWould you like to review the required team roles, or should I show you the full plan?`,
+        suggestedFollowUps: ["Show me the plan", "Who do I need?", "Create a Squad"],
+      };
+    }
+
     return {
-      intent: "DEFINITION",
+      intent: "HOW_TO",
       responseLevel: "SIMPLE_ANSWER",
-      message: "The speed of light in a vacuum is exactly 299,792,458 meters per second (approximately 300,000 km/s or 186,282 miles per second).",
-      suggestedFollowUps: ["What is AI?", "What can you do?"],
+      message:
+        "To build a project from scratch, break it into 4 core phases:\n1. **Concept & Scope Definition**\n2. **Pre-Production / Architecture Design**\n3. **Execution / Production**\n4. **Polish, Testing & Launch**\n\nWhat kind of project would you like to build?",
+      suggestedFollowUps: [
+        "I want to make a short film",
+        "I want to build a web application",
+      ],
     };
   }
 
@@ -1457,7 +1498,7 @@ export async function processConversationalOmniForgeMessage(
   }
 
   // 7. LEVEL 1: General Knowledge, Definitions & How-To (NO PROJECT CREATION)
-  if (intent === "GENERAL_QUESTION" || intent === "DEFINITION" || intent === "EXPLANATION" || intent === "HOW_TO") {
+  if (intent === "GENERAL_QUESTION" || intent === "DEFINITION" || intent === "EXPLANATION") {
     return handleGeneralDialogue(text, intent, targetRole, currentProject);
   }
 

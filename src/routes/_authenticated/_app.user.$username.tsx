@@ -109,12 +109,17 @@ export function UserProfileView({ identifier }: { identifier: string }) {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
         let q = supabase.from("profiles").select("*");
         if (isUuid) {
-          q = q.or(`id.eq.${identifier},username.eq.${identifier}`);
+          q = q.or(`id.eq.${identifier},auth_user_id.eq.${identifier},username.eq.${identifier}`);
         } else {
-          q = q.eq("username", identifier);
+          q = q.ilike("username", identifier);
         }
 
-        let { data: p, error: pErr } = await q.maybeSingle();
+        const { data: rows, error: pErr } = await q.limit(5);
+        let p = null;
+        if (rows && rows.length > 0) {
+          // Prioritize the enriched directory profile (bio, avatar, or portfolio)
+          p = rows.find((r) => r.bio || r.avatar_url || r.portfolio_url) || rows[0];
+        }
 
         // Fallback in case alphanumeric identifier matches a profile id
         if (!p && !isUuid) {

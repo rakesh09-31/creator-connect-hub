@@ -23,11 +23,14 @@ import {
   CreatorRecommendation,
   MissingCapability,
 } from "@/lib/omniforge/types";
+import { SquadInvitation } from "@/lib/omniforge/collaboration";
 import { CreatorAvatar } from "./CreatorAvatar";
 
 interface TeamRecommendationsViewProps {
   project: OmniForgeProject;
-  onInviteCreator: (recId: string) => void;
+  invitations?: SquadInvitation[];
+  onInviteCandidate?: (candidate: CreatorRecommendation) => void;
+  onInviteCreator?: (recId: string) => void;
   onReplaceCreator: (roleId: string) => void;
   onCompareCandidates: (roleId: string) => void;
   onLaunchSquad: () => void;
@@ -37,6 +40,8 @@ interface TeamRecommendationsViewProps {
 
 export function TeamRecommendationsView({
   project,
+  invitations,
+  onInviteCandidate,
   onInviteCreator,
   onReplaceCreator,
   onCompareCandidates,
@@ -52,7 +57,7 @@ export function TeamRecommendationsView({
 
   const handleInvite = (recId: string) => {
     setInvitedMap((prev) => ({ ...prev, [recId]: true }));
-    onInviteCreator(recId);
+    if (onInviteCreator) onInviteCreator(recId);
   };
 
   return (
@@ -262,27 +267,52 @@ export function TeamRecommendationsView({
                       </button>
                     </div>
 
-                    <button
-                      onClick={() => handleInvite(rec.id)}
-                      disabled={isInvited}
-                      className={`text-xs px-4 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 transition ${
-                        isInvited
-                          ? "bg-success/15 text-success border border-success/30 cursor-default"
-                          : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
-                      }`}
-                    >
-                      {isInvited ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Invited</span>
-                        </>
-                      ) : (
-                        <>
+                    {(() => {
+                      const inv = invitations?.find(
+                        (i) => i.invitee_id === rec.creator.id && i.status !== "cancelled"
+                      );
+                      const invStatus = rec.invitationStatus || inv?.status || (isInvited ? "pending" : undefined);
+
+                      if (invStatus === "pending") {
+                        return (
+                          <span className="text-xs px-3 py-1.5 rounded-xl font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Invite Pending</span>
+                          </span>
+                        );
+                      }
+                      if (invStatus === "accepted") {
+                        return (
+                          <span className="text-xs px-3 py-1.5 rounded-xl font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Member</span>
+                          </span>
+                        );
+                      }
+                      if (invStatus === "declined" || invStatus === "rejected") {
+                        return (
+                          <span className="text-xs px-3 py-1.5 rounded-xl font-semibold bg-rose-500/15 text-rose-500 border border-rose-500/30 flex items-center gap-1.5">
+                            <span>Declined</span>
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <button
+                          onClick={() => {
+                            if (onInviteCandidate) {
+                              onInviteCandidate(rec);
+                            } else {
+                              handleInvite(rec.id);
+                            }
+                          }}
+                          className="text-xs px-4 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 transition bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+                        >
                           <UserPlus className="w-3.5 h-3.5" />
                           <span>Invite to Squad</span>
-                        </>
-                      )}
-                    </button>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               );

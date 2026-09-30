@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Bell, Heart, MessageCircle, UserPlus, Briefcase, Check, X, Loader2 } from "lucide-react";
+import { Bell, Heart, MessageCircle, UserPlus, Briefcase, Check, X, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -16,7 +17,7 @@ type Notif = {
   type: string;
   entity_type: string | null;
   entity_id: string | null;
-  data: Record<string, unknown>;
+  data: Record<string, any>;
   read: boolean;
   created_at: string;
   actor?: { username: string; full_name: string | null; avatar_url: string | null } | null;
@@ -35,7 +36,8 @@ function iconFor(type: string) {
   if (type === "like") return <Heart className="w-4 h-4 text-rose-500" />;
   if (type === "comment") return <MessageCircle className="w-4 h-4 text-blue-500" />;
   if (type === "follow") return <UserPlus className="w-4 h-4 text-emerald-500" />;
-  if (type.startsWith("hire") || type.startsWith("job")) return <Briefcase className="w-4 h-4 text-amber-500" />;
+  if (type === "squad_hire_accepted") return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+  if (type.startsWith("squad_hire") || type.startsWith("hire") || type.startsWith("job")) return <Briefcase className="w-4 h-4 text-amber-500" />;
   return <Bell className="w-4 h-4 text-brand" />;
 }
 
@@ -54,6 +56,12 @@ function labelFor(n: Notif) {
       return `${name} accepted your hire request`;
     case "hire_rejected":
       return `${name} declined your hire request`;
+    case "squad_hire_request":
+      return `${name} wants to hire your squad ${n.data?.squad_name ? `"${n.data.squad_name}"` : "team"}${n.data?.project_name ? ` for "${n.data.project_name}"` : ""}`;
+    case "squad_hire_accepted":
+      return `Your hiring request for ${n.data?.squad_name ? `"${n.data.squad_name}"` : "the squad"} was accepted 🎉`;
+    case "squad_hire_declined":
+      return `Your hiring request for ${n.data?.squad_name ? `"${n.data.squad_name}"` : "the squad"} was declined`;
     case "message":
       return `${name}: ${n.data?.preview ?? "sent you a message"}`;
     case "squad_invite":
@@ -85,11 +93,15 @@ function linkFor(n: Notif): string {
   if (n.entity_type === "creator_request") return `/messages`;
   if (n.entity_type === "job") return `/jobs`;
   if (n.entity_type === "squad" && n.entity_id) return `/squads/${n.entity_id}`;
+  if (n.entity_type === "squad_hiring_request") {
+    if (n.data?.squad_id) return `/squads/${n.data.squad_id}`;
+    return "/notifications";
+  }
   return "/notifications";
 }
 
 function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"all" | "unread">("all");
@@ -98,12 +110,14 @@ function NotificationsPage() {
     if (!user?.id) return;
     let cancelled = false;
 
+    const userIds = Array.from(new Set([user.id, profile?.id].filter(Boolean))) as string[];
+
     const load = async () => {
       setLoading(true);
       const { data: notifs } = await supabase
         .from("notifications")
         .select("*")
-        .eq("user_id", user.id)
+        .in("user_id", userIds)
         .order("created_at", { ascending: false })
         .limit(100);
       const rows = (notifs ?? []) as unknown as Notif[];
@@ -127,8 +141,13 @@ function NotificationsPage() {
       .channel(`notif-page:${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => load(),
+        { event: "*", schema: "public", table: "notifications" },
+        (payload) => {
+          const changedUserId = (payload.new as any)?.user_id;
+          if (userIds.includes(changedUserId)) {
+            load();
+          }
+        },
       )
       .subscribe();
 
@@ -136,7 +155,7 @@ function NotificationsPage() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user?.id, profile?.id]);
 
   const visible = useMemo(
     () => (tab === "unread" ? items.filter((i) => !i.read) : items),
@@ -164,12 +183,13 @@ function NotificationsPage() {
   const respondToSquadNotification = async (n: Notif, accept: boolean) => {
     if (!user?.id || !n.entity_id) return;
     const status = accept ? "accepted" : "rejected";
-    if (n.type === "squad_invite") {
+    if (n.type === "squad_invite" || n.type === "squad_invitation") {
+      const inviteeIds = Array.from(new Set([user.id, profile?.id].filter(Boolean))) as string[];
       const { data } = await supabase
         .from("squad_invitations")
         .select("id")
         .eq("squad_id", n.entity_id)
-        .eq("invitee_id", user.id)
+        .in("invitee_id", inviteeIds)
         .eq("status", "pending")
         .maybeSingle();
       if (!data) return;
@@ -193,7 +213,35 @@ function NotificationsPage() {
     await markOne(n.id, true);
   };
 
-  const actionable = (n: Notif) => n.type === "squad_invite" || n.type === "squad_join_request";
+  const respondToSquadHiringRequest = async (n: Notif, accept: boolean) => {
+    const reqId = (n.data?.request_id as string) || n.entity_id;
+    if (!reqId) return;
+    try {
+      const rpc = accept ? "accept_squad_hiring_request" : "decline_squad_hiring_request";
+      const { error } = await supabase.rpc(rpc, { p_request_id: reqId });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(accept ? "Squad hiring request accepted! Added to workspace chat." : "Squad hiring request declined.");
+      await markOne(n.id, true);
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === n.id
+            ? {
+                ...item,
+                read: true,
+                data: { ...item.data, resolved_status: accept ? "accepted" : "declined" },
+              }
+            : item
+        )
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to respond to hiring request");
+    }
+  };
+
+  const actionable = (n: Notif) => n.type === "squad_invite" || n.type === "squad_invitation" || n.type === "squad_join_request";
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -290,6 +338,96 @@ function NotificationsPage() {
                         >
                           {n.type === "squad_invite" ? "Decline" : "Reject"}
                         </button>
+                      </div>
+                    )}
+
+                    {/* Dedicated Squad Hiring Request Card */}
+                    {n.type === "squad_hire_request" && (
+                      <div className="mt-3 p-3.5 rounded-xl bg-surface/90 border border-border space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            New Squad Hiring Request
+                          </span>
+                          {n.data?.squad_name && (
+                            <span className="font-semibold text-foreground truncate">
+                              Squad: <span className="text-brand">{String(n.data.squad_name)}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {n.data?.project_name && (
+                          <p className="text-foreground font-medium">
+                            <span className="text-muted-foreground font-normal">Project:</span> {String(n.data.project_name)}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-4 text-muted-foreground pt-0.5">
+                          {n.data?.budget && (
+                            <span>
+                              <strong className="text-foreground font-semibold">Budget:</strong> {String(n.data.budget)}
+                            </span>
+                          )}
+                          {n.data?.timeline && (
+                            <span>
+                              <strong className="text-foreground font-semibold">Timeline:</strong> {String(n.data.timeline)}
+                            </span>
+                          )}
+                        </div>
+
+                        {n.data?.message && (
+                          <div className="text-foreground/90 italic bg-background/80 p-2.5 rounded-lg border border-border text-[11px] leading-relaxed">
+                            "{String(n.data.message)}"
+                          </div>
+                        )}
+
+                        <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60">
+                          {n.data?.squad_id ? (
+                            <Link
+                              to="/squads/$squadId"
+                              params={{ squadId: String(n.data.squad_id) }}
+                              className="text-[11px] font-semibold text-brand hover:underline flex items-center gap-1"
+                            >
+                              View Squad & Workspace →
+                            </Link>
+                          ) : (
+                            <span />
+                          )}
+
+                          {n.data?.resolved_status ? (
+                            <span
+                              className={`text-[11px] font-semibold px-2.5 py-1 rounded-md ${
+                                n.data.resolved_status === "accepted"
+                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                                  : "bg-muted text-muted-foreground border border-border"
+                              }`}
+                            >
+                              {n.data.resolved_status === "accepted" ? "Accepted ✓" : "Declined ✕"}
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void respondToSquadHiringRequest(n, true);
+                                }}
+                                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  void respondToSquadHiringRequest(n, false);
+                                }}
+                                className="rounded-lg border border-border hover:bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

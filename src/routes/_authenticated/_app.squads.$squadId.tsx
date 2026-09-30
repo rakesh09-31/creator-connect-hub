@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { ChatThread, type Conv } from "./_app.messages";
+import { HireSquadModal } from "@/components/squads/HireSquadModal";
 
 export const Route = createFileRoute("/_authenticated/_app/squads/$squadId")({
   component: SquadDetailPage,
@@ -15,6 +16,21 @@ type Profile = { id: string; username: string; full_name: string | null; avatar_
 type Member = { id: string; user_id: string; role: string; profile?: Profile };
 type Invite = { id: string; squad_id: string; inviter_id: string; invitee_id: string; status: string; profile?: Profile };
 type JoinRequest = { id: string; squad_id: string; user_id: string; message: string | null; status: string; profile?: Profile };
+type SquadHiringRequest = {
+  id: string;
+  squad_id: string;
+  client_id: string;
+  client_profile_id: string | null;
+  leader_profile_id: string;
+  project_name: string;
+  project_brief: string | null;
+  budget: string | null;
+  timeline: string | null;
+  message: string | null;
+  status: string;
+  created_at: string;
+  client_profile?: Profile;
+};
 
 const sb: any = supabase;
 
@@ -30,6 +46,9 @@ function SquadDetailPage() {
   const [myRequest, setMyRequest] = useState<JoinRequest | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hiringReqs, setHiringReqs] = useState<SquadHiringRequest[]>([]);
+  const [myHiringRequest, setMyHiringRequest] = useState<SquadHiringRequest | null>(null);
+  const [showHireModal, setShowHireModal] = useState(false);
   
   const [tab, setTab] = useState<"about" | "chat">("about");
   const [convObj, setConvObj] = useState<Conv | null>(null);
@@ -56,18 +75,60 @@ function SquadDetailPage() {
     setJoinReqs(await hydrateProfiles((jr ?? []) as JoinRequest[], "user_id"));
 
     if (user) {
-      const { data: mine } = await sb.from("squad_invitations").select("*").eq("squad_id", squadId).eq("invitee_id", user.id).eq("status", "pending").maybeSingle();
+      const myIds = Array.from(new Set([user.id, profile?.id].filter(Boolean))) as string[];
+      const { data: mine } = await sb
+        .from("squad_invitations")
+        .select("*")
+        .eq("squad_id", squadId)
+        .in("invitee_id", myIds)
+        .eq("status", "pending")
+        .maybeSingle();
       setMyInvite(mine as Invite | null);
-      const { data: myReq } = await sb.from("squad_join_requests").select("*").eq("squad_id", squadId).eq("user_id", user.id).eq("status", "pending").maybeSingle();
+
+      const { data: myReq } = await sb
+        .from("squad_join_requests")
+        .select("*")
+        .eq("squad_id", squadId)
+        .in("user_id", myIds)
+        .eq("status", "pending")
+        .maybeSingle();
       setMyRequest(myReq as JoinRequest | null);
+    }
+
+    // Load squad hiring requests
+    const { data: hr } = await supabase
+      .from("squad_hiring_requests")
+      .select("*")
+      .eq("squad_id", squadId)
+      .order("created_at", { ascending: false });
+
+    if (hr && hr.length > 0) {
+      const clientIds = Array.from(new Set((hr as any[]).map((r) => r.client_profile_id || r.client_id).filter(Boolean))) as string[];
+      let cMap = new Map<string, Profile>();
+      if (clientIds.length) {
+        const { data: clientProfs } = await supabase.from("profiles").select("id, username, full_name, avatar_url, role").in("id", clientIds);
+        cMap = new Map((clientProfs || []).map((p: any) => [p.id, p]));
+      }
+      setHiringReqs((hr as any[]).map((r) => ({
+        ...r,
+        client_profile: cMap.get(r.client_profile_id || r.client_id)
+      })));
+      if (user) {
+        const mine = (hr as any[]).find((r) => r.client_id === user.id);
+        setMyHiringRequest(mine || null);
+      }
+    } else {
+      setHiringReqs([]);
+      setMyHiringRequest(null);
     }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [squadId, user?.id]);
+  useEffect(() => { load(); }, [squadId, user?.id, profile?.id]);
 
-  const meMember = members.find((m) => m.user_id === user?.id);
-  const isOwner = squad && user && squad.owner_id === user.id;
+  const myIds = new Set([user?.id, profile?.id].filter(Boolean));
+  const meMember = members.find((m) => myIds.has(m.user_id));
+  const isOwner = squad && user && (squad.owner_id === user.id || (profile?.id && squad.owner_id === profile.id));
   const isAdmin = isOwner || meMember?.role === "admin";
   const isMember = !!meMember;
   const isClient = (profile as any)?.role === "client";
@@ -122,7 +183,8 @@ function SquadDetailPage() {
 
   const requestJoin = async () => {
     if (!user) return;
-    const { error } = await sb.from("squad_join_requests").insert({ squad_id: squadId, user_id: user.id });
+    const uid = profile?.id || user.id;
+    const { error } = await sb.from("squad_join_requests").insert({ squad_id: squadId, user_id: uid });
     if (error) { toast.error(error.message); return; }
     toast.success("Request sent");
     load();
@@ -137,6 +199,18 @@ function SquadDetailPage() {
   const respondJoinReq = async (id: string, status: "accepted" | "rejected") => {
     await sb.from("squad_join_requests").update({ status }).eq("id", id);
     load();
+  };
+
+  const respondHiringReq = async (id: string, accept: boolean) => {
+    try {
+      const rpc = accept ? "accept_squad_hiring_request" : "decline_squad_hiring_request";
+      const { error } = await supabase.rpc(rpc, { p_request_id: id });
+      if (error) throw error;
+      toast.success(accept ? "Hiring request accepted" : "Hiring request declined");
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to respond to request");
+    }
   };
 
   const cancelInvite = async (id: string) => {
@@ -201,6 +275,26 @@ function SquadDetailPage() {
               {!isMember && myRequest && (
                 <button onClick={cancelRequest} className="px-5 py-2 bg-black/20 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 transition hover:bg-black/30"><Clock className="w-4 h-4" /> Request pending</button>
               )}
+              {isClient && !isMember && !isOwner && (
+                <>
+                  {myHiringRequest?.status === "pending" ? (
+                    <span className="px-5 py-2 bg-amber-500/20 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 backdrop-blur-sm border border-amber-400/30 shadow-sm">
+                      <Clock className="w-4 h-4" /> Hiring Request Pending
+                    </span>
+                  ) : myHiringRequest?.status === "accepted" ? (
+                    <span className="px-5 py-2 bg-emerald-500/30 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 backdrop-blur-sm border border-emerald-400/40 shadow-sm">
+                      <Check className="w-4 h-4" /> Squad Hired
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setShowHireModal(true)}
+                      className="px-5 py-2 bg-white text-purple-700 rounded-xl text-sm font-bold flex items-center gap-1.5 transition hover:bg-white/90 shadow-sm"
+                    >
+                      <Users className="w-4 h-4" /> Hire Squad
+                    </button>
+                  )}
+                </>
+              )}
               {(isMember || isClient) && (
                 <button onClick={() => setTab("chat")} className={`px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 transition shadow-sm ${tab === "chat" ? "bg-white text-purple-700" : "bg-white/20 text-white hover:bg-white/30"}`}>
                   <MessageCircle className="w-4 h-4" /> Squad Chat
@@ -236,6 +330,90 @@ function SquadDetailPage() {
         {tab === "about" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
             
+            {isAdmin && hiringReqs.length > 0 && (
+              <section className="bg-surface border border-border p-5 rounded-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Client Hiring Requests ({hiringReqs.length})
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {hiringReqs.map((hr) => (
+                    <div
+                      key={hr.id}
+                      className="bg-background rounded-xl p-4 border border-border space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <Link
+                          to="/user/$username"
+                          params={{ username: hr.client_profile?.username || hr.client_id }}
+                          className="flex items-center gap-3 hover:opacity-80 transition min-w-0"
+                        >
+                          <Avatar profile={hr.client_profile} />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">
+                              {hr.client_profile?.full_name || hr.client_profile?.username || "Client"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              @{hr.client_profile?.username || "client"}
+                            </p>
+                          </div>
+                        </Link>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                            hr.status === "pending"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                              : hr.status === "accepted"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {hr.status}
+                        </span>
+                      </div>
+
+                      <div className="text-xs space-y-1 bg-surface/50 p-3 rounded-lg border border-border/50">
+                        <p className="font-semibold text-foreground">
+                          Project: <span className="font-normal">{hr.project_name}</span>
+                        </p>
+                        {hr.project_brief && (
+                          <p className="text-muted-foreground leading-relaxed">
+                            {hr.project_brief}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-4 pt-1 text-muted-foreground">
+                          {hr.budget && <span>Budget: <strong className="text-foreground">{hr.budget}</strong></span>}
+                          {hr.timeline && <span>Timeline: <strong className="text-foreground">{hr.timeline}</strong></span>}
+                        </div>
+                        {hr.message && (
+                          <p className="italic text-foreground/80 pt-1 border-t border-border/50">
+                            "{hr.message}"
+                          </p>
+                        )}
+                      </div>
+
+                      {hr.status === "pending" && (
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            onClick={() => respondHiringReq(hr.id, true)}
+                            className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:opacity-90 transition shadow-sm"
+                          >
+                            Accept Request
+                          </button>
+                          <button
+                            onClick={() => respondHiringReq(hr.id, false)}
+                            className="px-4 py-1.5 bg-muted text-foreground hover:bg-muted/80 rounded-lg text-xs font-bold transition"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {isAdmin && joinReqs.length > 0 && (
               <section className="bg-surface border border-border p-5 rounded-2xl">
                 <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Join requests ({joinReqs.length})</h2>
@@ -339,6 +517,13 @@ function SquadDetailPage() {
           inviterId={user!.id}
           onClose={() => setShowAdd(false)}
           onAdded={() => { setShowAdd(false); load(); }}
+        />
+      )}
+      {showHireModal && squad && (
+        <HireSquadModal
+          squad={squad}
+          onClose={() => setShowHireModal(false)}
+          onSuccess={() => load()}
         />
       )}
     </div>

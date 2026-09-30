@@ -4,6 +4,7 @@ import { Users, Plus, X, Search, Sparkles, Filter, ChevronRight } from "lucide-r
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { HireSquadModal } from "@/components/squads/HireSquadModal";
 
 export const Route = createFileRoute("/_authenticated/_app/squads")({
   head: () => ({ meta: [{ title: "Squads — Omnicraft" }] }),
@@ -37,6 +38,8 @@ function SquadsPage() {
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [loading, setLoading] = useState(true);
+  const [hireTarget, setHireTarget] = useState<Squad | null>(null);
+  const isClient = profile?.role === "client";
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -226,7 +229,13 @@ function SquadsPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {filteredSquads.map((squad) => (
-              <SquadCard key={squad.id} squad={squad} memberCount={memberCounts[squad.id] ?? 0} />
+              <SquadCard
+                key={squad.id}
+                squad={squad}
+                memberCount={memberCounts[squad.id] ?? 0}
+                isClient={isClient}
+                onHire={(s) => setHireTarget(s)}
+              />
             ))}
           </div>
         )}
@@ -245,48 +254,84 @@ function SquadsPage() {
       {showMySquadsModal && (
         <MySquadsModal squads={mySquads} onClose={() => setShowMySquadsModal(false)} />
       )}
+      {hireTarget && (
+        <HireSquadModal
+          squad={hireTarget}
+          onClose={() => setHireTarget(null)}
+          onSuccess={() => void load()}
+        />
+      )}
     </div>
   );
 }
 
-function SquadCard({ squad, memberCount }: { squad: Squad; memberCount: number }) {
+function SquadCard({
+  squad,
+  memberCount,
+  isClient,
+  onHire,
+}: {
+  squad: Squad;
+  memberCount: number;
+  isClient?: boolean;
+  onHire?: (squad: Squad) => void;
+}) {
   const badge = (squad.privacy || "public").toLowerCase();
   const navigate = useNavigate();
   return (
-    <button
-      type="button"
+    <div
       onClick={() => navigate({ to: "/squads/$squadId", params: { squadId: squad.id } })}
-      className="group flex w-full items-start gap-3 rounded-3xl border border-border bg-surface/90 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex flex-col justify-between w-full rounded-3xl border border-border bg-surface/90 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg cursor-pointer"
     >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-500 text-xl font-black text-white">
-        {squad.avatar_url ? (
-          <img src={squad.avatar_url} alt="" className="h-full w-full object-cover" />
-        ) : (
-          squad.name.slice(0, 1).toUpperCase()
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-semibold text-foreground">{squad.name}</p>
-          <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-fuchsia-700">
-            {badge}
-          </span>
+      <div className="flex items-start gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-500 text-xl font-black text-white shadow-sm">
+          {squad.avatar_url ? (
+            <img src={squad.avatar_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            squad.name.slice(0, 1).toUpperCase()
+          )}
         </div>
-        {squad.specialty && (
-          <p className="mt-1 text-sm font-medium text-fuchsia-700">{squad.specialty}</p>
-        )}
-        {squad.description && (
-          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{squad.description}</p>
-        )}
-        <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-semibold text-foreground">{squad.name}</p>
+            <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 dark:bg-fuchsia-950/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-fuchsia-700 dark:text-fuchsia-400">
+              {badge}
+            </span>
+          </div>
+          {squad.specialty && (
+            <p className="mt-1 text-sm font-medium text-fuchsia-700 dark:text-fuchsia-400">{squad.specialty}</p>
+          )}
+          {squad.description && (
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{squad.description}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-1.5">
           <Users className="h-4 w-4" />
-          <span>
+          <span className="text-xs font-medium">
             {memberCount} member{memberCount === 1 ? "" : "s"}
           </span>
-          <ChevronRight className="ml-auto h-4 w-4 transition group-hover:translate-x-0.5" />
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isClient && onHire && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onHire(squad);
+              }}
+              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:opacity-90 transition shadow-sm"
+            >
+              Hire Squad
+            </button>
+          )}
+          <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

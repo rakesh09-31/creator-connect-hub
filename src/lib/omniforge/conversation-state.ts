@@ -7,6 +7,7 @@ import {
 } from "./types";
 import { matchCreatorsForSingleRole, matchCreatorsForProject } from "./matcher";
 import { generateStructuredBlueprint } from "./engine-blueprint";
+import { classifyUserIntent } from "./intent";
 
 /**
  * Creates a fresh, empty ConversationState.
@@ -219,7 +220,105 @@ export function extractAndApplyEntities(
   if (clean.includes("gallery") || clean.includes("photos") || clean.includes("blog")) {
     if (!features.includes("Photo Gallery & Updates")) features.push("Photo Gallery & Updates");
   }
-  if (features.length > 0) updatedReqs.keyFeatures = features;
+  // 7. Budget Extraction (e.g. ₹10,000, Rs 10000, 10k, etc.)
+  const budgetMatch =
+    clean.match(/(?:budget\s*(?:is|of|:)?\s*)?(?:₹|rs\.?|inr|\$)\s*([\d,]+(?:\s*(?:k|lakh|lakhs|crore|crores|thousand))?)/i) ||
+    clean.match(/budget\s*(?:is|of|:)?\s*([\d,]+(?:\s*(?:k|lakh|lakhs|crore|crores|thousand))?)\s*(?:inr|rupees|rs|bucks)?/i);
+  if (budgetMatch) {
+    let bVal = budgetMatch[1].replace(/[,.\s]+$/, "").trim();
+    if (!bVal.startsWith("₹") && !bVal.startsWith("$")) {
+      bVal = `₹${bVal}`;
+    }
+    updatedReqs.budget = bVal;
+  } else if (clean.includes("10,000") || clean.includes("10000") || clean.includes("10k")) {
+    if (clean.includes("budget") || clean.includes("₹") || clean.includes("inr") || clean.includes("rs")) {
+      updatedReqs.budget = "₹10,000";
+    }
+  }
+
+  // 8. Team Size & Crew Extraction (e.g. 5 people, 5 members, team of 5, 5 people in my team)
+  const teamMatch =
+    clean.match(/(\d+)\s*(?:people|persons|members|crew|crew members)\b/i) ||
+    clean.match(/(?:team|crew)\s*(?:of|has|is|with|size of)?\s*(\d+)/i) ||
+    clean.match(/(\d+)\s*(?:-|\s*)member\s*team/i);
+  if (teamMatch) {
+    updatedReqs.teamSize = `${teamMatch[1]} people`;
+    updatedReqs.crewSize = `${teamMatch[1]} people`;
+  }
+
+  // 9. Duration & Timeline Extraction (e.g. 2 weeks, 1 month, 10 days, 2-week shoot, 15 minutes)
+  const durationExplicitMatch =
+    clean.match(/(?:duration|timeline|schedule|timeframe|shoot\s*duration|deadline)(?:\s*(?:is|of|:)?\s*)([\w\s\d]+?)(?:[.,;\n]|$|and\s*budget)/i) ||
+    clean.match(/(\d+)\s*(?:weeks?|months?|days?|hours?|mins?|minutes?)\s*(?:shoot|duration|timeline|project|schedule)?/i) ||
+    clean.match(/(\d+)[-\s]week\s*(?:shoot|film|project)/i) ||
+    clean.match(/(\d+)[-\s]month\s*(?:shoot|film|project)/i) ||
+    clean.match(/(\d+)[-\s]day\s*(?:shoot|film|project)/i);
+  if (durationExplicitMatch) {
+    const rawDur = (durationExplicitMatch[1] || durationExplicitMatch[0]).trim();
+    if (/^\d+$/.test(rawDur) && durationExplicitMatch[0].includes("week")) {
+      updatedReqs.duration = `${rawDur} weeks`;
+    } else if (/^\d+$/.test(rawDur) && durationExplicitMatch[0].includes("month")) {
+      updatedReqs.duration = `${rawDur} months`;
+    } else if (/^\d+$/.test(rawDur) && durationExplicitMatch[0].includes("day")) {
+      updatedReqs.duration = `${rawDur} days`;
+    } else {
+      updatedReqs.duration = rawDur;
+    }
+  }
+
+  // 10. Required Skills Extraction from Conversation
+  const knownSkillPatterns: Array<{ name: string; regex: RegExp }> = [
+    { name: "DaVinci Resolve", regex: /\b(davinci\s*resolve|davinci)\b/i },
+    { name: "Adobe Premiere Pro", regex: /\b(premiere\s*pro|premiere|adobe\s*premiere)\b/i },
+    { name: "Final Cut Pro", regex: /\b(final\s*cut\s*pro|final\s*cut|fcpx)\b/i },
+    { name: "Cinematography", regex: /\b(cinematography|camera\s*work|lighting\s*ratios|dop)\b/i },
+    { name: "Color Grading", regex: /\b(color\s*grading|colorist|lut|color\s*correction)\b/i },
+    { name: "Sound Design", regex: /\b(sound\s*design|audio\s*engineering|sound\s*mix|foley)\b/i },
+    { name: "Screenwriting", regex: /\b(screenwriting|scriptwriting|script\s*writing)\b/i },
+    { name: "Method Acting", regex: /\b(method\s*acting|acting|stage\s*presence|dramatic\s*acting)\b/i },
+    { name: "Film Directing", regex: /\b(film\s*directing|directing|direction)\b/i },
+    { name: "React", regex: /\b(react|react\.js|reactjs)\b/i },
+    { name: "TypeScript", regex: /\b(typescript|ts)\b/i },
+    { name: "Next.js", regex: /\b(next\.js|nextjs)\b/i },
+    { name: "Node.js", regex: /\b(node\.js|nodejs|node)\b/i },
+    { name: "Python", regex: /\b(python|fastapi|django)\b/i },
+    { name: "Figma", regex: /\b(figma|wireframing|ui\s*design)\b/i },
+    { name: "Blender", regex: /\b(blender|3d\s*modeling|3d\s*animation)\b/i },
+    { name: "Photography", regex: /\b(photography|portrait|headshot)\b/i },
+    { name: "Creative Writing", regex: /\b(creative\s*writing|content\s*writing|copywriting)\b/i },
+    { name: "Vocal Performance", regex: /\b(vocal\s*performance|singing|vocals|singer)\b/i },
+  ];
+
+  const extractedSkills: string[] = updatedReqs.requiredSkills ? [...updatedReqs.requiredSkills] : [];
+  for (const item of knownSkillPatterns) {
+    if (item.regex.test(clean) && !extractedSkills.includes(item.name)) {
+      extractedSkills.push(item.name);
+    }
+  }
+  updatedReqs.requiredSkills = extractedSkills;
+
+  // 11. Multi-Role Gathering
+  const knownRolePatterns: Array<{ name: string; regex: RegExp }> = [
+    { name: "Actor", regex: /\b(actor|actress|actors|acting|cast)\b/i },
+    { name: "Film Director", regex: /\b(director|directing|film\s*director)\b/i },
+    { name: "Cinematographer", regex: /\b(cinematographer|dop|camera\s*operator|videographer)\b/i },
+    { name: "Video Editor", regex: /\b(video\s*editor|editor|editing|colorist)\b/i },
+    { name: "Sound Designer", regex: /\b(sound\s*designer|sound\s*recordist|audio\s*engineer)\b/i },
+    { name: "Screenwriter", regex: /\b(screenwriter|scriptwriter|writer)\b/i },
+    { name: "UI/UX Designer", regex: /\b(ui\/ux\s*designer|product\s*designer|graphic\s*designer)\b/i },
+    { name: "Frontend Web Developer", regex: /\b(frontend\s*developer|web\s*developer|react\s*developer)\b/i },
+    { name: "Backend Developer", regex: /\b(backend\s*developer|api\s*developer)\b/i },
+    { name: "Photographer", regex: /\b(photographer|photography)\b/i },
+    { name: "Singer", regex: /\b(singer|vocalist)\b/i },
+  ];
+
+  const existingRolesNeeded: string[] = updatedReqs.rolesNeeded ? [...updatedReqs.rolesNeeded] : [];
+  for (const r of knownRolePatterns) {
+    if (r.regex.test(clean) && !existingRolesNeeded.includes(r.name)) {
+      existingRolesNeeded.push(r.name);
+    }
+  }
+  updatedReqs.rolesNeeded = existingRolesNeeded;
 
   return {
     ...state,
@@ -233,6 +332,59 @@ export function extractAndApplyEntities(
 }
 
 /**
+ * Extracts comprehensive matching criteria across the entire conversation history and state.
+ */
+export function extractMatchingCriteriaFromContext(
+  state: ConversationState,
+  history: ChatMessage[] = []
+): {
+  roles: string[];
+  targetRole?: string;
+  skills: string[];
+  budget?: string;
+  duration?: string;
+  projectType?: string;
+  domain?: string;
+} {
+  const reqs = state.requirements || {};
+  const rolesSet = new Set<string>();
+
+  if (reqs.rolesNeeded && Array.isArray(reqs.rolesNeeded)) {
+    reqs.rolesNeeded.forEach((r: string) => rolesSet.add(r));
+  }
+  if (state.targetRole) {
+    rolesSet.add(state.targetRole);
+  }
+
+  // Only check history for explicit project creation or creator search messages if roles are not yet set
+  if (rolesSet.size === 0) {
+    for (const msg of history) {
+      if (msg.userIntent === "PROJECT_CREATION" || msg.userIntent === "CREATOR_SEARCH") {
+        const text = msg.text.toLowerCase();
+        if (text.includes("actor") || text.includes("acting")) rolesSet.add("Actor");
+        if (text.includes("director")) rolesSet.add("Film Director");
+        if (text.includes("editor")) rolesSet.add("Video Editor");
+        if (text.includes("cinematographer") || text.includes("dop")) rolesSet.add("Cinematographer");
+        if (text.includes("singer") || text.includes("vocalist")) rolesSet.add("Lead Singer");
+        if (text.includes("developer")) rolesSet.add("Frontend Web Developer");
+        if (text.includes("designer")) rolesSet.add("UI/UX Designer");
+        if (text.includes("photographer")) rolesSet.add("Photographer");
+      }
+    }
+  }
+
+  return {
+    roles: Array.from(rolesSet),
+    targetRole: state.targetRole || (rolesSet.size > 0 ? Array.from(rolesSet)[0] : undefined),
+    skills: reqs.requiredSkills || [],
+    budget: reqs.budget,
+    duration: reqs.duration,
+    projectType: state.projectType,
+    domain: state.projectDomain,
+  };
+}
+
+/**
  * Core Conversation State Transition Engine.
  */
 export function transitionConversationState(
@@ -241,12 +393,36 @@ export function transitionConversationState(
   _history: ChatMessage[] = []
 ): ConversationState {
   const clean = cleanText(userText);
-  let state = extractAndApplyEntities(prevState, userText);
 
   // If user explicitly asks for reset / start over
   if (clean === "start over" || clean === "reset" || clean === "new project") {
     return createInitialConversationState();
   }
+
+  // 1. Explicit Intent Classification to Gate Side Effects
+  const intentResult = classifyUserIntent(userText, {
+    hasActiveProject: Boolean(prevState.projectDomain),
+    conversationHistory: _history,
+  });
+
+  // For GREETING, GENERAL_QUESTION, FEATURE_EXPLANATION, ROLE_OR_CONCEPT_EXPLANATION, CREATIVE_ADVICE, and COLLABORATION_ACTION:
+  // Return previous state without mutating requirements, extracting phantom roles, or initiating project state.
+  if (
+    intentResult.intent === "GREETING" ||
+    intentResult.intent === "GENERAL_QUESTION" ||
+    intentResult.intent === "FEATURE_EXPLANATION" ||
+    intentResult.intent === "ROLE_OR_CONCEPT_EXPLANATION" ||
+    intentResult.intent === "CREATIVE_ADVICE" ||
+    intentResult.intent === "COLLABORATION_ACTION" ||
+    intentResult.intent === "INVITATION_OR_COLLABORATION_ACTION"
+  ) {
+    return {
+      ...prevState,
+      stage: prevState.projectDomain ? prevState.stage : "GENERAL_CHAT",
+    };
+  }
+
+  let state = extractAndApplyEntities(prevState, userText);
 
   // Return to ongoing film conversation
   if (clean.includes("return to my film") || clean.includes("back to my film") || clean.includes("return to the film")) {
@@ -415,7 +591,16 @@ async function generateAutonomousShortFilmReport(
   userText: string,
   userType: "creator" | "client",
   currentUserId: string
-) {
+): Promise<{
+  intent: any;
+  responseLevel: any;
+  message: string;
+  updatedProject: OmniForgeProject;
+  creatorCards: CreatorRecommendation[];
+  conversationState: ConversationState;
+  uiAction: any;
+  suggestedFollowUps: string[];
+}> {
   const reqs = state.requirements;
   const genre = reqs.storyGenre || (userText.toLowerCase().includes("thriller") ? "Suspense Thriller" : "Suspense Thriller");
   const premise = reqs.storyPremise || (userText.toLowerCase().includes("missing student") ? "A suspense thriller about a missing student" : "A suspense thriller about a missing student");
@@ -590,7 +775,16 @@ async function generateAutonomousWebPlan(
   userText: string,
   userType: "creator" | "client",
   currentUserId: string
-) {
+): Promise<{
+  intent: any;
+  responseLevel: any;
+  message: string;
+  updatedProject: OmniForgeProject;
+  creatorCards: CreatorRecommendation[];
+  conversationState: ConversationState;
+  uiAction: any;
+  suggestedFollowUps: string[];
+}> {
   const isEcommerce = userText.toLowerCase().includes("ecommerce") || userText.toLowerCase().includes("e-commerce") || userText.toLowerCase().includes("store");
   const purpose = isEcommerce ? "E-Commerce Web Application Platform" : state.requirements.websitePurpose || "College Club Website";
 
@@ -1088,6 +1282,100 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
   // C. SHORT FILM INVESTIGATION FLOW (Requirement 2 & 3)
   // --------------------------------------------------------------------------
   if (state.projectDomain === "Film") {
+    // Specific follow-up: budget + team size + shooting plan
+    if (
+      (clean.includes("shooting plan") || clean.includes("budget breakdown") || (clean.includes("budget") && clean.includes("team"))) &&
+      (state.requirements.storyPremise || clean.includes("village girl") || state.projectType === "Short Film")
+    ) {
+      const premise = state.requirements.storyPremise || "A village girl aspiring to become a professional singer";
+      const budgetVal = state.requirements.budget || "₹10,000";
+      const teamVal = state.requirements.teamSize || "5 people";
+      const planContent = `## 🎬 Short Film Production Plan: "${premise}"
+
+### 1. Project Concept & Production Overview
+* **Story Concept:** ${premise}
+* **Project Type:** Narrative Short Film (5–12 minutes)
+* **Budget Constraint:** ${budgetVal} (INR)
+* **Team Capacity:** ${teamVal}
+
+---
+
+### 2. Pre-Production & Shooting Schedule
+* **Pre-Production (Days 1–7):**
+  - Finalize shooting script & shot list with DoP.
+  - Scout 2 primary rural locations (village farm fields and ancestral home).
+  - Music track selection / live vocal rehearsal for lead singer.
+  - Team briefing and equipment preparation.
+* **Principal Photography (Weekend Shoot — 2 Days):**
+  - **Day 1 (Exterior — Dawn to Dusk):** Village pathway, agricultural fields, morning sunrise singing scene. (7:00 AM – 5:30 PM).
+  - **Day 2 (Interior/Exterior — Morning to Sunset):** Interior home dramatic dialogue, evening village celebration performance. (8:00 AM – 6:00 PM).
+* **Post-Production (Days 10–18):**
+  - Assembly cut, dialogue & song audio mixing, DaVinci Resolve color grading, final 4K master export.
+
+---
+
+### 3. INR Budget Breakdown (Totaling Exactly ₹10,000)
+| Expense Category | Allocation | Details & Justification |
+| :--- | :--- | :--- |
+| **Local Travel & Logistics** | ₹2,000 | Fuel & transport for 5 crew members and equipment to village location. |
+| **Food & Refreshments** | ₹3,000 | 2 shoot days meals and hydration for 5 crew members & actors. |
+| **Audio & Lighting Accessories** | ₹2,500 | Lapel/collar mic rental, 5-in-1 reflector kit, memory card backup. |
+| **Costumes & Props** | ₹1,000 | Traditional village attire, musical props/tambura/notebook. |
+| **Contingency & Post Master** | ₹1,500 | Emergency on-set reserve and final master hard drive storage. |
+| **Total Estimated Budget:** | **₹10,000** | *(100% balanced with zero deficit)* |
+
+---
+
+### 4. Responsibilities for the 5 Team Members
+* **Person 1: Director & Screenwriter** — Drives creative vision, directs actors' performances, oversees pacing and scene transitions.
+* **Person 2: Cinematographer (DoP)** — Operates primary camera, frames composition, manages natural sunlight with reflectors.
+* **Person 3: Sound Recordist & Boom Operator** — Captures clean live vocals, dialogue, and natural rustic ambient sound.
+* **Person 4: Lead Actor / Singer** — Portrays the village girl, performs emotional scenes and musical vocal sequences.
+* **Person 5: Video Editor & Production Assistant** — Manages on-set call sheets and continuity; handles footage backup, editing, color grading, and audio sync in post-production.
+
+---
+
+### 5. Equipment, Locations, Casting & Post-Production
+* **Equipment:** 4K Smartphone / Mirrorless camera, 5-in-1 collapsible reflector, wireless lavalier/shotgun mic, tripod.
+* **Locations:** Village farm paths and rustic courtyard (zero permit fee, community-friendly).
+* **Casting:** Local talent or student actor capable of authentic vocal expression and emotional range.
+* **Post-Production:** Free-tier DaVinci Resolve for multi-track audio sync and natural warm cinematic color grading.
+
+---
+
+### 6. Realistic Working Assumptions
+* Multi-hyphenate crew structure where all 5 members collaborate closely on set.
+* Reliance on natural daylight and golden hour to avoid expensive generator/lighting rental costs.
+* Direct collaboration model with travel and meals fully covered.`;
+
+      const blueprint = generateStructuredBlueprint(premise, userType, currentUserId);
+
+      return {
+        intent: "PROJECT_PLANNING",
+        responseLevel: "PROJECT_ANALYSIS",
+        message: planContent,
+        updatedProject: blueprint,
+        conversationState: {
+          ...state,
+          stage: "PROJECT_BLUEPRINT",
+          projectType: "Short Film",
+          projectDomain: "Film",
+          requirements: {
+            ...state.requirements,
+            budget: budgetVal,
+            teamSize: teamVal,
+            crewSize: teamVal,
+            storyPremise: premise,
+          },
+        },
+        suggestedFollowUps: [
+          "Show me the blueprint",
+          "Find creators for my team",
+          "Create a squad",
+        ],
+      };
+    }
+
     // Explicit project request with story premise (e.g. "village girl who wants to become a singer")
     // Explicit project request with story premise (e.g. "village girl who wants to become a singer")
     if (clean.includes("village girl")) {

@@ -72,14 +72,32 @@ function SignupPage() {
         return;
       }
       if (signUpData?.user) {
-        await supabase.from("profiles").upsert({
-          id: signUpData.user.id,
-          username: parsed.data.username,
-          full_name: parsed.data.username,
-          role: null,
-          account_type: null,
-          onboarded: false,
-        }, { onConflict: "id" });
+        // Link with existing directory profile if username matches, preserving creator data
+        const { data: existingProf } = await supabase
+          .from("profiles")
+          .select("id")
+          .ilike("username", parsed.data.username)
+          .maybeSingle();
+
+        if (existingProf) {
+          await supabase
+            .from("profiles")
+            .update({ auth_user_id: signUpData.user.id, updated_at: new Date().toISOString() })
+            .eq("id", existingProf.id);
+        } else {
+          await supabase.from("profiles").upsert(
+            {
+              id: signUpData.user.id,
+              auth_user_id: signUpData.user.id,
+              username: parsed.data.username,
+              full_name: parsed.data.username,
+              role: null,
+              account_type: null,
+              onboarded: false,
+            },
+            { onConflict: "id" }
+          );
+        }
       }
       toast.success("Welcome to Omnicraft!");
       navigate({ to: "/onboarding/role" });

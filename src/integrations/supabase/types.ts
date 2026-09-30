@@ -296,6 +296,57 @@ export type Database = {
         }
         Relationships: []
       }
+      squad_hiring_requests: {
+        Row: {
+          budget: string | null
+          client_id: string
+          client_profile_id: string | null
+          created_at: string
+          id: string
+          leader_profile_id: string
+          message: string | null
+          project_brief: string | null
+          project_id: string | null
+          project_name: string
+          status: string
+          timeline: string | null
+          updated_at: string
+          squad_id: string
+        }
+        Insert: {
+          budget?: string | null
+          client_id: string
+          client_profile_id?: string | null
+          created_at?: string
+          id?: string
+          leader_profile_id: string
+          message?: string | null
+          project_brief?: string | null
+          project_id?: string | null
+          project_name: string
+          status?: string
+          timeline?: string | null
+          updated_at?: string
+          squad_id: string
+        }
+        Update: {
+          budget?: string | null
+          client_id?: string
+          client_profile_id?: string | null
+          created_at?: string
+          id?: string
+          leader_profile_id?: string
+          message?: string | null
+          project_brief?: string | null
+          project_id?: string | null
+          project_name?: string
+          status?: string
+          timeline?: string | null
+          updated_at?: string
+          squad_id?: string
+        }
+        Relationships: []
+      }
       creator_specialties: {
         Row: {
           created_at: string
@@ -840,6 +891,7 @@ export type Database = {
           username: string
           verified: boolean
           website: string | null
+          auth_user_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -869,6 +921,7 @@ export type Database = {
           username: string
           verified?: boolean
           website?: string | null
+          auth_user_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -898,10 +951,11 @@ export type Database = {
           username?: string
           verified?: boolean
           website?: string | null
+          auth_user_id?: string | null
         }
         Relationships: []
       }
-      squad_invitations: {
+       squad_invitations: {
         Row: {
           created_at: string
           id: string
@@ -910,6 +964,11 @@ export type Database = {
           squad_id: string
           status: string
           updated_at: string
+          project_name?: string | null
+          brief?: string | null
+          budget?: string | null
+          timeline?: string | null
+          role?: string | null
         }
         Insert: {
           created_at?: string
@@ -919,6 +978,11 @@ export type Database = {
           squad_id: string
           status?: string
           updated_at?: string
+          project_name?: string | null
+          brief?: string | null
+          budget?: string | null
+          timeline?: string | null
+          role?: string | null
         }
         Update: {
           created_at?: string
@@ -928,10 +992,65 @@ export type Database = {
           squad_id?: string
           status?: string
           updated_at?: string
+          project_name?: string | null
+          brief?: string | null
+          budget?: string | null
+          timeline?: string | null
+          role?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "squad_invitations_squad_id_fkey"
+            columns: ["squad_id"]
+            isOneToOne: false
+            referencedRelation: "squads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      squad_tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          squad_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          squad_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          squad_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "squad_tasks_squad_id_fkey"
             columns: ["squad_id"]
             isOneToOne: false
             referencedRelation: "squads"
@@ -2209,6 +2328,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      send_squad_hiring_request: {
+        Args: {
+          p_squad_id: string
+          p_project_name: string
+          p_project_id?: string | null
+          p_project_brief?: string | null
+          p_budget?: string | null
+          p_timeline?: string | null
+          p_message?: string | null
+        }
+        Returns: Json
+      }
+      accept_squad_hiring_request: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      decline_squad_hiring_request: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       accept_squad_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined

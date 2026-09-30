@@ -44,3 +44,8 @@ public/downloads/*.idsig
 .vercel
 
 supabase/.temp/
+
+ai-engine/venv/
+ai-engine/__pycache__/
+*.pyc
+supabase/.temp/

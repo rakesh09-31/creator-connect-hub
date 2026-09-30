@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { HireSquadModal } from "@/components/squads/HireSquadModal";
 import SkillSwapPanel from "@/components/skill-swap/SkillSwapPanel";
 import { OmniForgeBanner } from "@/components/omniforge/OmniForgeBanner";
 import {
@@ -96,11 +97,17 @@ function parseDeadlineValue(deadlineStr: string | null | undefined): number {
 
 function JobsPage() {
   const { profile } = useAuth();
-  const isClient = profile?.role === "client";
+  const isClient = profile?.role === "client" || profile?.account_type === "client";
 
   const [topTab, setTopTab] = useState<"jobs" | "skill_swap">("jobs");
   // Default tab for Brief Matching: for clients, "Find creators"; for creators, "Briefs"
-  const [tab, setTab] = useState<"briefs" | "creators">(isClient ? "creators" : "briefs");
+  const [tab, setTab] = useState<"briefs" | "creators">("briefs");
+
+  useEffect(() => {
+    if (isClient) {
+      setTab("creators");
+    }
+  }, [isClient]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -183,7 +190,7 @@ function TabBtn({
 
 function BriefsPanel() {
   const { profile, user } = useAuth();
-  const isClient = profile?.role === "client";
+  const isClient = profile?.role === "client" || profile?.account_type === "client";
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [creatorProfile, setCreatorProfile] = useState<CreatorMatchProfile>({
@@ -1305,6 +1312,11 @@ function CreatorsPanel() {
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(profile?.client_field ?? "");
   const [reqTarget, setReqTarget] = useState<EnrichedCreatorProfile | null>(null);
   const [inviteTarget, setInviteTarget] = useState<EnrichedCreatorProfile | null>(null);
+  const isClient = profile?.role === "client" || profile?.account_type === "client";
+  const [hireSquadTarget, setHireSquadTarget] = useState<SquadWithOwner | null>(null);
+  const [squadHiringStatus, setSquadHiringStatus] = useState<
+    Record<string, { id: string; status: string; project_name: string }>
+  >({});
 
   // Load client's open briefs for smart matching
   useEffect(() => {
@@ -1408,17 +1420,51 @@ function CreatorsPanel() {
       }));
 
       const profMap = new Map(list.map((p: any) => [p.id, p]));
+      const ownerIds = Array.from(
+        new Set(((sqs ?? []) as any[]).map((s) => s.owner_id).filter(Boolean))
+      );
+      if (ownerIds.length) {
+        const missingOwnerIds = ownerIds.filter((oid) => !profMap.has(oid));
+        if (missingOwnerIds.length) {
+          const { data: extraOwners } = await supabase
+            .from("profiles")
+            .select("id, username, full_name")
+            .in("id", missingOwnerIds);
+          (extraOwners ?? []).forEach((p: any) => profMap.set(p.id, p));
+        }
+      }
+
       const sqList: SquadWithOwner[] = ((sqs ?? []) as any[]).map((s) => ({
         ...s,
         owner_username: profMap.get(s.owner_id)?.username,
         owner_full_name: profMap.get(s.owner_id)?.full_name,
       }));
 
+      // Load client squad hiring requests
+      if (user) {
+        const { data: clientReqs } = await supabase
+          .from("squad_hiring_requests")
+          .select("id, squad_id, status, project_name")
+          .eq("client_id", user.id);
+        const map: Record<string, { id: string; status: string; project_name: string }> = {};
+        (clientReqs || []).forEach((r: any) => {
+          const existing = map[r.squad_id];
+          if (
+            !existing ||
+            r.status === "pending" ||
+            (r.status === "accepted" && existing.status !== "pending")
+          ) {
+            map[r.squad_id] = r;
+          }
+        });
+        setSquadHiringStatus(map);
+      }
+
       setCreators(enriched);
       setSquads(sqList);
       setLoading(false);
     })();
-  }, []);
+  }, [user]);
 
   const allSpecialties = useMemo(() => {
     const s = new Set<string>();
@@ -1618,42 +1664,105 @@ function CreatorsPanel() {
               <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
                 Squads ({visibleSquads.length})
               </h3>
-              <div className="space-y-2">
-                {visibleSquads.map((s) => (
-                  <Link
-                    key={s.id}
-                    to="/squads/$squadId"
-                    params={{ squadId: s.id }}
-                    className="flex items-start gap-3 p-4 bg-surface rounded-xl border border-border hover:border-brand/40 hover:shadow-sm transition"
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-brand text-primary-foreground flex items-center justify-center font-semibold flex-shrink-0">
-                      {s.name.slice(0, 1).toUpperCase()}
+              <div className="space-y-3">
+                {visibleSquads.map((s) => {
+                  const reqStatus = squadHiringStatus[s.id]?.status;
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="bg-surface rounded-xl p-4 border border-border hover:border-brand/40 hover:shadow-sm transition flex flex-col sm:flex-row items-start justify-between gap-3"
+                    >
+                      <Link
+                        to="/squads/$squadId"
+                        params={{ squadId: s.id }}
+                        className="flex items-start gap-3 min-w-0 flex-1 hover:opacity-90 transition"
+                      >
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-brand text-primary-foreground flex items-center justify-center font-semibold flex-shrink-0 shadow-sm">
+                          {s.name.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm truncate text-foreground hover:text-brand">
+                              {s.name}
+                            </p>
+                            <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-soft text-brand">
+                              Squad
+                            </span>
+                          </div>
+                          {s.owner_username && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              led by @{s.owner_username}
+                            </p>
+                          )}
+                          {s.description && (
+                            <p className="text-xs text-foreground/70 mt-1 line-clamp-2 leading-relaxed">
+                              {s.description}
+                            </p>
+                          )}
+                          {s.specialty && (
+                            <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground/70 font-semibold mt-1.5">
+                              {s.specialty}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+
+                      {isClient && (
+                        <div className="flex items-center gap-2 self-end sm:self-start mt-2 sm:mt-0 flex-shrink-0">
+                          {reqStatus === "pending" ? (
+                            <span
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-flex items-center gap-1.5 shadow-sm"
+                              title="Squad hiring request is pending leader review"
+                            >
+                              <Clock className="w-3.5 h-3.5" /> Request Pending
+                            </span>
+                          ) : reqStatus === "accepted" ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1.5 shadow-sm">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Hired
+                              </span>
+                              <Link
+                                to="/squads/$squadId"
+                                params={{ squadId: s.id }}
+                                className="px-2.5 py-1.5 bg-brand-soft text-brand rounded-lg text-xs font-semibold hover:bg-brand hover:text-white transition"
+                              >
+                                Workspace
+                              </Link>
+                            </div>
+                          ) : reqStatus === "declined" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground border border-border">
+                                Request Declined
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setHireSquadTarget(s);
+                                }}
+                                className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 transition shadow-sm"
+                              >
+                                <Users className="w-3.5 h-3.5" /> Hire Squad
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setHireSquadTarget(s);
+                              }}
+                              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 transition shadow-sm"
+                            >
+                              <Users className="w-3.5 h-3.5" /> Hire Squad
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm truncate">{s.name}</p>
-                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-soft text-brand">
-                          Squad
-                        </span>
-                      </div>
-                      {s.owner_username && (
-                        <p className="text-[11px] text-muted-foreground">
-                          led by @{s.owner_username}
-                        </p>
-                      )}
-                      {s.description && (
-                        <p className="text-xs text-foreground/70 mt-1 line-clamp-2">
-                          {s.description}
-                        </p>
-                      )}
-                      {s.specialty && (
-                        <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground/70 font-semibold mt-1.5">
-                          {s.specialty}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1805,6 +1914,23 @@ function CreatorsPanel() {
       )}
       {inviteTarget && (
         <InviteToJobModal creator={inviteTarget} onClose={() => setInviteTarget(null)} />
+      )}
+      {hireSquadTarget && (
+        <HireSquadModal
+          squad={hireSquadTarget}
+          onClose={() => setHireSquadTarget(null)}
+          initialBriefs={clientBriefs}
+          onSuccess={(requestId) => {
+            setSquadHiringStatus((prev) => ({
+              ...prev,
+              [hireSquadTarget.id]: {
+                id: requestId,
+                status: "pending",
+                project_name: "",
+              },
+            }));
+          }}
+        />
       )}
     </div>
   );

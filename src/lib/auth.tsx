@@ -16,6 +16,7 @@ export type Profile = {
   portfolio_url: string | null;
   experience_level?: string | null;
   experience_years?: number | null;
+  auth_user_id?: string | null;
 };
 
 type AuthState = {
@@ -31,29 +32,58 @@ const AuthCtx = createContext<AuthState | null>(null);
 
 /**
  * Guarantees that an authenticated user has an active row in public.profiles.
- * If the profile does not exist, an initial profile row is upserted from user metadata.
+ * If a directory profile matches the username, it is verified and linked to auth_user_id.
+ * Never creates duplicate profiles for existing creators.
  */
 export async function ensureProfile(user: User): Promise<Profile> {
+  // 1. Check if profile already exists by id = user.id or auth_user_id = user.id
   const { data: existing } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .or(`id.eq.${user.id},auth_user_id.eq.${user.id}`)
     .maybeSingle();
 
-  if (existing) return existing as Profile;
+  if (existing) {
+    if (!existing.auth_user_id) {
+      await supabase
+        .from("profiles")
+        .update({ auth_user_id: user.id })
+        .eq("id", existing.id);
+      existing.auth_user_id = user.id;
+    }
+    return existing as Profile;
+  }
 
   const meta = user.user_metadata || {};
   const emailPrefix = user.email?.split("@")[0] || `user_${user.id.slice(0, 8)}`;
-  const username = (meta.username || emailPrefix).replace(/[^a-zA-Z0-9_]/g, "_");
-  const fullName = meta.full_name || meta.name || username;
+  const rawUsername = (meta.username || emailPrefix).replace(/[^a-zA-Z0-9_]/g, "_");
+  const fullName = meta.full_name || meta.name || rawUsername;
   const role = meta.role || null;
 
+  // 2. Check if a directory profile already exists for this username
+  const { data: directoryProfile } = await supabase
+    .from("profiles")
+    .select("*")
+    .ilike("username", rawUsername)
+    .maybeSingle();
+
+  if (directoryProfile) {
+    await supabase
+      .from("profiles")
+      .update({ auth_user_id: user.id, updated_at: new Date().toISOString() })
+      .eq("id", directoryProfile.id);
+    directoryProfile.auth_user_id = user.id;
+    return directoryProfile as Profile;
+  }
+
+  // 3. Insert fresh profile if neither id nor username exists
   const { data: created, error } = await supabase
     .from("profiles")
     .upsert(
       {
         id: user.id,
-        username,
+        auth_user_id: user.id,
+        username: rawUsername,
         full_name: fullName,
         role,
         account_type: role,
@@ -66,7 +96,11 @@ export async function ensureProfile(user: User): Promise<Profile> {
 
   if (error) {
     console.error("[Auth] ensureProfile upsert error:", error);
-    const { data: retry } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    const { data: retry } = await supabase
+      .from("profiles")
+      .select("*")
+      .or(`id.eq.${user.id},auth_user_id.eq.${user.id},username.ilike.${rawUsername}`)
+      .maybeSingle();
     if (retry) return retry as Profile;
     throw error;
   }

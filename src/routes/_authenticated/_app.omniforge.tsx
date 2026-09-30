@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Sparkles,
@@ -22,15 +22,22 @@ import {
   CreatorRecommendation,
   TaskStatus,
   ConversationState,
+  MissingCapability,
 } from "@/lib/omniforge/types";
-import { createInitialConversationState } from "@/lib/omniforge/conversation-state";
+import { classifyUserIntent } from "@/lib/omniforge/intent";
+import {
+  createInitialConversationState,
+  transitionConversationState,
+  extractMatchingCriteriaFromContext,
+} from "@/lib/omniforge/conversation-state";
 import {
   generateStructuredBlueprint,
   modifyBlueprintFromInstruction,
   processConversationalOmniForgeMessage,
 } from "@/lib/omniforge/engine";
 import { omniforgeChatServerFn, omniforgeProviderStatusServerFn } from "@/lib/api/omniforge.functions";
-import { matchCreatorsForProject, matchCreatorsForSingleRole } from "@/lib/omniforge/matcher";
+import { sendLocalAIChatMessage, checkLocalAIHealth } from "@/lib/api/local-ai";
+import { matchCreatorsForProject, matchCreatorsForSingleRole, matchCreatorsFromRequirements } from "@/lib/omniforge/matcher";
 import {
   loadProjectsFromStorage,
   saveProjectToStorage,
@@ -44,11 +51,13 @@ import {
   clearActiveDraftSession,
 } from "@/lib/omniforge/storage";
 import { convertProjectToSquad } from "@/lib/omniforge/squad-bridge";
+import { SquadInvitation, fetchSquadInvitations } from "@/lib/omniforge/collaboration";
 import { OmniForgeChat } from "@/components/omniforge/OmniForgeChat";
 import { ProjectBlueprintView } from "@/components/omniforge/ProjectBlueprintView";
 import { TeamRecommendationsView } from "@/components/omniforge/TeamRecommendationsView";
 import { OmniForgeWorkspace } from "@/components/omniforge/OmniForgeWorkspace";
 import { CompareCreatorsModal } from "@/components/omniforge/CompareCreatorsModal";
+import { InviteCreatorModal } from "@/components/omniforge/InviteCreatorModal";
 
 export const Route = createFileRoute("/_authenticated/_app/omniforge")({
   head: () => ({ meta: [{ title: "OmniForge — AI Project Architect & Creator Orchestrator" }] }),
@@ -73,17 +82,23 @@ function OmniForgePage() {
     status?: "no_provider" | "configured_untested" | "live_verified" | "provider_error" | "fallback_active";
     statusMessage?: string;
   }>({
-    provider: "local-semantic",
-    model: "hybrid-orchestrator",
+    provider: "local-ollama",
+    model: "qwen3:4b",
     isRealLLM: false,
-    status: "no_provider",
-    statusMessage: "Deterministic semantic orchestrator active.",
+    status: "configured_untested",
+    statusMessage: "Connecting to Local AI backend (http://127.0.0.1:8001)...",
   });
 
   // Comparison modal state
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareRoleId, setCompareRoleId] = useState<string | null>(null);
   const [isConvertingSquad, setIsConvertingSquad] = useState(false);
+
+  // Real Creator Invitation & Squad Collaboration state
+  const [invitations, setInvitations] = useState<SquadInvitation[]>([]);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [selectedInviteCandidate, setSelectedInviteCandidate] = useState<CreatorRecommendation | null>(null);
+  const [activeSquadId, setActiveSquadId] = useState<string | null>(null);
 
   // Load existing projects from storage and check provider status on mount
   useEffect(() => {
@@ -96,6 +111,10 @@ function OmniForgePage() {
       if (found) {
         setActiveProject(found);
         setViewMode(found.stage === "in_progress" || found.stage === "team_ready" ? "workspace" : "blueprint");
+        if (found.squadId) {
+          setActiveSquadId(found.squadId);
+          fetchSquadInvitations(found.squadId).then(setInvitations);
+        }
         const history = loadChatHistoryFromStorage(found.id);
         if (history.length > 0) {
           setMessages(history);
@@ -116,22 +135,29 @@ function OmniForgePage() {
       }
     }
 
-    // Inspect server-side LLM provider availability safely
-    omniforgeProviderStatusServerFn()
-      .then((res) => {
-        if (res && res.success) {
-          setIntelligenceInfo((prev) => ({
-            ...prev,
-            provider: res.provider,
-            model: res.model,
+    // Inspect local AI health on mount (FastAPI running at http://127.0.0.1:8001)
+    checkLocalAIHealth()
+      .then((health) => {
+        if (health.status === "running") {
+          setIntelligenceInfo({
+            provider: health.provider || "local-ollama",
+            model: health.model || "qwen3:4b",
+            isRealLLM: true,
+            status: "live_verified",
+            statusMessage: `Local AI Active • Ollama (${health.model || "qwen3:4b"}) at 127.0.0.1:8001`,
+          });
+        } else {
+          setIntelligenceInfo({
+            provider: "local-ollama",
+            model: "qwen3:4b",
             isRealLLM: false,
-            status: res.status,
-            statusMessage: res.statusMessage,
-          }));
+            status: "provider_error",
+            statusMessage: health.error || "Local AI engine at http://127.0.0.1:8001 is offline.",
+          });
         }
       })
       .catch((err) => {
-        console.warn("[OmniForge] Could not fetch provider status:", err);
+        console.warn("[OmniForge] Could not check local AI health:", err);
       });
   }, []);
 
@@ -142,157 +168,318 @@ function OmniForgePage() {
     setProjects(loadProjectsFromStorage());
   }, []);
 
-  // Handle incoming user chat message with the conversational pipeline
+  // Handle incoming user chat message with local AI backend (POST http://127.0.0.1:8001/chat)
+  const isSubmittingRef = useRef(false);
+
   const handleSendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    // SECTION 5: DUPLICATE MESSAGE / RESPONSE CHECK
+    // Prevent concurrent submissions, rapid-fire clicks, or duplicate Enter presses
+    if (isSubmittingRef.current || isLoading) {
+      console.warn("[OmniForge] Message submission ignored: a request is already being processed.");
+      return;
+    }
+    isSubmittingRef.current = true;
+    setIsLoading(true);
+
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}-u`,
       sender: "user",
-      text,
+      text: trimmed,
       timestamp: new Date().toISOString(),
     };
 
-    const newMessages = [...messages, userMsg];
+    // Filter out previous error messages if user is retrying
+    const baseMessages = messages.filter((m) => !m.isError || m.failedPrompt !== trimmed);
+    const newMessages = [...baseMessages, userMsg];
     setMessages(newMessages);
-    setIsLoading(true);
+
+    const streamMsgId = `msg-${Date.now()}-ai`;
 
     try {
-      let response: any;
-      let responseMeta: any = null;
-      try {
-        // 1. Invoke Server Function executing LLM + Backend Tools
-        const serverResult = await omniforgeChatServerFn({
-          data: {
-            text,
-            activeProject,
-            conversationHistory: newMessages,
-            conversationState,
-            userType,
-            userId: user?.id || "anon",
-          },
-        });
+      // 1. EXPLICIT INTENT CLASSIFICATION
+      const intentResult = classifyUserIntent(trimmed, {
+        hasActiveProject: Boolean(activeProject),
+        activeProject,
+        conversationHistory: baseMessages,
+      });
 
-        if (serverResult.success && serverResult.response) {
-          response = serverResult.response;
-          responseMeta = serverResult.meta;
-          if (response.conversationState) {
-            setConversationState(response.conversationState);
-          }
-          if (serverResult.meta) {
-            setIntelligenceInfo(serverResult.meta);
-          }
-        } else {
-          throw new Error(serverResult.error || "Server function fallback needed");
+      // 2. State transition (gated: ignores greetings/questions without active project)
+      const updatedState = transitionConversationState(conversationState, trimmed, baseMessages);
+      setConversationState(updatedState);
+
+      // Build conversation history (last 8 turns)
+      const historyPayload = baseMessages
+        .filter((m) => !m.isError && m.text)
+        .slice(-8)
+        .map((m) => ({
+          role: (m.sender === "user" ? "user" : "assistant") as "user" | "assistant",
+          content: m.text,
+        }));
+
+      // 4. PRESERVE CONTEXT CORRECTLY
+      // Only include projectContext if discussing an active project or during explicit project creation
+      const hasRealContext = Boolean(
+        activeProject?.title ||
+        (intentResult.intent === "PROJECT_CREATION" && (updatedState.requirements.storyPremise || intentResult.projectData?.story_premise))
+      );
+
+      const projectContext = hasRealContext ? {
+        title:
+          activeProject?.title ||
+          (updatedState.requirements.storyPremise
+            ? `${updatedState.projectType || "Project"}: ${updatedState.requirements.storyPremise}`
+            : intentResult.projectData?.title),
+        domain: activeProject?.domain || updatedState.projectDomain || intentResult.projectData?.domain,
+        type: activeProject ? undefined : (updatedState.projectType || intentResult.projectData?.type),
+        story_premise: activeProject?.title || updatedState.requirements.storyPremise || intentResult.projectData?.story_premise,
+        budget: activeProject?.budget || updatedState.requirements.budget || intentResult.projectData?.budget,
+        team_size: (activeProject?.roles?.length ? `${activeProject.roles.length} members` : undefined) || updatedState.requirements.teamSize || updatedState.requirements.crewSize,
+        roles: activeProject?.roles?.map((r) => r.roleName) || intentResult.projectData?.roles,
+      } : undefined;
+
+      // Progressive streaming call to local AI backend
+      const localResult = await sendLocalAIChatMessage(
+        trimmed,
+        historyPayload,
+        projectContext,
+        120000,
+        (_token, accumulated) => {
+          setMessages((prev) => {
+            const existingIdx = prev.findIndex((m) => m.id === streamMsgId);
+            const streamingMsg: ChatMessage = {
+              id: streamMsgId,
+              sender: "ai",
+              text: accumulated,
+              timestamp: new Date().toISOString(),
+              sourceMeta: {
+                provider: "local-ollama",
+                model: "qwen3:4b",
+                isRealLLM: true,
+                status: "live_verified",
+                statusMessage: "Local AI: local-ollama (qwen3:4b)",
+              },
+            };
+            if (existingIdx >= 0) {
+              const updated = [...prev];
+              updated[existingIdx] = streamingMsg;
+              return updated;
+            } else {
+              return [...prev, streamingMsg];
+            }
+          });
         }
-      } catch (rpcErr) {
-        // Fallback: local conversational orchestrator
-        response = await processConversationalOmniForgeMessage(
-          text,
-          activeProject,
-          newMessages,
-          userType,
-          user?.id || "anon",
-          conversationState
-        );
-        responseMeta = {
-          provider: "local-semantic",
-          model: "hybrid-orchestrator",
-          isRealLLM: false,
-          fallbackUsed: true,
-          status: "fallback_active",
-          statusMessage: "Deterministic semantic fallback active",
-        };
-        if (response.conversationState) {
-          setConversationState(response.conversationState);
-        }
-      }
+      );
 
-      let currentActive = activeProject;
+      // Determine final authorized intent and actions
+      const finalIntent = localResult.intent || intentResult.intent;
+      const finalProjectAction = localResult.project_action || intentResult.project_action;
+      const finalMatchingAction = localResult.matching_action || intentResult.matching_action;
 
-      // Handle Project Creation or Context Recovery (Full Blueprint Analysis)
-      if (response.updatedProject && (!currentActive || response.responseLevel === "PROJECT_ANALYSIS")) {
-        const blueprint = response.updatedProject;
-        // Perform real Supabase creator matching if needed
-        if (!blueprint.recommendations || blueprint.recommendations.length === 0) {
+      let matchedCards: CreatorRecommendation[] = [];
+      let missingCaps: MissingCapability[] = [];
+      let matchStatus: "idle" | "matched" | "empty" | "error" = "idle";
+      let searchTargetRole: string | undefined = undefined;
+
+      // 2. GATE ALL SIDE EFFECTS
+      // Execute project creation / roadmap generation ONLY for PROJECT_CREATION intent
+      if (finalProjectAction === "CREATE_PROJECT" || finalIntent === "PROJECT_CREATION") {
+        try {
+          const blueprint = generateStructuredBlueprint(trimmed, userType, user?.id || "anon");
           const matchResult = await matchCreatorsForProject(blueprint, user?.id);
-          blueprint.recommendations = matchResult.recommendations;
-          blueprint.alternativeCandidates = matchResult.alternatives;
-          blueprint.coverage = matchResult.coverage;
+
+          matchedCards = matchResult.recommendations;
+          missingCaps = matchResult.coverage.missingCapabilities;
+          matchStatus = matchedCards.length > 0 ? "matched" : "empty";
+
+          const newProject: OmniForgeProject = {
+            ...blueprint,
+            recommendations: matchedCards,
+            coverage: matchResult.coverage,
+            updatedAt: new Date().toISOString(),
+          };
+          updateActiveProject(newProject);
+          setViewMode("blueprint");
+        } catch (bpErr) {
+          console.error("[OmniForge] Error generating project blueprint:", bpErr);
         }
+      } else if (finalMatchingAction === "SEARCH_CREATORS" || finalIntent === "CREATOR_SEARCH") {
+        // Execute creator search ONLY for explicit CREATOR_SEARCH intent
+        try {
+          const matchingCriteria = extractMatchingCriteriaFromContext(updatedState, [...baseMessages, userMsg]);
 
-        updateActiveProject(blueprint);
-        currentActive = blueprint;
-        setViewMode("blueprint");
-        if (response.responseLevel === "PROJECT_ANALYSIS") {
-          toast.success("OmniForge Blueprint Generated!");
+          // Determine the targeted role: prefer explicit targetRole from intent or message, else fallback
+          searchTargetRole =
+            intentResult.targetRole ||
+            (localResult as any)?.target_role ||
+            matchingCriteria.targetRole;
+
+          if (!searchTargetRole || searchTargetRole === "Creative") {
+            if (/\b(?:female\s+lead(?:\s+actor)?|lead\s+actress|actress|actresses)\b/i.test(trimmed)) {
+              searchTargetRole = "Lead Actress";
+            } else if (/\b(?:actor|actors|lead\s+actor|male\s+lead|acting|performer)\b/i.test(trimmed)) {
+              searchTargetRole = "Lead Actor";
+            } else if (/\b(?:singer|vocalist|lead\s+singer|singers)\b/i.test(trimmed)) {
+              searchTargetRole = "Lead Singer";
+            } else if (/\b(?:colorist|colorists)\b/i.test(trimmed)) {
+              searchTargetRole = "Colorist";
+            } else if (/\b(?:video\s+editor|editor|editors)\b/i.test(trimmed)) {
+              searchTargetRole = "Video Editor";
+            } else {
+              searchTargetRole = "Lead Actor";
+            }
+          }
+
+          // Extract additional skills from query (e.g. singing, dancing, acting)
+          const searchSkills = [...(intentResult.skills || matchingCriteria.skills || [])];
+          if (/\b(?:sing|singing|singer|vocal|vocals)\b/i.test(trimmed) && !searchSkills.includes("Singing")) {
+            searchSkills.push("Singing");
+          }
+          if (/\b(?:dance|dancing|dancer)\b/i.test(trimmed) && !searchSkills.includes("Dancing")) {
+            searchSkills.push("Dancing");
+          }
+          if (/\b(?:acting|drama|theatre)\b/i.test(trimmed) && !searchSkills.includes("Acting")) {
+            searchSkills.push("Acting");
+          }
+
+          const matchResult = await matchCreatorsFromRequirements(
+            {
+              roles: [searchTargetRole],
+              targetRole: searchTargetRole,
+              skills: searchSkills,
+              domain: activeProject?.domain || matchingCriteria.domain || "Film",
+              projectType: activeProject?.title || matchingCriteria.projectType || "Short Film",
+              budget: activeProject?.budget || matchingCriteria.budget,
+              duration: matchingCriteria.duration,
+            },
+            profile?.id || user?.id
+          );
+
+          matchedCards = matchResult.recommendations;
+          missingCaps = matchResult.coverage.missingCapabilities;
+          matchStatus = matchedCards.length > 0 ? "matched" : "empty";
+
+          if (activeProject && matchedCards.length > 0) {
+            const otherRoleRecs = (activeProject.recommendations || []).filter(
+              (r) =>
+                r.roleName.toLowerCase() !== searchTargetRole!.toLowerCase() &&
+                !(searchTargetRole!.toLowerCase().includes("actor") && r.roleName.toLowerCase().includes("actor"))
+            );
+            const updatedProj: OmniForgeProject = {
+              ...activeProject,
+              recommendations: [...matchedCards, ...otherRoleRecs],
+              coverage: matchResult.coverage,
+              updatedAt: new Date().toISOString(),
+            };
+            updateActiveProject(updatedProj);
+          }
+        } catch (searchErr) {
+          console.error("[OmniForge] Creator search error:", searchErr);
+          matchStatus = "error";
+        }
+      } else if (finalProjectAction === "UPDATE_PROJECT" && activeProject) {
+        // Modify existing project when explicitly requested
+        const modified = modifyBlueprintFromInstruction(activeProject, trimmed);
+        updateActiveProject(modified.updatedProject);
+      }
+
+      // Determine natural response text based on actual database search results
+      let finalResponseText = localResult.answer;
+      if (finalMatchingAction === "SEARCH_CREATORS" || finalIntent === "CREATOR_SEARCH") {
+        const roleName = searchTargetRole || intentResult.targetRole || "creator";
+        if (matchedCards.length > 0) {
+          finalResponseText = `Found ${matchedCards.length} verified ${roleName} profile${matchedCards.length > 1 ? "s" : ""} in the OmniCraft directory matching your requirements:`;
+        } else {
+          finalResponseText = `No registered creators currently match the "${roleName}" specialty in the OmniCraft database. You can post a client job listing on the platform or propose a Skill Swap to attract creative talent.`;
         }
       }
-      // Handle Project Modification
-      else if (response.responseLevel === "PROJECT_MODIFICATION" && response.updatedProject) {
-        updateActiveProject(response.updatedProject);
-        currentActive = response.updatedProject;
-        toast.success("Project Scope Updated!");
-      }
 
-      // Handle direct squad creation on confirmed action
-      if (response.projectAction?.type === "CREATE_SQUAD") {
-        setTimeout(() => {
-          handleLaunchSquad();
-        }, 300);
-      }
-
-      // Assemble AI chat message
+      // Build final assistant chat message
       const aiMsg: ChatMessage = {
-        id: `msg-${Date.now()}-ai`,
+        id: streamMsgId,
         sender: "ai",
-        text: response.message,
+        text: finalResponseText,
         timestamp: new Date().toISOString(),
-        intent: response.intent,
-        responseLevel: response.responseLevel,
-        sourceMeta: responseMeta || {
-          provider: "local-semantic",
-          model: "hybrid-orchestrator",
-          isRealLLM: false,
-          fallbackUsed: true,
-          status: "fallback_active",
-          statusMessage: "Deterministic semantic fallback active",
+        userIntent: finalIntent,
+        projectAction: finalProjectAction,
+        matchingAction: finalMatchingAction,
+        suggestedRoles:
+          finalMatchingAction === "SEARCH_CREATORS" || finalIntent === "CREATOR_SEARCH"
+            ? undefined
+            : (localResult.suggested_roles && localResult.suggested_roles.length > 0
+                ? localResult.suggested_roles
+                : undefined),
+        creatorCards: matchedCards.length > 0 ? matchedCards : undefined,
+        missingCapabilities: missingCaps.length > 0 ? missingCaps : undefined,
+        matchingStatus: matchStatus !== "idle" ? matchStatus : undefined,
+        sourceMeta: {
+          provider: localResult.provider || "local-ollama",
+          model: localResult.model || "qwen3:4b",
+          isRealLLM: true,
+          status: "live_verified",
+          statusMessage: `Local AI: ${localResult.provider} (${localResult.model})`,
         },
-        clarifications: response.clarifications,
-        roleCard: response.roleCard,
-        creatorCards: response.creatorCards,
-        skillSwapCards: response.skillSwapCards,
-        updateCard: response.updateCard,
-        confirmationCard: response.confirmationCard,
-        comparisonCard: response.comparisonCard,
-        suggestedFollowUps: response.suggestedFollowUps,
-        conversationState: response.conversationState || conversationState,
-        actionPrompt:
-          response.uiAction?.type === "SHOW_BLUEPRINT"
-            ? {
-                type: "generate_blueprint",
-                label: "Inspect Project Blueprint & Team",
-              }
-            : undefined,
+        conversationState: updatedState,
       };
 
-      const finalMessages = [...newMessages, aiMsg];
-      setMessages(finalMessages);
+      // Functional state update prevents stale closure overwriting or duplicate messages
+      setMessages((prev) => {
+        const withoutStream = prev.filter((m) => m.id !== streamMsgId);
+        const finalMsgs = [...withoutStream, aiMsg];
+        if (activeProject) {
+          saveChatHistoryToStorage(activeProject.id, finalMsgs);
+        } else {
+          saveActiveDraftSession(finalMsgs, updatedState);
+        }
+        return finalMsgs;
+      });
 
-      if (currentActive) {
-        saveChatHistoryToStorage(currentActive.id, finalMessages);
-      } else {
-        saveActiveDraftSession(finalMessages, response.conversationState || conversationState);
-      }
-    } catch (err) {
-      console.error("Error processing conversational message:", err);
+      setIntelligenceInfo({
+        provider: localResult.provider || "local-ollama",
+        model: localResult.model || "qwen3:4b",
+        isRealLLM: true,
+        status: "live_verified",
+        statusMessage: `Local AI Active • ${localResult.provider.toUpperCase()} (${localResult.model})`,
+      });
+    } catch (err: any) {
+      console.error("Local AI Chat error:", err);
+      const errorMessage =
+        err?.message || "Failed to communicate with local AI engine at http://127.0.0.1:8001.";
+
       const errorMsg: ChatMessage = {
         id: `msg-${Date.now()}-ai`,
         sender: "ai",
-        text: "I encountered a minor issue processing that request. Please try asking again or rephrase your thought!",
+        text: errorMessage,
         timestamp: new Date().toISOString(),
+        isError: true,
+        errorMessage,
+        failedPrompt: trimmed,
+        sourceMeta: {
+          provider: "local-ollama",
+          model: "qwen3:4b",
+          isRealLLM: false,
+          status: "provider_error",
+          statusMessage: errorMessage,
+        },
       };
-      setMessages([...newMessages, errorMsg]);
+
+      setMessages((prev) => {
+        const withoutStream = prev.filter((m) => m.id !== streamMsgId);
+        const finalMsgs = [...withoutStream, errorMsg];
+        if (activeProject) {
+          saveChatHistoryToStorage(activeProject.id, finalMsgs);
+        } else {
+          saveActiveDraftSession(finalMsgs, conversationState);
+        }
+        return finalMsgs;
+      });
+
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -303,6 +490,12 @@ function OmniForgePage() {
     setMessages([]);
     setConversationState(createInitialConversationState());
     setViewMode("chat");
+    setCompareModalOpen(false);
+    setCompareRoleId(null);
+    setInviteModalOpen(false);
+    setSelectedInviteCandidate(null);
+    setIsLoading(false);
+    isSubmittingRef.current = false;
   };
 
   const handleSelectProject = (proj: OmniForgeProject) => {
@@ -331,10 +524,49 @@ function OmniForgePage() {
     }
   };
 
+  const handleOpenInviteModal = (cand: CreatorRecommendation) => {
+    setSelectedInviteCandidate(cand);
+    setInviteModalOpen(true);
+  };
+
+  const handleInvitationSent = (invitation: SquadInvitation) => {
+    setInvitations((prev) => [invitation, ...prev.filter((i) => i.id !== invitation.id)]);
+    if (invitation.squad_id) {
+      setActiveSquadId(invitation.squad_id);
+    }
+    if (activeProject) {
+      const updatedRecs = activeProject.recommendations.map((r) =>
+        r.creator.id === invitation.invitee_id
+          ? { ...r, status: "invited" as const, invitationStatus: "pending" as const }
+          : r
+      );
+      const updatedProject = {
+        ...activeProject,
+        squadId: activeProject.squadId || invitation.squad_id,
+        recommendations: updatedRecs,
+      };
+      updateActiveProject(updatedProject);
+    }
+    toast.success(`Invitation sent to ${invitation.invitee?.full_name || invitation.invitee?.username || "creator"}!`);
+    setInviteModalOpen(false);
+  };
+
+  const handleRefreshInvitations = useCallback(() => {
+    const sid = activeSquadId || activeProject?.squadId;
+    if (sid) {
+      fetchSquadInvitations(sid).then(setInvitations);
+    }
+  }, [activeSquadId, activeProject?.squadId]);
+
   const handleInviteCreator = (recId: string) => {
     if (!activeProject) return;
+    const rec = activeProject.recommendations.find((r) => r.id === recId);
+    if (rec) {
+      handleOpenInviteModal(rec);
+      return;
+    }
     const updatedRecs = activeProject.recommendations.map((r) =>
-      r.id === recId ? { ...r, status: "invited" as const } : r
+      r.id === recId ? { ...r, status: "invited" as const, invitationStatus: "pending" as const } : r
     );
     updateActiveProject({ ...activeProject, recommendations: updatedRecs });
     toast.success("Invitation sent to creator!");
@@ -502,6 +734,7 @@ function OmniForgePage() {
             <OmniForgeChat
               messages={messages}
               onSendMessage={handleSendMessage}
+              onRetry={handleSendMessage}
               onGenerateBlueprint={() => setViewMode("blueprint")}
               onStartOver={handleStartOver}
               isLoading={isLoading}
@@ -509,6 +742,8 @@ function OmniForgePage() {
               activeProject={activeProject}
               onFindCreatorsForRole={handleFindCreatorsForRole}
               onSelectCreator={handleSelectCandidate}
+              onInviteCreator={handleOpenInviteModal}
+              invitations={invitations}
               onConfirmAction={handleConfirmAction}
               onOpenCompareModal={handleOpenCompare}
             />
@@ -628,19 +863,22 @@ function OmniForgePage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => handleSendMessage("What is Skill Swap and how does it work?")}
-                    className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-muted text-foreground text-xs font-medium border border-border/60 transition"
+                    disabled={isLoading}
+                    className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-muted text-foreground text-xs font-medium border border-border/60 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     "What is Skill Swap?"
                   </button>
                   <button
                     onClick={() => handleSendMessage("What does a director do versus a cinematographer?")}
-                    className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-muted text-foreground text-xs font-medium border border-border/60 transition"
+                    disabled={isLoading}
+                    className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-muted text-foreground text-xs font-medium border border-border/60 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     "Director vs Cinematographer"
                   </button>
                   <button
                     onClick={() => handleSendMessage("I want to make a short film about a village girl who wants to become a singer")}
-                    className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-muted text-foreground text-xs font-medium border border-border/60 transition"
+                    disabled={isLoading}
+                    className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-muted text-foreground text-xs font-medium border border-border/60 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     "Plan a short film"
                   </button>
@@ -662,6 +900,8 @@ function OmniForgePage() {
           {viewMode === "team" && activeProject && (
             <TeamRecommendationsView
               project={activeProject}
+              invitations={invitations}
+              onInviteCandidate={handleOpenInviteModal}
               onInviteCreator={handleInviteCreator}
               onReplaceCreator={handleOpenCompare}
               onCompareCandidates={handleOpenCompare}
@@ -675,6 +915,10 @@ function OmniForgePage() {
           {viewMode === "workspace" && activeProject && (
             <OmniForgeWorkspace
               project={activeProject}
+              squadId={activeSquadId || activeProject.squadId}
+              currentUserId={user?.id}
+              invitations={invitations}
+              onRefreshInvitations={handleRefreshInvitations}
               onUpdateTaskStatus={handleUpdateTaskStatus}
               onUpdateProject={updateActiveProject}
               onLaunchSquad={handleLaunchSquad}
@@ -692,6 +936,17 @@ function OmniForgePage() {
         currentRecommendation={currentCompareRec}
         alternatives={compareAlternatives}
         onSelectCandidate={handleSelectCandidate}
+      />
+
+      {/* Invite Creator to Project Collaboration Modal */}
+      <InviteCreatorModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        creator={selectedInviteCandidate?.creator || null}
+        roleName={selectedInviteCandidate?.roleName || ""}
+        project={activeProject}
+        currentUserId={profile?.id || user?.id}
+        onInvitationSent={handleInvitationSent}
       />
     </div>
   );
