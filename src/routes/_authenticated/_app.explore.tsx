@@ -120,16 +120,16 @@ function ExplorePage() {
   }, [tiles, q]);
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-5 space-y-4">
+    <div className="max-w-4xl mx-auto px-2 sm:px-4 py-4 sm:py-5 space-y-3 sm:space-y-4">
       {/* Search bar */}
-      <div className="sticky top-0 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 bg-background/95 backdrop-blur border-b border-border">
+      <div className="sticky top-0 z-30 -mx-2 sm:-mx-4 px-2 sm:px-4 py-2.5 sm:py-3 bg-background/95 backdrop-blur border-b border-border">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search accounts, reels, posts, hashtags…"
-            className="w-full pl-11 pr-4 h-12 rounded-full bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring text-sm"
+            className="w-full pl-11 pr-4 h-11 sm:h-12 rounded-full bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring text-sm"
           />
         </div>
       </div>
@@ -152,9 +152,9 @@ function ExplorePage() {
 
       {/* Unified uniform grid — reels, posts, portfolios all mixed */}
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="aspect-square bg-muted animate-pulse rounded-xl border border-border/40" />
+            <div key={i} className="aspect-square bg-muted animate-pulse rounded-lg sm:rounded-xl border border-border/40" />
           ))}
         </div>
       ) : filteredTiles.length === 0 ? (
@@ -162,7 +162,7 @@ function ExplorePage() {
           No results — try another search
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
           {filteredTiles.map((t, i) => {
             const isPriority = i < 12;
             return (
@@ -263,13 +263,13 @@ function ExploreTile({
       <button
         ref={(node) => { containerRef.current = node; }}
         onClick={() => onReelClick(tile.id)}
-        className="relative w-full aspect-square bg-muted overflow-hidden rounded-xl border border-border/40 group text-left block"
+        className="relative w-full aspect-square bg-muted overflow-hidden rounded-lg sm:rounded-xl border border-border/40 group text-left block"
       >
         <VideoPlayer
           src={tile.media_url}
           poster={tile.thumbnail_url}
           controls={false}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover min-h-0"
           feature="reel"
           priority={priority}
           onInvalid={() => {
@@ -277,12 +277,12 @@ function ExploreTile({
             onInvalid?.(tile.id);
           }}
         />
-        <div className="absolute top-2 right-2 rounded-full bg-black/60 backdrop-blur-sm p-1.5 text-white shadow">
-          <Play className="w-3.5 h-3.5 fill-white" />
+        <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 rounded-full bg-black/60 backdrop-blur-sm p-1 sm:p-1.5 text-white shadow pointer-events-none">
+          <Play className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 fill-white" />
         </div>
         {tile.caption && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
-            <p className="text-xs text-white font-medium line-clamp-2">{tile.caption}</p>
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 sm:p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
+            <p className="text-[10px] sm:text-xs text-white font-medium line-clamp-2">{tile.caption}</p>
           </div>
         )}
       </button>
@@ -295,7 +295,7 @@ function ExploreTile({
       <button
         ref={(node) => { containerRef.current = node; }}
         onClick={() => onPostClick(tile.id)}
-        className="relative w-full aspect-square bg-muted overflow-hidden rounded-xl border border-border/40 group text-left block"
+        className="relative w-full aspect-square bg-muted overflow-hidden rounded-lg sm:rounded-xl border border-border/40 group text-left block"
       >
         {resolvedUrl ? (
           <img
@@ -313,8 +313,8 @@ function ExploreTile({
           <div className="w-full h-full bg-muted animate-pulse" />
         )}
         {tile.caption && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
-            <p className="text-xs text-white font-medium line-clamp-2">{tile.caption}</p>
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 sm:p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
+            <p className="text-[10px] sm:text-xs text-white font-medium line-clamp-2">{tile.caption}</p>
           </div>
         )}
       </button>
@@ -327,7 +327,7 @@ function ExploreTile({
       ref={(node) => { containerRef.current = node; }}
       to="/user/$username"
       params={{ username }}
-      className="relative w-full aspect-square bg-muted overflow-hidden rounded-xl border border-border/40 group block"
+      className="relative w-full aspect-square bg-muted overflow-hidden rounded-lg sm:rounded-xl border border-border/40 group block"
     >
       {resolvedUrl ? (
         <img
@@ -344,9 +344,9 @@ function ExploreTile({
       ) : (
         <div className="w-full h-full bg-muted animate-pulse" />
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
-        <p className="text-xs text-white font-semibold truncate">{tile.title}</p>
-        <p className="text-[10px] text-white/70 truncate">@{username}</p>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 sm:p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
+        <p className="text-[10px] sm:text-xs text-white font-semibold truncate">{tile.title}</p>
+        <p className="text-[9px] sm:text-[10px] text-white/70 truncate">@{username}</p>
       </div>
     </Link>
   );
