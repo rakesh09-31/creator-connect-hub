@@ -312,33 +312,33 @@ function HomePage() {
 
 
   return (
-    <div className="max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4">
+    <div className="max-w-xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
       {/* Vibrant welcome */}
-      <section className="relative overflow-hidden rounded-2xl p-5 shadow-brand bg-gradient-brand text-white">
+      <section className="relative overflow-hidden rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-brand bg-gradient-brand text-white">
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4">
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-widest text-white/80 font-semibold">
+            <p className="text-[10px] sm:text-[11px] uppercase tracking-widest text-white/80 font-semibold">
               {isCreator ? "Creator workspace" : "Client workspace"}
             </p>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-1 truncate">
+            <h1 className="text-base sm:text-2xl font-bold tracking-tight mt-0.5 sm:mt-1 truncate">
               Welcome back, {profile?.full_name || profile?.username} ✨
             </h1>
           </div>
           <Link
             to={isCreator ? "/create" : "/jobs"}
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 bg-white text-primary hover:bg-white/90 rounded-xl px-4 py-2.5 text-sm font-bold transition shadow-lg w-full sm:w-auto"
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 bg-white text-primary hover:bg-white/90 rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold transition shadow-lg w-full sm:w-auto"
           >
-            {isCreator ? <><Plus className="w-4 h-4" /> New post</> : <><Briefcase className="w-4 h-4" /> Post a brief</>}
+            {isCreator ? <><Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> New post</> : <><Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Post a brief</>}
           </Link>
         </div>
       </section>
 
       {/* Stories strip */}
-      <section className="relative overflow-hidden rounded-2xl p-4 border border-border bg-surface">
-        <div className="relative flex items-center justify-between mb-3 px-1">
-          <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Your network</h2>
+      <section className="relative overflow-hidden rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-border bg-surface">
+        <div className="relative flex items-center justify-between mb-2.5 sm:mb-3 px-1">
+          <h2 className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Your network</h2>
           <Link to="/explore" className="text-xs font-bold text-brand inline-flex items-center gap-0.5 hover:underline">
             Discover <ArrowRight className="w-3 h-3" />
           </Link>

@@ -306,119 +306,127 @@ export function UserProfileView({ identifier }: { identifier: string }) {
   const isSelf = user?.id === profile.id;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
       {/* Profile Header */}
-      <div className="bg-surface border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
+      <div className="bg-surface border border-border rounded-2xl p-3.5 sm:p-6 shadow-sm relative overflow-hidden">
         {profile.cover_url && (
           <div className="absolute inset-0 h-32 w-full">
             <ProfileAvatar url={profile.cover_url} className="w-full h-full object-cover opacity-30" />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface" />
           </div>
         )}
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-end gap-5 pt-12">
+        <div className="relative flex items-start gap-3.5 sm:gap-5 text-left pt-6 sm:pt-8">
           <button
             type="button"
             onClick={() => activeStories.length > 0 && setStoryOpen(true)}
             onDoubleClick={() => setLightboxOpen(true)}
-            className={`w-24 h-24 rounded-full p-[3px] flex-shrink-0 bg-surface ${activeStories.length > 0 ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand cursor-pointer" : "border-2 border-border cursor-pointer"}`}
+            className={`w-18 h-18 sm:w-20 sm:h-20 rounded-full p-[2.5px] sm:p-[3px] flex-shrink-0 bg-surface ${activeStories.length > 0 ? "bg-gradient-to-tr from-amber-400 via-rose-500 to-brand cursor-pointer" : "border-2 border-border cursor-pointer"}`}
             title={activeStories.length > 0 ? "View active stories" : "Double-click to view photo"}
           >
-            <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-3xl font-semibold overflow-hidden">
+            <span className="w-full h-full rounded-full bg-surface p-[2px] flex items-center justify-center text-xl sm:text-2xl font-semibold overflow-hidden">
               {profile.avatar_url
                 ? <ProfileAvatar url={profile.avatar_url} className="w-full h-full rounded-full object-cover" />
                 : (profile.username || "?").slice(0, 1).toUpperCase()}
             </span>
           </button>
           
-          <div className="flex-1 min-w-0 pb-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight truncate">{profile.full_name || profile.username}</h1>
-              {profile.verified && <CheckCircle2 className="w-5 h-5 text-brand fill-brand/20 shrink-0" />}
-            </div>
-            <p className="text-sm text-muted-foreground">@{profile.username}</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-base sm:text-xl font-bold tracking-tight truncate">{profile.full_name || profile.username}</h1>
+                  {profile.verified && <CheckCircle2 className="w-4 h-4 text-brand fill-brand/20 shrink-0" />}
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">@{profile.username}</p>
+              </div>
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {/* Action buttons (Follow, Message) */}
+              {!isSelf ? (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button 
+                    onClick={handleMessage} 
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs sm:text-sm transition hover:opacity-90 cursor-pointer"
+                    title="Send message"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Message</span>
+                  </button>
+                  <button 
+                    onClick={toggleFollow} 
+                    className={`flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 font-semibold rounded-xl text-xs sm:text-sm border transition cursor-pointer ${following ? "bg-muted border-transparent text-foreground" : "bg-brand text-white border-transparent hover:opacity-90"}`}
+                  >
+                    {following ? "Following" : "Follow"}
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/profile"
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-surface border border-border text-foreground font-semibold rounded-xl text-xs sm:text-sm hover:bg-muted transition shrink-0"
+                >
+                  My Profile
+                </Link>
+              )}
+            </div>
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded ${
                 isCreator ? "bg-brand-soft text-brand" : "bg-primary/10 text-primary"
               }`}>
                 {profile.role ?? "creator"}
               </span>
 
-              {/* Experience level & years */}
               {profile.experience_level && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded bg-muted text-foreground/85">
+                <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded bg-muted text-foreground/85">
                   <Award className="w-3 h-3 text-brand" />
                   {profile.experience_level}
-                  {profile.experience_years ? ` · ${profile.experience_years} yrs exp` : ""}
+                  {profile.experience_years ? ` · ${profile.experience_years}y` : ""}
                 </span>
               )}
 
               {profile.location && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
                   <MapPin className="w-3 h-3" /> {profile.location}
                 </span>
               )}
             </div>
 
-            {/* Professional Roles Tags */}
-            {roles.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {profile.bio && <p className="mt-2 text-xs sm:text-sm text-foreground/85 leading-relaxed whitespace-pre-line text-left">{profile.bio}</p>}
+
+            {/* Compact chips for roles and skills below bio */}
+            {(roles.length > 0 || skills.length > 0 || specialties.length > 0) && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
                 {roles.map((r) => (
-                  <span key={r.id} className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface border border-border text-foreground/80">
+                  <span key={r.id} className="text-[10px] sm:text-xs font-medium px-2 py-0.5 rounded-md bg-brand-soft text-brand border border-brand/20">
                     {r.name}
+                  </span>
+                ))}
+                {specialties.slice(0, 3).map((s) => (
+                  <span key={s} className="text-[10px] sm:text-xs font-medium px-2 py-0.5 rounded-md bg-muted text-foreground/80 border border-border">
+                    {s}
                   </span>
                 ))}
               </div>
             )}
-
-            {profile.bio && <p className="mt-3 text-sm text-foreground/90 leading-relaxed max-w-2xl">{profile.bio}</p>}
           </div>
-
-          {!isSelf ? (
-            <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0 w-full sm:w-auto">
-              <button 
-                onClick={handleMessage} 
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-sm transition hover:opacity-90"
-              >
-                <MessageCircle className="w-4 h-4" /> Message
-              </button>
-              <button 
-                onClick={toggleFollow} 
-                className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 font-semibold rounded-xl text-sm border transition ${following ? "bg-muted border-transparent text-foreground" : "bg-transparent border-border text-foreground hover:bg-muted"}`}
-              >
-                {following ? "Following" : "Follow"}
-              </button>
-            </div>
-          ) : (
-            <div className="mt-4 sm:mt-0">
-              <Link
-                to="/profile"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-surface border border-border text-foreground font-semibold rounded-xl text-sm hover:bg-muted transition"
-              >
-                My Profile
-              </Link>
-            </div>
-          )}
         </div>
 
-        {/* Stats Strip */}
-        <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-2 mt-8 pt-5 border-t border-border`}>
-          <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "followers" } as any} className="text-center block hover:opacity-80 transition cursor-pointer">
-            <div className="text-xl font-semibold tracking-tight">{counts.followers}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Followers</div>
-          </Link>
-          <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "following" } as any} className="text-center block hover:opacity-80 transition cursor-pointer">
-            <div className="text-xl font-semibold tracking-tight">{counts.following}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Following</div>
-          </Link>
-          <div className="text-center">
-            <div className="text-xl font-semibold tracking-tight">{posts.length}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Posts</div>
+        {/* Stats Strip: Posts, Followers, Following, Squads */}
+        <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-3"} gap-1 sm:gap-2 mt-4 pt-3.5 border-t border-border`}>
+          <div className="text-center py-1">
+            <div className="text-base sm:text-xl font-bold tracking-tight">{posts.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5 truncate">Posts</div>
           </div>
+          <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "followers" } as any} className="text-center block hover:opacity-80 transition cursor-pointer py-1">
+            <div className="text-base sm:text-xl font-bold tracking-tight">{counts.followers}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5 truncate">Followers</div>
+          </Link>
+          <Link to="/connections/$username" params={{ username: profile.username }} search={{ tab: "following" } as any} className="text-center block hover:opacity-80 transition cursor-pointer py-1">
+            <div className="text-base sm:text-xl font-bold tracking-tight">{counts.following}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5 truncate">Following</div>
+          </Link>
           {isCreator && (
-            <div className="text-center">
-              <div className="text-xl font-semibold tracking-tight">{counts.squads}</div>
-              <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5">Squads</div>
+            <div className="text-center py-1">
+              <div className="text-base sm:text-xl font-bold tracking-tight">{counts.squads}</div>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-widest mt-0.5 truncate">Squads</div>
             </div>
           )}
         </div>
@@ -452,13 +460,13 @@ export function UserProfileView({ identifier }: { identifier: string }) {
       )}
 
       {/* Tabs */}
-      <div className="mt-8 border-b border-border overflow-x-auto scrollbar-hide">
-        <div className="flex min-w-max gap-4">
-          {isCreator && <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-4 h-4" />} label="Portfolio" />}
-          {!isCreator && <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-4 h-4" />} label="Projects" />}
-          {isCreator && <TabBtn active={tab === "videos"} onClick={() => setTab("videos")} icon={<Play className="w-4 h-4" />} label="Videos" />}
-          <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-4 h-4" />} label="Posts" />
-          {isCreator && <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-4 h-4" />} label="Squads" />}
+      <div className="mt-4 sm:mt-6 border-b border-border">
+        <div className={`grid ${isCreator ? "grid-cols-4" : "grid-cols-2"} w-full`}>
+          <TabBtn active={tab === "posts"} onClick={() => setTab("posts")} icon={<Grid3x3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} label="Posts" />
+          {isCreator && <TabBtn active={tab === "portfolio"} onClick={() => setTab("portfolio")} icon={<ImageIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} label="Work" />}
+          {!isCreator && <TabBtn active={tab === "projects"} onClick={() => setTab("projects")} icon={<Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} label="Projects" />}
+          {isCreator && <TabBtn active={tab === "squads"} onClick={() => setTab("squads")} icon={<Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} label="Squads" />}
+          {isCreator && <TabBtn active={tab === "videos"} onClick={() => setTab("videos")} icon={<Play className="w-3.5 h-3.5 sm:w-4 sm:h-4" />} label="Videos" />}
         </div>
       </div>
 
@@ -571,11 +579,12 @@ function TabBtn({ active, onClick, icon, label }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 pb-3 px-1 text-sm font-semibold border-b-2 transition-colors ${
-        active ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+      className={`flex items-center justify-center gap-1 sm:gap-2 py-2.5 sm:py-3 px-1 sm:px-3 text-xs sm:text-sm font-semibold border-b-2 -mb-px transition cursor-pointer truncate ${
+        active ? "border-brand text-foreground font-bold" : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
       }`}
     >
-      {icon} {label}
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }

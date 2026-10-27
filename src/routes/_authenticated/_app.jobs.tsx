@@ -110,19 +110,19 @@ function JobsPage() {
   }, [isClient]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <OmniForgeBanner className="mb-6" />
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      <OmniForgeBanner className="mb-3.5 sm:mb-6" />
 
-      <div className="mb-5">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Opportunities</p>
-        <h1 className="text-2xl font-semibold tracking-tight mt-1">
+      <div className="mb-3.5 sm:mb-5">
+        <p className="text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground">Opportunities</p>
+        <h1 className="text-lg sm:text-2xl font-bold tracking-tight mt-0.5 sm:mt-1">
           {topTab === "skill_swap"
             ? "Skill Swap"
             : isClient
               ? "Hire creators & post briefs"
               : "Smart Brief Matching"}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 line-clamp-2">
           {topTab === "skill_swap"
             ? "Exchange skills with other creators and learn from each other."
             : isClient
@@ -131,19 +131,21 @@ function JobsPage() {
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-border mb-5">
+      <div className="flex gap-1 border-b border-border mb-3.5 sm:mb-5">
         <TabBtn active={topTab === "jobs"} onClick={() => setTopTab("jobs")}>
-          Brief Matching
+          <span className="sm:hidden">Briefs</span>
+          <span className="hidden sm:inline">Brief Matching</span>
         </TabBtn>
         <TabBtn active={topTab === "skill_swap"} onClick={() => setTopTab("skill_swap")}>
-          Skill Swap
+          <span className="sm:hidden">Swaps</span>
+          <span className="hidden sm:inline">Skill Swap</span>
         </TabBtn>
       </div>
 
       {topTab === "jobs" && (
         <>
           {isClient && (
-            <div className="flex gap-1 border-b border-border mb-5">
+            <div className="flex gap-1 border-b border-border mb-3.5 sm:mb-5">
               <TabBtn active={tab === "creators"} onClick={() => setTab("creators")}>
                 Find creators
               </TabBtn>
@@ -175,10 +177,10 @@ function TabBtn({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition ${
+      className={`px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold border-b-2 -mb-px transition cursor-pointer ${
         active
-          ? "border-brand text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground"
+          ? "border-brand text-foreground font-bold"
+          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
       }`}
     >
       {children}
@@ -459,35 +461,35 @@ function BriefsPanel() {
     <div>
       {/* Search and Sort controls */}
       {!isClient && (
-        <div className="space-y-3 mb-5">
+        <div className="space-y-2.5 sm:space-y-3 mb-3.5 sm:mb-5">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
               <input
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
                 placeholder="Search briefs by title, skills, keywords…"
-                className="w-full pl-10 pr-9 h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-brand/40 text-sm placeholder:text-muted-foreground"
+                className="w-full pl-8 sm:pl-10 pr-8 h-9 sm:h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-brand/40 text-xs sm:text-sm placeholder:text-muted-foreground"
               />
               {searchQ && (
                 <button
                   onClick={() => setSearchQ("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
             <div className="flex items-center gap-2">
               <div className="relative flex-1 sm:flex-initial">
-                <div className="flex items-center gap-1.5 h-11 px-3 rounded-xl bg-surface border border-border text-xs font-semibold">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-brand" />
+                <div className="flex items-center gap-1.5 h-9 sm:h-11 px-2.5 sm:px-3 rounded-xl bg-surface border border-border text-[11px] sm:text-xs font-semibold">
+                  <ArrowUpDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-brand shrink-0" />
                   <span className="text-muted-foreground whitespace-nowrap">Sort:</span>
                   <select
                     value={sortBy}
                     onChange={(e: any) => setSortBy(e.target.value)}
-                    className="bg-transparent border-none outline-none font-semibold text-foreground cursor-pointer pr-1"
+                    className="bg-transparent border-none outline-none font-semibold text-foreground cursor-pointer pr-1 text-[11px] sm:text-xs"
                   >
                     <option value="relevant" className="bg-surface text-foreground">
                       Most Relevant ⭐
@@ -510,16 +512,16 @@ function BriefsPanel() {
 
               <button
                 onClick={() => setShowFilters((v) => !v)}
-                className={`h-11 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
+                className={`h-9 sm:h-11 px-2.5 sm:px-3.5 rounded-xl border text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition ${
                   hasActiveFilters || showFilters
                     ? "bg-brand-soft text-brand border-brand/40"
                     : "bg-surface text-muted-foreground border-border hover:text-foreground"
                 }`}
               >
-                <Filter className="w-3.5 h-3.5" />
+                <Filter className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span>Filters</span>
                 {hasActiveFilters && (
-                  <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
                 )}
               </button>
             </div>
@@ -844,24 +846,24 @@ function JobCard({
   const matchedSet = new Set((match?.matchedSkills ?? []).map((s: string) => s.toLowerCase()));
 
   return (
-    <div className="bg-surface rounded-2xl p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
+    <div className="bg-surface rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
       {/* Top row: Match badge + budget + category */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-4">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-brand-soft flex items-center justify-center flex-shrink-0">
-            <Briefcase className="w-5 h-5 text-brand" />
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
+        <div className="flex items-start gap-2.5 sm:gap-3 flex-1 min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-brand-soft flex items-center justify-center flex-shrink-0">
+            <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-brand" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-bold text-base tracking-tight leading-snug">{job.title}</h3>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h3 className="font-bold text-sm sm:text-base tracking-tight leading-snug">{job.title}</h3>
               {/* Match Relevance Badge */}
               {match && match.matchScore > 0 && (
                 <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getBadgeStyle(
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border ${getBadgeStyle(
                     match.matchScore
                   )}`}
                 >
-                  <Sparkles className="w-3 h-3" />
+                  <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   {match.tierLabel}
                 </span>
               )}
@@ -887,10 +889,10 @@ function JobCard({
           </div>
         </div>
 
-        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1.5 flex-shrink-0">
-          {job.budget && <div className="text-base font-bold text-brand">{job.budget}</div>}
+        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1 flex-shrink-0">
+          {job.budget && <div className="text-sm sm:text-base font-bold text-brand">{job.budget}</div>}
           {job.category && (
-            <span className="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-foreground/70">
+            <span className="inline-block text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-foreground/70">
               {job.category}
             </span>
           )}
@@ -898,13 +900,13 @@ function JobCard({
       </div>
 
       {/* Description */}
-      <p className="text-sm text-foreground/80 mt-3 line-clamp-3 leading-relaxed whitespace-pre-line">
+      <p className="text-xs sm:text-sm text-foreground/80 mt-2 sm:mt-3 line-clamp-2 sm:line-clamp-3 leading-relaxed whitespace-pre-line">
         {job.description}
       </p>
 
       {/* Required Roles (if present) */}
       {job.roles_required && job.roles_required.length > 0 && (
-        <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+        <div className="mt-2 sm:mt-3 flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             Role:
           </span>
@@ -913,7 +915,7 @@ function JobCard({
             return (
               <span
                 key={r}
-                className={`text-[11px] px-2 py-0.5 rounded-full font-semibold border ${
+                className={`text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-semibold border ${
                   isMatched
                     ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
                     : "bg-muted text-foreground/80 border-border"
@@ -928,7 +930,7 @@ function JobCard({
 
       {/* AI Match Analysis Section */}
       {match ? (
-        <div className="mt-3.5 p-3.5 rounded-xl border border-border/80 bg-surface/80 space-y-3">
+        <div className="mt-2.5 sm:mt-3.5 p-2.5 sm:p-3.5 rounded-lg sm:rounded-xl border border-border/80 bg-surface/80 space-y-2.5 sm:space-y-3">
           <div className="flex items-center justify-between border-b border-border/60 pb-2">
             <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-foreground">
               <Sparkles className="w-3.5 h-3.5 text-brand" />
@@ -1060,45 +1062,45 @@ function JobCard({
       )}
 
       {/* Metadata bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-border text-[11px]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-border text-[10px] sm:text-[11px]">
         {job.experience_level && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Award className="w-3.5 h-3.5" />
-            <span>
+          <div className="flex items-center gap-1.5 text-muted-foreground truncate">
+            <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+            <span className="truncate">
               <span className="font-semibold text-foreground/80">{job.experience_level}</span> level
             </span>
           </div>
         )}
         {job.duration && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{job.duration}</span>
+          <div className="flex items-center gap-1.5 text-muted-foreground truncate">
+            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+            <span className="truncate">{job.duration}</span>
           </div>
         )}
         {job.location && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>{job.location}</span>
+          <div className="flex items-center gap-1.5 text-muted-foreground truncate">
+            <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+            <span className="truncate">{job.location}</span>
           </div>
         )}
         {deadlineLabel && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Deadline {deadlineLabel}</span>
+          <div className="flex items-center gap-1.5 text-muted-foreground truncate">
+            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+            <span className="truncate">{deadlineLabel}</span>
           </div>
         )}
       </div>
 
       {canApply && (
-        <div className="mt-4 flex justify-end">
+        <div className="mt-3 sm:mt-4 flex justify-end">
           {appStatus ? (
             <StatusBadge status={appStatus} />
           ) : (
             <button
               onClick={onApply}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition inline-flex items-center gap-1.5 shadow-sm"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-semibold hover:opacity-90 transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <Send className="w-3.5 h-3.5" /> Apply now
+              <Send className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Apply now
             </button>
           )}
         </div>
@@ -1624,12 +1626,12 @@ function CreatorsPanel() {
       )}
 
       <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search creators by name, skill, role, specialty, or bio…"
-          className="w-full pl-10 pr-3 h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-ring/40 text-sm"
+          className="w-full pl-8 sm:pl-10 pr-3 h-9 sm:h-11 rounded-xl bg-surface border border-border focus:outline-none focus:ring-2 focus:ring-brand/40 text-xs sm:text-sm"
         />
       </div>
 
