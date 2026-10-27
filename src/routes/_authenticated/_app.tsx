@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/_app")({
 function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profile, loading, signOut, refresh } = useAuth();
+  const { profile, loading, onboardingStatus, signOut, refresh } = useAuth();
   const { theme, toggle } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -36,27 +36,26 @@ function AppShell() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (loading || !profile) return;
+    if (loading || onboardingStatus === "LOADING" || onboardingStatus === "ERROR" || onboardingStatus === "UNAUTHENTICATED") return;
     
-    // If user is onboarded, do not redirect to onboarding
-    if (profile.onboarded) return;
+    // If onboarding is complete, do not redirect to onboarding
+    if (onboardingStatus === "COMPLETE") return;
 
-    const type = profile.account_type || profile.role;
-    if (!type) {
-      if (location.pathname !== "/onboarding/role") navigate({ to: "/onboarding/role", replace: true });
+    if (onboardingStatus === "NEED_ROLE") {
+      navigate({ to: "/onboarding/role", replace: true });
       return;
     }
 
-    if (type === "creator" && location.pathname !== "/onboarding/specialty") {
+    if (onboardingStatus === "NEED_CREATOR_SETUP") {
       navigate({ to: "/onboarding/specialty", replace: true });
       return;
     }
     
-    if (type === "client" && location.pathname !== "/onboarding/client") {
+    if (onboardingStatus === "NEED_CLIENT_SETUP") {
       navigate({ to: "/onboarding/client", replace: true });
       return;
     }
-  }, [loading, profile, navigate, location.pathname]);
+  }, [loading, onboardingStatus, navigate]);
 
   const role = profile?.role ?? "creator";
   const isActive = (p: string) =>

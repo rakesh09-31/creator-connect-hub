@@ -43,7 +43,7 @@ const DEFAULT_SPECIALTIES = [
 
 function CreatorOnboardingPage() {
   const navigate = useNavigate();
-  const { user, profile, refresh } = useAuth();
+  const { user, profile, loading, onboardingStatus, refresh, setProfileOptimistic } = useAuth();
   
   // Steps: 1 = Roles, 2 = Skills, 3 = Specialties, 4 = Experience
   const [step, setStep] = useState(1);
@@ -72,11 +72,20 @@ function CreatorOnboardingPage() {
   const [experienceYears, setExperienceYears] = useState<string>("");
 
   useEffect(() => {
-    if (profile?.onboarded) {
+    if (loading || onboardingStatus === "LOADING") return;
+    if (onboardingStatus === "COMPLETE") {
       navigate({ to: "/home", replace: true });
       return;
     }
-  }, [profile, navigate]);
+    if (onboardingStatus === "NEED_ROLE") {
+      navigate({ to: "/onboarding/role", replace: true });
+      return;
+    }
+    if (onboardingStatus === "NEED_CLIENT_SETUP") {
+      navigate({ to: "/onboarding/client", replace: true });
+      return;
+    }
+  }, [loading, onboardingStatus, navigate]);
 
   useEffect(() => {
     async function loadData() {
@@ -265,11 +274,19 @@ function CreatorOnboardingPage() {
     setSaving(true);
     try {
       const roleRows = selectedRoles.map(r => ({ creator_id: user.id, role_id: r.id }));
-      await supabase.from("creator_roles").upsert(roleRows, { onConflict: "creator_id,role_id" });
-      await supabase.from("profiles").update({ account_type: "creator", role: "creator" }).eq("id", user.id);
+      const { error: rErr } = await supabase.from("creator_roles").upsert(roleRows, { onConflict: "creator_id,role_id" });
+      if (rErr) throw rErr;
+
+      const { error: pErr } = await supabase
+        .from("profiles")
+        .update({ account_type: "creator", role: "creator", auth_user_id: user.id })
+        .eq("id", user.id);
+      if (pErr) throw pErr;
+
       setStep(2);
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("[CreatorOnboarding] Step 1 error:", e);
+      toast.error(e?.message || "Failed to save roles.");
     } finally {
       setSaving(false);
     }
@@ -283,12 +300,17 @@ function CreatorOnboardingPage() {
     }
     setSaving(true);
     try {
-      await supabase.from("creator_skills").delete().eq("creator_id", user.id);
+      const { error: dErr } = await supabase.from("creator_skills").delete().eq("creator_id", user.id);
+      if (dErr) throw dErr;
+
       const skillRows = selectedSkills.map(s => ({ creator_id: user.id, skill_id: s.id }));
-      await supabase.from("creator_skills").insert(skillRows);
+      const { error: sErr } = await supabase.from("creator_skills").insert(skillRows);
+      if (sErr) throw sErr;
+
       setStep(3);
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("[CreatorOnboarding] Step 2 error:", e);
+      toast.error(e?.message || "Failed to save skills.");
     } finally {
       setSaving(false);
     }
@@ -302,12 +324,17 @@ function CreatorOnboardingPage() {
     }
     setSaving(true);
     try {
-      await supabase.from("creator_specialties").delete().eq("user_id", user.id);
+      const { error: dErr } = await supabase.from("creator_specialties").delete().eq("user_id", user.id);
+      if (dErr) throw dErr;
+
       const specRows = selectedSpecialties.map(sp => ({ user_id: user.id, specialty: sp }));
-      await supabase.from("creator_specialties").insert(specRows);
+      const { error: spErr } = await supabase.from("creator_specialties").insert(specRows);
+      if (spErr) throw spErr;
+
       setStep(4);
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("[CreatorOnboarding] Step 3 error:", e);
+      toast.error(e?.message || "Failed to save specialties.");
     } finally {
       setSaving(false);
     }
@@ -337,32 +364,59 @@ function CreatorOnboardingPage() {
     try {
       // 1. Save roles
       const roleRows = selectedRoles.map(r => ({ creator_id: user.id, role_id: r.id }));
-      await supabase.from("creator_roles").upsert(roleRows, { onConflict: "creator_id,role_id" });
+      const { error: rErr } = await supabase.from("creator_roles").upsert(roleRows, { onConflict: "creator_id,role_id" });
+      if (rErr) throw rErr;
 
       // 2. Save skills
-      await supabase.from("creator_skills").delete().eq("creator_id", user.id);
+      const { error: dSkillsErr } = await supabase.from("creator_skills").delete().eq("creator_id", user.id);
+      if (dSkillsErr) throw dSkillsErr;
       const skillRows = selectedSkills.map(s => ({ creator_id: user.id, skill_id: s.id }));
-      await supabase.from("creator_skills").insert(skillRows);
+      const { error: sErr } = await supabase.from("creator_skills").insert(skillRows);
+      if (sErr) throw sErr;
 
       // 3. Save specialties
-      await supabase.from("creator_specialties").delete().eq("user_id", user.id);
+      const { error: dSpecErr } = await supabase.from("creator_specialties").delete().eq("user_id", user.id);
+      if (dSpecErr) throw dSpecErr;
       const specRows = selectedSpecialties.map(sp => ({ user_id: user.id, specialty: sp }));
-      await supabase.from("creator_specialties").insert(specRows);
+      const { error: spErr } = await supabase.from("creator_specialties").insert(specRows);
+      if (spErr) throw spErr;
 
       // 4. Finalize profile
-      await supabase.from("profiles").update({ 
+      const updatePayload = { 
+        onboarded: true,
+        role: "creator" as const,
+        account_type: "creator" as const,
+        experience_level: experienceLevel || "Intermediate",
+        experience_years: experienceYears ? parseInt(experienceYears, 10) : null,
+        auth_user_id: user.id,
+      };
+      const { error: pErr } = await supabase.from("profiles").update(updatePayload).eq("id", user.id);
+      if (pErr) throw pErr;
+
+      // 5. Read-back verification to guarantee database persistence
+      const { data: verified, error: vErr } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (vErr || !verified?.onboarded) {
+        throw new Error("Failed to verify onboarding completion in database. Please try again.");
+      }
+
+      // 6. Optimistically update local auth state so route guards immediately see COMPLETE
+      setProfileOptimistic({
+        ...profile,
+        ...verified,
         onboarded: true,
         role: "creator",
         account_type: "creator",
-        experience_level: experienceLevel || "Intermediate",
-        experience_years: experienceYears ? parseInt(experienceYears) : null
-      }).eq("id", user.id);
-      
+        role_count: roleRows.length,
+        skill_count: skillRows.length,
+        specialty_count: specRows.length,
+      });
+
       await refresh();
       toast.success("Profile setup complete! Welcome to OmniCraft.");
-      navigate({ to: "/home" });
+      navigate({ to: "/home", replace: true });
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("[CreatorOnboarding] handleFinish error:", e);
+      toast.error(e?.message || "Failed to complete setup.");
     } finally { 
       setSaving(false); 
     }
@@ -372,26 +426,26 @@ function CreatorOnboardingPage() {
   const filteredSpecialties = suggestedSpecialties.filter(s => s.toLowerCase().includes(searchSpecialty.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8 relative overflow-y-auto">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-3 sm:p-6 md:p-8 relative overflow-y-auto">
       {/* Background glowing effects */}
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute -top-40 -left-20 h-96 w-96 rounded-full bg-indigo-600/20 blur-[120px] animate-pulse-slow" />
         <div className="absolute -bottom-40 -right-20 h-96 w-96 rounded-full bg-purple-600/15 blur-[120px] animate-pulse-slow [animation-delay:1s]" />
       </div>
 
-      <div className="max-w-4xl w-full bg-surface/80 backdrop-blur-md border border-border rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[90vh] relative z-10 animate-fade-up">
+      <div className="max-w-4xl w-full bg-surface/80 backdrop-blur-md border border-border rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[90vh] relative z-10 animate-fade-up">
         {/* Header */}
-        <div className="bg-surface/50 backdrop-blur-md px-8 py-6 border-b border-border flex items-center justify-between shrink-0">
+        <div className="bg-surface/50 backdrop-blur-md px-4 sm:px-8 py-4 sm:py-6 border-b border-border flex items-center justify-between shrink-0">
           <div>
-            <h1 className="text-2xl font-black text-foreground tracking-tight">Creator Profile Setup</h1>
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">Step {step} of 4</span>
+            <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">Creator Profile Setup</h1>
+            <div className="flex items-center gap-3 sm:gap-4 mt-1.5 sm:mt-2">
+              <span className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-widest">Step {step} of 4</span>
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4].map(i => (
                   <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${
-                    i === step ? 'w-8 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]' 
-                    : i < step ? 'w-4 bg-purple-500/50' 
-                    : 'w-4 bg-muted'
+                    i === step ? 'w-6 sm:w-8 bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]' 
+                    : i < step ? 'w-3 sm:w-4 bg-purple-500/50' 
+                    : 'w-3 sm:w-4 bg-muted'
                   }`} />
                 ))}
               </div>
@@ -405,23 +459,23 @@ function CreatorOnboardingPage() {
         </div>
 
         {/* Content */}
-        <div className="p-8 overflow-y-auto grow custom-scrollbar">
+        <div className="p-4 sm:p-8 overflow-y-auto grow custom-scrollbar">
           {/* STEP 1: ROLES */}
           {step === 1 && (
-            <div className="space-y-8 animate-fade-in">
-              <div className="text-center mb-8">
-                <h2 className="text-3xl md:text-4xl font-black text-foreground tracking-tight">What is your primary role?</h2>
-                <p className="text-muted-foreground mt-2 text-lg">Select at least 1 professional role (required)</p>
+            <div className="space-y-6 sm:space-y-8 animate-fade-in">
+              <div className="text-center mb-6 sm:mb-8">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-foreground tracking-tight">What is your primary role?</h2>
+                <p className="text-muted-foreground mt-1.5 sm:mt-2 text-base sm:text-lg">Select at least 1 professional role (required)</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 {CURATED_ROLES.map(r => {
                   const isSel = selectedRoles.some(x => x.name === r.name);
                   return (
                     <button key={r.name} onClick={() => toggleCuratedRole(r.name, r.emoji)}
-                      className={`relative p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-3 group ${
+                      className={`relative p-4 sm:p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2.5 sm:gap-3 group ${
                         isSel 
-                          ? "border-purple-500 bg-purple-500/10 shadow-[0_0_20px_-5px_rgba(168,85,247,0.3)] -translate-y-1" 
+                          ? "border-purple-500 bg-purple-500/10 shadow-[0_0_20px_-5px_rgba(168,85,247,0.3)] -translate-y-0.5 sm:-translate-y-1" 
                           : "border-border bg-surface hover:bg-muted hover:border-border/80"
                       }`}>
                       {isSel && (
@@ -429,27 +483,27 @@ function CreatorOnboardingPage() {
                           <Check className="w-3.5 h-3.5 text-white" />
                         </div>
                       )}
-                      <span className="text-4xl group-hover:scale-110 transition-transform">{r.emoji}</span>
-                      <span className="font-bold text-foreground tracking-wide">{r.name}</span>
+                      <span className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform">{r.emoji}</span>
+                      <span className="font-bold text-foreground tracking-wide text-sm sm:text-base">{r.name}</span>
                     </button>
                   );
                 })}
 
                 <button onClick={() => setShowCustomRole(true)}
-                  className="relative p-5 rounded-2xl border-2 border-dashed border-border bg-surface hover:bg-muted hover:border-border/80 transition-all flex flex-col items-center justify-center gap-3 group">
-                  <span className="text-4xl group-hover:scale-110 transition-transform">✨</span>
-                  <span className="font-bold text-foreground tracking-wide">Other Role</span>
+                  className="relative p-4 sm:p-5 rounded-2xl border-2 border-dashed border-border bg-surface hover:bg-muted hover:border-border/80 transition-all flex flex-col items-center justify-center gap-2.5 sm:gap-3 group">
+                  <span className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform">✨</span>
+                  <span className="font-bold text-foreground tracking-wide text-sm sm:text-base">Other Role</span>
                 </button>
               </div>
 
               {selectedRoles.length > 0 && (
-                <div className="mt-8 pt-6 border-t border-border">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+                <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-border">
+                  <h3 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-3">
                     Selected Roles ({selectedRoles.length})
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedRoles.map(r => (
-                      <span key={r.id || r.name} className="inline-flex items-center gap-2 bg-purple-500/20 text-purple-500 px-4 py-2 rounded-xl text-sm font-bold border border-purple-500/30">
+                      <span key={r.id || r.name} className="inline-flex items-center gap-2 bg-purple-500/20 text-purple-500 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold border border-purple-500/30">
                         {r.emoji} {r.name}
                         <button onClick={() => removeRole(r.id)} className="hover:bg-purple-500/30 rounded-full p-1 transition-colors"><X className="w-3 h-3" /></button>
                       </span>
@@ -460,21 +514,21 @@ function CreatorOnboardingPage() {
 
               {showCustomRole && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in">
-                  <div className="bg-surface border border-border rounded-3xl p-8 max-w-md w-full shadow-2xl">
-                    <h3 className="text-2xl font-black text-foreground mb-2">Add custom role</h3>
-                    <p className="text-muted-foreground mb-6">What is your creative profession?</p>
+                  <div className="bg-surface border border-border rounded-2xl sm:rounded-3xl p-5 sm:p-8 max-w-md w-full shadow-2xl">
+                    <h3 className="text-xl sm:text-2xl font-black text-foreground mb-2">Add custom role</h3>
+                    <p className="text-muted-foreground text-sm sm:text-base mb-4 sm:mb-6">What is your creative profession?</p>
                     
                     <input 
                       autoFocus
                       value={customRoleInput} 
                       onChange={(e) => setCustomRoleInput(e.target.value)} 
                       placeholder="e.g. Cinematographer"
-                      className="w-full px-4 py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-purple-500 text-foreground font-medium mb-6" 
+                      className="w-full px-4 py-3 sm:py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-purple-500 text-foreground font-medium mb-5 sm:mb-6" 
                     />
                     
                     <div className="flex gap-3">
-                      <button onClick={() => setShowCustomRole(false)} className="flex-1 py-3 border border-border rounded-xl font-bold text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
-                      <button onClick={handleAddCustomRole} className="flex-1 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold transition-colors">Add Role</button>
+                      <button onClick={() => setShowCustomRole(false)} className="flex-1 py-2.5 sm:py-3 border border-border rounded-xl font-bold text-sm sm:text-base text-muted-foreground hover:bg-muted transition-colors">Cancel</button>
+                      <button onClick={handleAddCustomRole} className="flex-1 py-2.5 sm:py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm sm:text-base transition-colors">Add Role</button>
                     </div>
                   </div>
                 </div>
@@ -628,12 +682,12 @@ function CreatorOnboardingPage() {
               </div>
 
               <div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {["Beginner", "Intermediate", "Advanced", "Professional"].map(level => (
                     <button key={level} onClick={() => setExperienceLevel(level)}
-                      className={`p-5 rounded-2xl border-2 text-center font-black tracking-wide transition-all ${
+                      className={`p-4 sm:p-5 rounded-2xl border-2 text-center font-black tracking-wide text-sm sm:text-base transition-all ${
                         experienceLevel === level 
-                          ? "border-pink-500 bg-pink-500/20 text-pink-500 shadow-[0_0_20px_-5px_rgba(236,72,153,0.3)] -translate-y-1" 
+                          ? "border-pink-500 bg-pink-500/20 text-pink-500 shadow-[0_0_20px_-5px_rgba(236,72,153,0.3)] -translate-y-0.5 sm:-translate-y-1" 
                           : "border-border bg-surface text-foreground/70 hover:border-border/80 hover:bg-muted"
                       }`}>
                       {level}
@@ -643,14 +697,14 @@ function CreatorOnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-foreground/70 mb-3 uppercase tracking-wider">Years of Experience (Optional)</label>
+                <label className="block text-xs sm:text-sm font-bold text-foreground/70 mb-2 sm:mb-3 uppercase tracking-wider">Years of Experience (Optional)</label>
                 <input type="number" min="0" max="50" value={experienceYears} onChange={(e) => setExperienceYears(e.target.value)}
                   placeholder="e.g. 3"
-                  className="w-full px-4 py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-pink-500 text-foreground text-lg font-bold transition-colors placeholder:text-muted-foreground" />
+                  className="w-full px-4 py-3 sm:py-4 bg-background border border-border rounded-xl focus:outline-none focus:border-pink-500 text-foreground text-base sm:text-lg font-bold transition-colors placeholder:text-muted-foreground" />
               </div>
 
               {/* Summary verification pill */}
-              <div className="p-4 rounded-xl bg-surface border border-border text-xs space-y-2">
+              <div className="p-3.5 sm:p-4 rounded-xl bg-surface border border-border text-xs space-y-2">
                 <p className="font-bold text-muted-foreground uppercase tracking-wider">Your Matching Profile Summary:</p>
                 <div className="flex flex-wrap gap-1.5 items-center">
                   <span className="font-semibold text-foreground">Roles:</span>
@@ -670,9 +724,9 @@ function CreatorOnboardingPage() {
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-surface/50 backdrop-blur-md p-6 border-t border-border flex items-center justify-between shrink-0">
+        <div className="bg-surface/50 backdrop-blur-md px-4 sm:px-6 py-3.5 sm:py-5 border-t border-border flex items-center justify-between shrink-0">
           {step > 1 ? (
-            <button onClick={() => setStep(step - 1)} className="px-6 py-3 font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors">
+            <button onClick={() => setStep(step - 1)} className="px-4 sm:px-6 py-2.5 sm:py-3 font-bold text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors">
               Back
             </button>
           ) : (
@@ -693,9 +747,9 @@ function CreatorOnboardingPage() {
                 }
               }} 
               disabled={saving}
-              className="px-8 py-3 bg-[linear-gradient(135deg,#7c3aed,#c026d3_55%,#3b82f6)] text-white rounded-xl font-black tracking-wide flex items-center gap-2 hover:opacity-90 transition-all shadow-[0_0_20px_-5px_rgba(168,85,247,0.5)] disabled:opacity-50">
+              className="px-5 sm:px-8 py-2.5 sm:py-3 text-sm sm:text-base bg-[linear-gradient(135deg,#7c3aed,#c026d3_55%,#3b82f6)] text-white rounded-xl font-black tracking-wide flex items-center gap-2 hover:opacity-90 transition-all shadow-[0_0_20px_-5px_rgba(168,85,247,0.5)] disabled:opacity-50">
               {saving ? "Saving..." : step < 4 ? "Continue" : "Complete Profile"}
-              {!saving && <ArrowRight className="w-5 h-5" />}
+              {!saving && <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
         </div>

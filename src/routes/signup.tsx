@@ -27,16 +27,22 @@ const schema = z.object({
 
 function SignupPage() {
   const navigate = useNavigate();
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, onboardingStatus, refresh } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (loading || !session || !profile) return;
-    if (profile.onboarded) {
+    if (loading || !session || onboardingStatus === "LOADING" || onboardingStatus === "UNAUTHENTICATED") return;
+    if (onboardingStatus === "COMPLETE") {
       navigate({ to: "/home", replace: true });
+    } else if (onboardingStatus === "NEED_ROLE") {
+      navigate({ to: "/onboarding/role", replace: true });
+    } else if (onboardingStatus === "NEED_CREATOR_SETUP") {
+      navigate({ to: "/onboarding/specialty", replace: true });
+    } else if (onboardingStatus === "NEED_CLIENT_SETUP") {
+      navigate({ to: "/onboarding/client", replace: true });
     }
-  }, [loading, session, profile, navigate]);
+  }, [loading, session, onboardingStatus, navigate]);
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -109,7 +115,8 @@ function SignupPage() {
         }
       }
       toast.success("Welcome to Omnicraft!");
-      navigate({ to: "/onboarding/role" });
+      await refresh();
+      navigate({ to: "/onboarding/role", replace: true });
     } catch (err: any) {
       console.error("[Auth Unexpected Signup Exception]", err);
       toast.error(err?.message || "An unexpected error occurred during signup. Please try again.");

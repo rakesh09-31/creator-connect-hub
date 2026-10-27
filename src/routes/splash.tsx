@@ -9,32 +9,29 @@ export const Route = createFileRoute("/splash")({
 
 function SplashPage() {
   const navigate = useNavigate();
-  const { loading, session, profile } = useAuth();
+  const { loading, session, profile, error, onboardingStatus } = useAuth();
 
   useEffect(() => {
-    if (loading) return;
-    if (session && !profile) return;
+    if (loading || onboardingStatus === "LOADING") return;
+    if (session && !profile && !error) return;
 
     const t = setTimeout(() => {
-      if (!session) {
-        navigate({ to: "/login" });
-      } else if (profile?.onboarded) {
-        navigate({ to: "/home" });
+      if (!session || onboardingStatus === "UNAUTHENTICATED") {
+        navigate({ to: "/login", replace: true });
+      } else if (onboardingStatus === "COMPLETE") {
+        navigate({ to: "/home", replace: true });
+      } else if (onboardingStatus === "NEED_ROLE") {
+        navigate({ to: "/onboarding/role", replace: true });
+      } else if (onboardingStatus === "NEED_CREATOR_SETUP") {
+        navigate({ to: "/onboarding/specialty", replace: true });
+      } else if (onboardingStatus === "NEED_CLIENT_SETUP") {
+        navigate({ to: "/onboarding/client", replace: true });
       } else {
-        const type = profile?.account_type || profile?.role;
-        if (!type) {
-          navigate({ to: "/onboarding/role" });
-        } else if (type === "creator") {
-          navigate({ to: "/onboarding/specialty" });
-        } else if (type === "client") {
-          navigate({ to: "/onboarding/client" });
-        } else {
-          navigate({ to: "/home" });
-        }
+        navigate({ to: "/login", replace: true });
       }
     }, 2400);
     return () => clearTimeout(t);
-  }, [loading, session, profile, navigate]);
+  }, [loading, session, profile, error, onboardingStatus, navigate]);
 
   return (
     <div

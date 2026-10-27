@@ -14,33 +14,25 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, onboardingStatus } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (loading || !session || !profile) return;
+    if (loading || !session || onboardingStatus === "LOADING" || onboardingStatus === "UNAUTHENTICATED") return;
 
-    // If profile is complete/onboarded, go directly to Home/Dashboard
-    if (profile.onboarded) {
+    if (onboardingStatus === "COMPLETE") {
       navigate({ to: "/home", replace: true });
-      return;
-    }
-
-    // Incomplete profile routing only for missing steps
-    const type = profile.account_type || profile.role;
-    if (!type) {
+    } else if (onboardingStatus === "NEED_ROLE") {
       navigate({ to: "/onboarding/role", replace: true });
-    } else if (type === "creator") {
+    } else if (onboardingStatus === "NEED_CREATOR_SETUP") {
       navigate({ to: "/onboarding/specialty", replace: true });
-    } else if (type === "client") {
+    } else if (onboardingStatus === "NEED_CLIENT_SETUP") {
       navigate({ to: "/onboarding/client", replace: true });
-    } else {
-      navigate({ to: "/home", replace: true });
     }
-  }, [loading, session, profile, navigate]);
+  }, [loading, session, onboardingStatus, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
