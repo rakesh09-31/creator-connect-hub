@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff, Lock, Mail, User, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { AuthShell, TextField } from "./login";
 
@@ -26,8 +27,16 @@ const schema = z.object({
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { session, profile, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (loading || !session || !profile) return;
+    if (profile.onboarded) {
+      navigate({ to: "/home", replace: true });
+    }
+  }, [loading, session, profile, navigate]);
   const [form, setForm] = useState({
     username: "",
     email: "",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search, Play, Image as ImageIcon } from "lucide-react";
+import { Search, Play } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
 import { PostViewer } from "@/components/PostViewer";
@@ -21,12 +21,6 @@ type Profile = {
 type Tile =
   | { kind: "post"; id: string; media_url: string; thumbnail_url?: string | null; post_type: string; caption: string | null; author_id: string; author?: Profile; created_at: string }
   | { kind: "portfolio"; id: string; media_url: string; thumbnail_url?: string | null; title: string; user_id: string; author?: Profile; created_at: string };
-
-// Instagram-style masonry pattern: some tiles are 2x2 (span two cols/rows) among 3-col grid.
-function tallIndex(i: number) {
-  // Every 7th slot is a big tile
-  return i % 7 === 2;
-}
 
 function ExplorePage() {
   const navigate = useNavigate();
@@ -126,7 +120,7 @@ function ExplorePage() {
   }, [tiles, q]);
 
   return (
-    <div className="max-w-3xl mx-auto px-3 sm:px-4 py-5 space-y-4">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-5 space-y-4">
       {/* Search bar */}
       <div className="sticky top-0 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 bg-background/95 backdrop-blur border-b border-border">
         <div className="relative">
@@ -156,11 +150,11 @@ function ExplorePage() {
         </div>
       )}
 
-      {/* Unified masonry grid — reels, posts, portfolios all mixed */}
+      {/* Unified uniform grid — reels, posts, portfolios all mixed */}
       {loading ? (
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="aspect-square bg-muted animate-pulse rounded-sm" />
+            <div key={i} className="aspect-square bg-muted animate-pulse rounded-xl border border-border/40" />
           ))}
         </div>
       ) : filteredTiles.length === 0 ? (
@@ -168,15 +162,13 @@ function ExplorePage() {
           No results — try another search
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1 auto-rows-[minmax(0,1fr)]">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {filteredTiles.map((t, i) => {
-            const big = tallIndex(i);
             const isPriority = i < 12;
             return (
               <ExploreTile
                 key={`${t.kind}-${t.id}`}
                 tile={t}
-                big={big}
                 priority={isPriority}
                 onReelClick={(id) => navigate({ to: "/reels", search: { start: id } })}
                 onPostClick={(id) => setViewerPostId(id)}
@@ -195,14 +187,12 @@ function ExplorePage() {
 
 function ExploreTile({
   tile,
-  big,
   priority = false,
   onReelClick,
   onPostClick,
   onInvalid,
 }: {
   tile: Tile;
-  big?: boolean;
   priority?: boolean;
   onReelClick?: (id: string) => void;
   onPostClick?: (id: string) => void;
@@ -244,7 +234,6 @@ function ExploreTile({
 
   const username = tile.author?.username ?? "";
   const isVideo = tile.kind === "post" && (tile.post_type === "video" || tile.post_type === "reel");
-  const spanCls = big ? "col-span-2 row-span-2" : "";
   const feature: StorageFeature = isVideo ? "reel" : tile.kind === "portfolio" ? "portfolioImage" : "post";
   const isCandidate = isCandidateMediaUrl(tile.media_url);
 
@@ -274,13 +263,13 @@ function ExploreTile({
       <button
         ref={(node) => { containerRef.current = node; }}
         onClick={() => onReelClick(tile.id)}
-        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}
+        className="relative w-full aspect-square bg-muted overflow-hidden rounded-xl border border-border/40 group text-left block"
       >
         <VideoPlayer
           src={tile.media_url}
           poster={tile.thumbnail_url}
           controls={false}
-          className="w-full h-full"
+          className="w-full h-full object-cover"
           feature="reel"
           priority={priority}
           onInvalid={() => {
@@ -288,9 +277,14 @@ function ExploreTile({
             onInvalid?.(tile.id);
           }}
         />
-        <div className="absolute top-1.5 right-1.5 text-white drop-shadow">
-          <Play className="w-4 h-4 fill-white" />
+        <div className="absolute top-2 right-2 rounded-full bg-black/60 backdrop-blur-sm p-1.5 text-white shadow">
+          <Play className="w-3.5 h-3.5 fill-white" />
         </div>
+        {tile.caption && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
+            <p className="text-xs text-white font-medium line-clamp-2">{tile.caption}</p>
+          </div>
+        )}
       </button>
     );
   }
@@ -301,13 +295,13 @@ function ExploreTile({
       <button
         ref={(node) => { containerRef.current = node; }}
         onClick={() => onPostClick(tile.id)}
-        className={`relative aspect-square bg-muted overflow-hidden rounded-sm group text-left ${spanCls}`}
+        className="relative w-full aspect-square bg-muted overflow-hidden rounded-xl border border-border/40 group text-left block"
       >
         {resolvedUrl ? (
           <img
             src={resolvedUrl}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-            alt=""
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            alt={tile.caption ?? "Post"}
             loading={priority ? "eager" : "lazy"}
             fetchPriority={priority ? "high" : "auto"}
             onError={() => {
@@ -317,6 +311,11 @@ function ExploreTile({
           />
         ) : (
           <div className="w-full h-full bg-muted animate-pulse" />
+        )}
+        {tile.caption && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
+            <p className="text-xs text-white font-medium line-clamp-2">{tile.caption}</p>
+          </div>
         )}
       </button>
     );
@@ -328,13 +327,13 @@ function ExploreTile({
       ref={(node) => { containerRef.current = node; }}
       to="/user/$username"
       params={{ username }}
-      className={`relative aspect-square bg-muted overflow-hidden rounded-sm group ${spanCls}`}
+      className="relative w-full aspect-square bg-muted overflow-hidden rounded-xl border border-border/40 group block"
     >
       {resolvedUrl ? (
         <img
           src={resolvedUrl}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-          alt=""
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          alt={tile.title}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
           onError={() => {
@@ -345,8 +344,9 @@ function ExploreTile({
       ) : (
         <div className="w-full h-full bg-muted animate-pulse" />
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition">
-        <p className="text-[10px] text-white font-semibold truncate">@{username}</p>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 opacity-0 group-hover:opacity-100 transition duration-200">
+        <p className="text-xs text-white font-semibold truncate">{tile.title}</p>
+        <p className="text-[10px] text-white/70 truncate">@{username}</p>
       </div>
     </Link>
   );

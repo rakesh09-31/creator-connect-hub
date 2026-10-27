@@ -10,7 +10,10 @@ export function LoadingScreen({ message = "Loading" }: { message?: string }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black">
+    <div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black dark auth-theme-dark text-foreground"
+      style={{ colorScheme: "dark" }}
+    >
       {/* soft glowing orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-purple-600/25 blur-3xl animate-pulse-slow" />

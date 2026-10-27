@@ -13,6 +13,8 @@ function SplashPage() {
 
   useEffect(() => {
     if (loading) return;
+    if (session && !profile) return;
+
     const t = setTimeout(() => {
       if (!session) {
         navigate({ to: "/login" });
@@ -35,7 +37,10 @@ function SplashPage() {
   }, [loading, session, profile, navigate]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div
+      className="dark auth-theme-dark relative min-h-screen overflow-hidden bg-black text-foreground"
+      style={{ colorScheme: "dark" }}
+    >
       {/* Subtle glowing background orbs */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-600/20 blur-[120px] animate-pulse-slow" />

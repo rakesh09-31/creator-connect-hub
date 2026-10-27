@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles, Mail, ArrowLeft } from "lucide-react";
+import { Mail, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthShell, TextField } from "./login";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({ meta: [{ title: "Recover account — Omnicraft" }] }),
@@ -17,14 +18,15 @@ function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = z.string().email().safeParse(email);
+    const trimmed = email.trim();
+    const parsed = z.string().email().safeParse(trimmed);
     if (!parsed.success) {
-      toast.error("Enter a valid email");
+      toast.error("Enter a valid email address");
       return;
     }
     setSubmitting(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) {
@@ -33,56 +35,75 @@ function ForgotPasswordPage() {
       }
       setSent(true);
       toast.success("Check your email for a reset link");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send reset link");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto bg-white rounded-2xl shadow-xl flex items-center justify-center mb-4 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-90" />
-            <Sparkles className="w-10 h-10 text-white relative z-10" strokeWidth={2.5} />
+    <AuthShell
+      title={sent ? "Check your inbox" : "Reset password"}
+      subtitle={sent ? "We've sent a recovery link to your email" : "Enter your email and we'll send you a recovery link"}
+    >
+      {sent ? (
+        <div className="space-y-6 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+            <Mail className="h-7 w-7" />
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Reset Password</h1>
-          <p className="text-white/80">We'll email you a recovery link</p>
-        </div>
+          <div className="space-y-2">
+            <p className="text-sm text-white/80">
+              We sent a password reset link to:
+            </p>
+            <p className="text-sm font-semibold text-purple-300 break-all">
+              {email}
+            </p>
+            <p className="text-xs text-white/50 pt-2">
+              Didn't receive it? Check your spam folder or try again in a few minutes.
+            </p>
+          </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {sent ? (
-            <div className="text-center py-6">
-              <Mail className="w-12 h-12 text-indigo-600 mx-auto mb-3" />
-              <h3 className="font-bold text-lg mb-2">Email sent</h3>
-              <p className="text-gray-600 text-sm">Check <span className="font-semibold">{email}</span> and follow the link to set a new password.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-              <button type="submit" disabled={submitting}
-                className="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold rounded-xl hover:opacity-90 transition-opacity shadow-lg disabled:opacity-60">
-                {submitting ? "Sending..." : "Send recovery email"}
-              </button>
-            </form>
-          )}
-          <Link to="/login" className="mt-6 flex items-center justify-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-            <ArrowLeft className="w-4 h-4" /> Back to sign in
-          </Link>
+          <div className="pt-2">
+            <Link
+              to="/login"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-sm font-bold text-white transition hover:bg-white/15"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to sign in
+            </Link>
+          </div>
         </div>
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <TextField
+            label="Email"
+            icon={<Mail className="h-4 w-4" />}
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="you@email.com"
+            autoComplete="email"
+          />
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="group relative mt-2 w-full overflow-hidden rounded-xl bg-[linear-gradient(135deg,#7c3aed,#c026d3_55%,#3b82f6)] py-3 text-sm font-bold text-white shadow-[0_0_30px_-8px_rgba(168,85,247,0.7)] transition disabled:opacity-60"
+          >
+            <span className="relative z-10">{submitting ? "Sending..." : "Send recovery link"}</span>
+            <div className="absolute inset-0 -translate-x-full bg-white/20 transition-transform duration-500 group-hover:translate-x-0" />
+          </button>
+
+          <div className="pt-2 text-center">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-300 hover:text-purple-200 transition"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+            </Link>
+          </div>
+        </form>
+      )}
+    </AuthShell>
   );
 }

@@ -2,7 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark, .dark *));
 
 /*
  * Omnicraft — Vibrant professional palette
@@ -114,7 +114,8 @@
   --sidebar-ring: oklch(0.5 0.22 275);
 }
 
-.dark {
+.dark,
+.auth-theme-dark {
   /* Premium pure-black Instagram-style theme */
   --background: oklch(0 0 0);              /* #000 */
   --foreground: oklch(0.985 0 0);
@@ -156,6 +157,30 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.22 0 0);
   --sidebar-ring: oklch(0.68 0.22 285);
+}
+
+.auth-theme-dark {
+  color-scheme: dark;
+  background-color: #000000;
+  color: oklch(0.985 0 0);
+}
+
+.auth-theme-dark .glass-card {
+  background: color-mix(in oklab, oklch(0.16 0 0) 78%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid color-mix(in oklab, white 8%, transparent);
+}
+
+.auth-theme-dark input:-webkit-autofill,
+.auth-theme-dark input:-webkit-autofill:hover,
+.auth-theme-dark input:-webkit-autofill:focus,
+.auth-theme-dark textarea:-webkit-autofill,
+.auth-theme-dark textarea:-webkit-autofill:hover,
+.auth-theme-dark textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0px 1000px #121212 inset !important;
+  box-shadow: 0 0 0px 1000px #121212 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 .dark body {

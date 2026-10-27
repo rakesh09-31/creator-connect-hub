@@ -183,7 +183,10 @@ export function AuthShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div
+      className="dark auth-theme-dark relative min-h-screen overflow-hidden bg-black text-foreground"
+      style={{ colorScheme: "dark" }}
+    >
       {/* glowing orbs */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-40 left-1/3 h-96 w-96 rounded-full bg-purple-600/25 blur-[120px] animate-pulse-slow" />
@@ -191,15 +194,15 @@ export function AuthShell({
         <div className="absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-fuchsia-600/15 blur-[100px]" />
       </div>
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center p-6">
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8 sm:p-6">
         <div className="w-full max-w-md animate-fade-up">
-          <div className="mb-8 flex flex-col items-center text-center">
-            <BrandMark size={72} />
-            <h1 className="mt-5 text-3xl font-black tracking-tight text-white">{title}</h1>
-            <p className="mt-1.5 text-sm text-white/50">{subtitle}</p>
+          <div className="mb-6 sm:mb-8 flex flex-col items-center text-center">
+            <BrandMark size={64} />
+            <h1 className="mt-4 sm:mt-5 text-2xl sm:text-3xl font-black tracking-tight text-white">{title}</h1>
+            <p className="mt-1.5 text-xs sm:text-sm text-white/50">{subtitle}</p>
           </div>
 
-          <div className="glass-card rounded-2xl p-7 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.9)]">
+          <div className="glass-card rounded-2xl p-5 sm:p-7 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.9)]">
             {children}
           </div>
 
