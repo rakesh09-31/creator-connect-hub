@@ -846,7 +846,7 @@ function JobCard({
   return (
     <div className="bg-surface rounded-2xl p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
       {/* Top row: Match badge + budget + category */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className="w-11 h-11 rounded-xl bg-brand-soft flex items-center justify-center flex-shrink-0">
             <Briefcase className="w-5 h-5 text-brand" />
@@ -887,10 +887,10 @@ function JobCard({
           </div>
         </div>
 
-        <div className="text-right flex-shrink-0">
+        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1.5 flex-shrink-0">
           {job.budget && <div className="text-base font-bold text-brand">{job.budget}</div>}
           {job.category && (
-            <span className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-foreground/70">
+            <span className="inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-muted text-foreground/70">
               {job.category}
             </span>
           )}
@@ -2145,7 +2145,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           value={form.title}
           onChange={(v) => setForm({ ...form, title: v })}
         />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             placeholder="Company / brand name"
             value={form.company_name}
@@ -2296,7 +2296,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             placeholder="Budget (e.g. ₹10,000)"
             value={form.budget}
@@ -2308,7 +2308,7 @@ function PostJobModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             onChange={(v) => setForm({ ...form, duration: v })}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             placeholder="Location (or Remote)"
             value={form.location}
@@ -2549,7 +2549,7 @@ function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto border border-border"
+        className="bg-background w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90vh] overflow-y-auto border border-border"
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">{title}</h2>

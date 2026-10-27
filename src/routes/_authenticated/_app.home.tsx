@@ -317,7 +317,7 @@ function HomePage() {
       <section className="relative overflow-hidden rounded-2xl p-5 shadow-brand bg-gradient-brand text-white">
         <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative flex items-center justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-widest text-white/80 font-semibold">
               {isCreator ? "Creator workspace" : "Client workspace"}
@@ -328,7 +328,7 @@ function HomePage() {
           </div>
           <Link
             to={isCreator ? "/create" : "/jobs"}
-            className="shrink-0 inline-flex items-center gap-1.5 bg-white text-primary hover:bg-white/90 rounded-xl px-4 py-2.5 text-sm font-bold transition shadow-lg"
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 bg-white text-primary hover:bg-white/90 rounded-xl px-4 py-2.5 text-sm font-bold transition shadow-lg w-full sm:w-auto"
           >
             {isCreator ? <><Plus className="w-4 h-4" /> New post</> : <><Briefcase className="w-4 h-4" /> Post a brief</>}
           </Link>
