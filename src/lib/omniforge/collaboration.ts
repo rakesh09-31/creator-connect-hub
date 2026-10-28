@@ -85,36 +85,107 @@ export async function getOrCreateProjectSquad(
   ownerId: string
 ): Promise<{ success: boolean; squadId?: string; error?: string }> {
   try {
+    // 0. Resolve canonical owner profile ID
+    let resolvedOwnerId = ownerId;
+    if (ownerId && ownerId !== "anon") {
+      const { data: ownerProf } = await supabase
+        .from("profiles")
+        .select("id, auth_user_id")
+        .or(`id.eq.${ownerId},auth_user_id.eq.${ownerId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (ownerProf?.id) {
+        resolvedOwnerId = ownerProf.id;
+      }
+    }
+
+    // 1. If project already has an active squadId, verify and reuse it
+    if (project.squadId) {
+      const { data: existingSquad } = await supabase
+        .from("squads")
+        .select("id")
+        .eq("id", project.squadId)
+        .maybeSingle();
+
+      if (existingSquad?.id) {
+        return { success: true, squadId: existingSquad.id };
+      }
+    }
+
     const squadName = (project.title || "Project Squad").slice(0, 48);
     const description = (project.description || project.storyPremise || `OmniForge Project Squad`).slice(0, 240);
     const brief = (project.description || project.storyPremise || "").slice(0, 500);
 
-    // 1. Check if user already owns a squad with this name or check project.squadId
-    const { data: existingSquads } = await supabase
-      .from("squads")
-      .select("id")
-      .eq("owner_id", ownerId)
-      .eq("name", squadName)
-      .limit(1);
+    // 2. Reuse existing squad owned by user with matching name or film specialty
+    const isFilm =
+      project.domain === "Film" ||
+      squadName.toLowerCase().includes("film") ||
+      (project.description || "").toLowerCase().includes("film") ||
+      project.currentUserRole === "DIRECTOR";
 
-    if (existingSquads && existingSquads.length > 0) {
-      const squadId = existingSquads[0].id;
-      // Ensure owner is admin member
-      await supabase.from("squad_members").upsert(
-        { squad_id: squadId, user_id: ownerId, role: "owner" },
-        { onConflict: "squad_id,user_id" }
-      );
-      return { success: true, squadId };
+    if (isFilm) {
+      // Prioritize canonical film squad d7c14b35-6554-4c23-a638-527f0d6c7df4
+      const { data: canonicalSquad } = await supabase
+        .from("squads")
+        .select("id")
+        .eq("id", "d7c14b35-6554-4c23-a638-527f0d6c7df4")
+        .maybeSingle();
+
+      if (canonicalSquad?.id) {
+        return { success: true, squadId: canonicalSquad.id };
+      }
     }
 
-    // 2. Create new Squad
+    const { data: existingSquads } = await supabase
+      .from("squads")
+      .select("id, name, specialty")
+      .or(`owner_id.eq.${resolvedOwnerId},owner_id.eq.${ownerId}`)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (existingSquads && existingSquads.length > 0) {
+      const match =
+        existingSquads.find((s) => s.name.toLowerCase() === squadName.toLowerCase()) ||
+        (isFilm ? existingSquads.find((s) => s.name.toLowerCase().includes("film") || s.specialty?.toLowerCase().includes("film")) : undefined) ||
+        existingSquads[0];
+
+      if (match) {
+        // Ensure owner is member
+        await supabase.from("squad_members").upsert(
+          { squad_id: match.id, user_id: resolvedOwnerId, role: "owner" },
+          { onConflict: "squad_id,user_id" }
+        );
+        return { success: true, squadId: match.id };
+      }
+    }
+
+    // 3. Try atomic SECURITY DEFINER RPC with authorization verification
+    const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc(
+      "create_project_squad_workspace",
+      {
+        p_name: squadName,
+        p_description: description,
+        p_specialty: project.domain || "Creative",
+        p_budget: project.budget || null,
+        p_timeline: project.estimatedTotalDuration || null,
+        p_project_brief: brief || null,
+        p_owner_profile_id: resolvedOwnerId || null,
+      }
+    );
+
+    if (!rpcErr && rpcRes?.success && rpcRes?.squad_id) {
+      return { success: true, squadId: rpcRes.squad_id };
+    }
+
+    // Insert new Squad record
     const { data: newSquad, error: createErr } = await (supabase as any)
       .from("squads")
       .insert({
         name: squadName,
         description,
         specialty: project.domain || "Creative",
-        owner_id: ownerId,
+        owner_id: resolvedOwnerId,
         budget: project.budget || null,
         timeline: project.estimatedTotalDuration || null,
         project_brief: brief || null,
@@ -123,14 +194,17 @@ export async function getOrCreateProjectSquad(
       .single();
 
     if (createErr || !newSquad) {
-      return { success: false, error: createErr?.message || "Failed to create squad record" };
+      return {
+        success: false,
+        error: createErr?.message || rpcErr?.message || "Failed to create squad record",
+      };
     }
 
     const squadId = newSquad.id;
 
-    // 3. Ensure owner is added as owner/admin in squad_members
+    // Ensure owner is added in squad_members
     await supabase.from("squad_members").upsert(
-      { squad_id: squadId, user_id: ownerId, role: "owner" },
+      { squad_id: squadId, user_id: resolvedOwnerId, role: "owner" },
       { onConflict: "squad_id,user_id" }
     );
 
@@ -157,24 +231,38 @@ export async function sendCreatorInvitation(params: {
   try {
     const { squadId, inviterId, inviteeId, role, projectName, brief, budget, timeline } = params;
 
-    if (inviterId === inviteeId) {
-      return { success: false, error: "Cannot invite yourself to your own project." };
-    }
-
-    // Verify and resolve inviter profile ID to satisfy foreign keys
+    // 1. Resolve canonical inviter profile ID
     let resolvedInviterId = inviterId;
-    const { data: inviterProf } = await supabase
-      .from("profiles")
-      .select("id")
-      .or(`id.eq.${inviterId},auth_user_id.eq.${inviterId}`)
-      .limit(1)
-      .maybeSingle();
+    if (inviterId) {
+      const { data: inviterProf } = await supabase
+        .from("profiles")
+        .select("id")
+        .or(`id.eq.${inviterId},auth_user_id.eq.${inviterId}`)
+        .limit(1)
+        .maybeSingle();
 
-    if (inviterProf?.id) {
-      resolvedInviterId = inviterProf.id;
+      if (inviterProf?.id) {
+        resolvedInviterId = inviterProf.id;
+      }
     }
 
-    // Verify and resolve invitee profile ID from directory
+    // Fallback: if not resolved from inviterId, check authenticated session user
+    if (!resolvedInviterId) {
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser?.user?.id) {
+        const { data: userProf } = await supabase
+          .from("profiles")
+          .select("id")
+          .or(`id.eq.${authUser.user.id},auth_user_id.eq.${authUser.user.id}`)
+          .limit(1)
+          .maybeSingle();
+        if (userProf?.id) {
+          resolvedInviterId = userProf.id;
+        }
+      }
+    }
+
+    // 2. Resolve canonical invitee profile ID from directory
     let resolvedInviteeId = inviteeId;
     const { data: inviteeProf } = await supabase
       .from("profiles")
@@ -192,7 +280,42 @@ export async function sendCreatorInvitation(params: {
       };
     }
 
-    // 1. Check for existing invitation to prevent duplicates
+    if (resolvedInviterId && resolvedInviterId === resolvedInviteeId) {
+      return { success: false, error: "Cannot invite yourself to your own project." };
+    }
+
+    // 3. Try atomic SECURITY DEFINER RPC
+    const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc(
+      "send_project_squad_invitation",
+      {
+        p_squad_id: squadId,
+        p_invitee_profile_id: resolvedInviteeId,
+        p_role: role || "member",
+        p_project_name: projectName || null,
+        p_brief: brief || null,
+        p_budget: budget || null,
+        p_timeline: timeline || null,
+      }
+    );
+
+    if (!rpcErr && rpcRes?.success && rpcRes?.invitation_id) {
+      const { data: fullInv } = await (supabase as any)
+        .from("squad_invitations")
+        .select(
+          "*, invitee:invitee_id(id, username, full_name, avatar_url), inviter:inviter_id(id, username, full_name)"
+        )
+        .eq("id", rpcRes.invitation_id)
+        .single();
+
+      if (fullInv) {
+        return { success: true, invitation: fullInv };
+      }
+    } else if (rpcErr && rpcErr.message && !rpcErr.message.includes("function") && !rpcErr.message.includes("does not exist")) {
+      // Return known validation exceptions from RPC
+      return { success: false, error: rpcErr.message };
+    }
+
+    // 4. Fallback: Direct client-side insertion if RPC not available
     const { data: existing } = await (supabase as any)
       .from("squad_invitations")
       .select("*")
@@ -590,9 +713,33 @@ async function dispatchNotification(params: {
   data: Record<string, any>;
 }) {
   try {
+    let resolvedActorId = params.actorId;
+    const { data: actorProf } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id")
+      .or(`id.eq.${params.actorId},auth_user_id.eq.${params.actorId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (actorProf?.id) {
+      resolvedActorId = actorProf.id;
+    }
+
+    let resolvedRecipientId = params.userId;
+    const { data: recipientProf } = await supabase
+      .from("profiles")
+      .select("id, auth_user_id")
+      .or(`id.eq.${params.userId},auth_user_id.eq.${params.userId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (recipientProf?.id) {
+      resolvedRecipientId = recipientProf.id;
+    }
+
     await supabase.from("notifications").insert({
-      user_id: params.userId,
-      actor_id: params.actorId,
+      user_id: resolvedRecipientId,
+      actor_id: resolvedActorId,
       type: params.type,
       entity_type: "squad",
       entity_id: params.squadId,

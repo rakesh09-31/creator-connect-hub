@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { OmniForgeProject } from "./types";
+import { getOrCreateProjectSquad } from "./collaboration";
 
 export interface SquadConversionResult {
   success: boolean;
@@ -19,37 +20,19 @@ export async function convertProjectToSquad(
 ): Promise<SquadConversionResult> {
   try {
     const squadName = project.title.slice(0, 48);
-    const description = `OmniForge Project Squad: ${project.description.slice(0, 200)}`;
-    const specialty = project.domain;
 
-    // 1. Create Squad in existing public.squads table
-    const { data: squad, error: squadErr } = await supabase
-      .from("squads")
-      .insert({
-        name: squadName,
-        description,
-        specialty,
-        owner_id: ownerId,
-      })
-      .select()
-      .single();
-
-    if (squadErr || !squad) {
-      console.error("Failed to create squad:", squadErr);
-      return { success: false, error: squadErr?.message || "Could not create squad record", invitedCount: 0 };
+    // 1. Get or create Squad using atomic workspace helper
+    const squadRes = await getOrCreateProjectSquad(project, ownerId);
+    if (!squadRes.success || !squadRes.squadId) {
+      console.error("Failed to create squad:", squadRes.error);
+      return {
+        success: false,
+        error: squadRes.error || "Could not create squad record",
+        invitedCount: 0,
+      };
     }
 
-    const squadId = squad.id;
-
-    // 2. Ensure owner is added as admin member in public.squad_members
-    await supabase.from("squad_members").upsert(
-      {
-        squad_id: squadId,
-        user_id: ownerId,
-        role: "admin",
-      },
-      { onConflict: "squad_id,user_id" }
-    );
+    const squadId = squadRes.squadId;
 
     // 3. Send invitations to all selected creators
     let invitedCount = 0;

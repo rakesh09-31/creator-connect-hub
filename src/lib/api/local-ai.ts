@@ -24,20 +24,39 @@ export interface LocalAIChatResponse {
   answer: string;
   response?: string;
   suggested_roles?: SuggestedRole[];
+  target_role?: string;
+  target_name?: string;
+  scope?: "ALL" | "BATCH" | "SINGLE";
+  suggested_chips?: string[];
+  search_query?: string;
   metrics?: {
     ttft_ms?: number;
     total_ms?: number;
     tokens?: number;
     prompt_eval_count?: number;
   };
+  telemetry?: LocalAITelemetry;
+}
+
+export interface LocalAITelemetry {
+  intent?: string;
+  generation_type?: string;
+  ollama_start_ms?: number;
+  first_token_ms?: number;
+  generation_duration_ms?: number;
+  chunks_received?: number;
+  completion_status?: "completed" | "interrupted" | "failed";
+  error_type?: string | null;
 }
 
 export interface SendChatOptions {
   history?: LocalAIChatHistoryItem[];
   projectContext?: LocalAIProjectContext;
+  ragContext?: string;
   timeoutMs?: number;
   numPredict?: number;
   onToken?: (token: string, accumulated: string) => void;
+  signal?: AbortSignal;
 }
 
 export interface LocalAIHealthResponse {
@@ -189,6 +208,62 @@ export function cleanAiResponseText(rawText: string): string {
   return text.trim();
 }
 
+export interface LocalAIValidationResult {
+  isValid: boolean;
+  cleanedText: string;
+  error?: string;
+  isTransportFailure?: boolean;
+  isEmptyOutput?: boolean;
+}
+
+/**
+ * Validates and normalizes local AI output across both streaming and JSON modes.
+ * Enforces non-empty response, trims whitespace, preserves valid streamed tokens,
+ * and distinguishes transport failures from empty model outputs.
+ */
+export function validateLocalAIResponse(
+  rawText: string | undefined | null,
+  context?: {
+    intent?: string;
+    chunksReceived?: number;
+    streamCompleted?: boolean;
+    httpStatus?: number;
+  }
+): LocalAIValidationResult {
+  if (typeof rawText !== "string") {
+    return {
+      isValid: false,
+      cleanedText: "",
+      error: "The local AI engine returned no response data.",
+      isEmptyOutput: true,
+    };
+  }
+
+  const cleaned = cleanAiResponseText(rawText).trim();
+
+  if (!cleaned) {
+    if (context?.chunksReceived && context.chunksReceived > 0 && !context.streamCompleted) {
+      return {
+        isValid: false,
+        cleanedText: "",
+        error: "Stream was interrupted before a complete response could be formed. Please click Retry.",
+        isTransportFailure: true,
+      };
+    }
+    return {
+      isValid: false,
+      cleanedText: "",
+      error: "The local AI model returned an empty response. Please click Retry to re-generate.",
+      isEmptyOutput: true,
+    };
+  }
+
+  return {
+    isValid: true,
+    cleanedText: cleaned,
+  };
+}
+
 export interface LocalAIChatHistoryItem {
   role: "user" | "assistant";
   content: string;
@@ -212,14 +287,20 @@ export interface LocalAIProjectContext {
  * and standard non-streaming JSON responses.
  *
  * Payload: {"message": "user message", "history": [...], "project_context": {...}, "stream": boolean, "num_predict": number}
- * Response: {"success": true, "model": "qwen3:4b", "provider": "local-ollama", "answer": "...", "metrics": {...}}
  */
+export const TIMEOUT_FAST_ACTION = 5000;
+export const TIMEOUT_DATABASE_ACTION = 10000;
+export const TIMEOUT_AI_GENERATION = 120000;
+export const TIMEOUT_CREATIVE_IDLE = 120000; // 120s idle timeout while streaming
+
 export async function sendLocalAIChatMessage(
   message: string,
   historyOrOptions?: LocalAIChatHistoryItem[] | number | SendChatOptions,
   projectContext?: LocalAIProjectContext,
-  timeoutMs: number = 120000,
-  onTokenCallback?: (token: string, accumulated: string) => void
+  timeoutMs: number = TIMEOUT_AI_GENERATION,
+  onTokenCallback?: (token: string, accumulated: string) => void,
+  ragContext?: string,
+  signal?: AbortSignal
 ): Promise<LocalAIChatResponse> {
   const trimmed = message.trim();
   if (!trimmed) {
@@ -231,6 +312,8 @@ export async function sendLocalAIChatMessage(
   let effectiveTimeout = timeoutMs;
   let numPredict: number | undefined;
   let onToken = onTokenCallback;
+  let effectiveRagContext = ragContext;
+  let externalSignal = signal;
 
   if (typeof historyOrOptions === "number") {
     effectiveTimeout = historyOrOptions;
@@ -243,12 +326,42 @@ export async function sendLocalAIChatMessage(
     if (typeof opts.timeoutMs === "number") effectiveTimeout = opts.timeoutMs;
     if (typeof opts.numPredict === "number") numPredict = opts.numPredict;
     if (opts.onToken) onToken = opts.onToken;
+    if (opts.ragContext) effectiveRagContext = opts.ragContext;
+    if (opts.signal) externalSignal = opts.signal;
   }
 
   const isStreaming = typeof onToken === "function";
   const controller = new AbortController();
-  const safeTimeout = typeof effectiveTimeout === "number" && !isNaN(effectiveTimeout) && effectiveTimeout > 0 ? effectiveTimeout : 120000;
-  const timer = setTimeout(() => controller.abort(), safeTimeout);
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
+  let idleTimer: any = null;
+  let fixedTimer: any = null;
+  let isAbortedByIdle = false;
+  let streamReceivedAnyData = false;
+
+  const resetIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      isAbortedByIdle = true;
+      controller.abort();
+    }, TIMEOUT_CREATIVE_IDLE);
+  };
+
+  const safeTimeout = typeof effectiveTimeout === "number" && !isNaN(effectiveTimeout) && effectiveTimeout > 0 ? effectiveTimeout : 180000;
+
+  if (isStreaming) {
+    // Creative generation / streaming: Start idle timer.
+    // The request stays alive as long as tokens are arriving!
+    resetIdleTimer();
+  } else {
+    fixedTimer = setTimeout(() => controller.abort(), safeTimeout);
+  }
 
   try {
     const payload: {
@@ -257,6 +370,7 @@ export async function sendLocalAIChatMessage(
       project_context?: LocalAIProjectContext;
       stream: boolean;
       num_predict?: number;
+      rag_context?: string;
     } = {
       message: trimmed,
       stream: isStreaming,
@@ -272,6 +386,10 @@ export async function sendLocalAIChatMessage(
 
     if (typeof numPredict === "number") {
       payload.num_predict = numPredict;
+    }
+
+    if (effectiveRagContext) {
+      payload.rag_context = effectiveRagContext;
     }
 
     if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
@@ -310,7 +428,8 @@ export async function sendLocalAIChatMessage(
     }
 
     if (!res.ok) {
-      clearTimeout(timer);
+      if (idleTimer) clearTimeout(idleTimer);
+      if (fixedTimer) clearTimeout(fixedTimer);
       let errorDetail = `HTTP ${res.status}: Server responded with status ${res.status}`;
       try {
         const errJson = await res.json();
@@ -340,12 +459,22 @@ export async function sendLocalAIChatMessage(
       let finalMatchingAction: MatchingActionType | undefined;
       let finalProjectData: any | undefined;
       let finalSuggestedRoles: SuggestedRole[] | undefined;
+      let finalTargetRole: string | undefined;
+      let finalTargetName: string | undefined;
+      let finalScope: "ALL" | "BATCH" | "SINGLE" | undefined;
+      let finalSuggestedChips: string[] | undefined;
+      let finalSearchQuery: string | undefined;
       let metrics: LocalAIChatResponse["metrics"] | undefined;
+      let telemetry: LocalAITelemetry | undefined;
+      let streamCompleted = false;
 
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+
+          resetIdleTimer();
+          streamReceivedAnyData = true;
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -368,7 +497,11 @@ export async function sendLocalAIChatMessage(
             if (event.error) {
               throw new Error(`[BackendStreamError] ${event.error}`);
             }
+            if (event.thinking) {
+              resetIdleTimer();
+            }
             if (event.token) {
+              resetIdleTimer();
               const cleanedAccumulated = cleanAiResponseText(event.accumulated || accumulatedText + event.token);
               if (cleanedAccumulated) {
                 accumulatedText = cleanedAccumulated;
@@ -388,17 +521,30 @@ export async function sendLocalAIChatMessage(
               if (event.matching_action) finalMatchingAction = event.matching_action;
               if (event.project_data) finalProjectData = event.project_data;
               if (event.suggested_roles) finalSuggestedRoles = event.suggested_roles;
+              if (event.target_role) finalTargetRole = event.target_role;
+              if (event.target_name) finalTargetName = event.target_name;
+              if (event.scope) finalScope = event.scope;
+              if (event.suggested_chips) finalSuggestedChips = event.suggested_chips;
+              if (event.search_query) finalSearchQuery = event.search_query;
               if (event.metrics) {
                 metrics = event.metrics;
               }
-              if (event.model) finalModel = event.model;
+              if (event.telemetry) {
+                telemetry = event.telemetry;
+              }
               if (event.provider) finalProvider = event.provider;
+              streamCompleted = true;
+              break;
             }
+          }
+          if (streamCompleted) {
+            break;
           }
         }
       } finally {
         reader.releaseLock();
-        clearTimeout(timer);
+        if (idleTimer) clearTimeout(idleTimer);
+        if (fixedTimer) clearTimeout(fixedTimer);
       }
 
       let cleanedAnswer = cleanAiResponseText(accumulatedText).trim();
@@ -425,7 +571,13 @@ export async function sendLocalAIChatMessage(
               if (fbData.matching_action) finalMatchingAction = fbData.matching_action;
               if (fbData.project_data) finalProjectData = fbData.project_data;
               if (fbData.suggested_roles) finalSuggestedRoles = fbData.suggested_roles;
+              if (fbData.target_role) finalTargetRole = fbData.target_role;
+              if (fbData.target_name) finalTargetName = fbData.target_name;
+              if (fbData.scope) finalScope = fbData.scope;
+              if (fbData.suggested_chips) finalSuggestedChips = fbData.suggested_chips;
+              if (fbData.search_query) finalSearchQuery = fbData.search_query;
               if (fbData.metrics) metrics = fbData.metrics;
+              if (fbData.telemetry) telemetry = fbData.telemetry;
             }
           }
         } catch (fbErr: any) {
@@ -433,11 +585,18 @@ export async function sendLocalAIChatMessage(
         }
       }
 
-      if (!cleanedAnswer) {
+      const valResult = validateLocalAIResponse(cleanedAnswer, {
+        chunksReceived: streamReceivedAnyData ? 1 : 0,
+        streamCompleted: true,
+        intent: finalIntent,
+      });
+
+      if (!valResult.isValid) {
         throw new Error(
-          "Local AI produced an empty response. Please verify that Ollama is responding and click Retry."
+          valResult.error || "Local AI produced an empty response. Please verify that Ollama is responding and click Retry."
         );
       }
+      cleanedAnswer = valResult.cleanedText;
 
       return {
         success: true,
@@ -450,12 +609,18 @@ export async function sendLocalAIChatMessage(
         answer: cleanedAnswer,
         response: cleanedAnswer,
         suggested_roles: finalSuggestedRoles,
+        target_role: finalTargetRole,
+        target_name: finalTargetName,
+        scope: finalScope,
+        suggested_chips: finalSuggestedChips,
+        search_query: finalSearchQuery,
         metrics,
+        telemetry,
       };
     }
 
     // Standard JSON response
-    clearTimeout(timer);
+    if (fixedTimer) clearTimeout(fixedTimer);
     let data: any;
     try {
       data = await res.json();
@@ -464,17 +629,21 @@ export async function sendLocalAIChatMessage(
     }
 
     const rawAnswer = data.response || data.answer || "";
-    const cleanedAnswer = cleanAiResponseText(rawAnswer).trim();
+    const jsonVal = validateLocalAIResponse(rawAnswer, {
+      intent: data.intent,
+      streamCompleted: true,
+    });
 
-    if (!data.success && !cleanedAnswer) {
+    if (!data.success && !jsonVal.isValid) {
       throw new Error(`[AIResponseError] ${data.detail || data.error || "Local AI did not return a valid response."}`);
     }
 
-    if (!cleanedAnswer) {
+    if (!jsonVal.isValid) {
       throw new Error(
-        "Local AI produced an empty response. Please verify that Ollama is responding and click Retry."
+        jsonVal.error || "Local AI produced an empty response. Please verify that Ollama is responding and click Retry."
       );
     }
+    const cleanedAnswer = jsonVal.cleanedText;
 
     return {
       success: true,
@@ -487,10 +656,17 @@ export async function sendLocalAIChatMessage(
       answer: cleanedAnswer,
       response: cleanedAnswer,
       suggested_roles: data.suggested_roles,
+      target_role: data.target_role,
+      target_name: data.target_name,
+      scope: data.scope,
+      suggested_chips: data.suggested_chips,
+      search_query: data.search_query,
       metrics: data.metrics,
+      telemetry: data.telemetry,
     };
   } catch (err: any) {
-    clearTimeout(timer);
+    if (idleTimer) clearTimeout(idleTimer);
+    if (fixedTimer) clearTimeout(fixedTimer);
 
     if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
       console.error("[LocalAI Diagnostics] Chat request failed:", {
@@ -501,6 +677,19 @@ export async function sendLocalAIChatMessage(
     }
 
     if (err.name === "AbortError") {
+      if (externalSignal?.aborted) {
+        throw new Error("Generation was cancelled.");
+      }
+      if (isAbortedByIdle) {
+        throw new Error(
+          `Local AI connection was idle for ${Math.round(TIMEOUT_CREATIVE_IDLE / 1000)}s without receiving any data. Please verify that Ollama is running and click Retry.`
+        );
+      }
+      if (streamReceivedAnyData) {
+        throw new Error(
+          "Story generation was interrupted. Retry from the last completed point."
+        );
+      }
       const timeoutSec = Math.round(safeTimeout / 1000);
       throw new Error(
         `Request timed out after ${timeoutSec}s. The local AI took too long to generate a response. Click Retry to try again.`

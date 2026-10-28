@@ -8,6 +8,13 @@ import {
   ProjectTask,
 } from "./types";
 import { detectProjectDomain } from "./engine";
+import {
+  generateRequirementsDerivedBlueprint,
+  enrichBlueprintWithArchitectureRefinement,
+  extractStructuredRequirements,
+  deriveRolesFromCapabilities,
+  derivePhasesAndTasks,
+} from "./requirements-engine";
 
 // Helper to generate IDs
 function genId(prefix: string): string {
@@ -65,11 +72,16 @@ function makeTask(
 export function generateStructuredBlueprint(
   prompt: string,
   userType: "creator" | "client" = "creator",
-  creatorId: string = "anon"
+  creatorId: string = "anon",
+  currentUserRole?: string
 ): OmniForgeProject {
   const lower = prompt.toLowerCase();
   const domainInfo = detectProjectDomain(prompt);
   const primaryDomain = domainInfo.primary;
+
+  const isDirector =
+    currentUserRole === "DIRECTOR" ||
+    /\b(?:i\s+am\s+(?:the\s+|a\s+)?director|i\s+don'?t\s+need\s+directors?\s+because\s+i\s+am\s+a\s+director|i['’]?m\s+(?:the\s+|a\s+)?director|i\s+am\s+directing)\b/i.test(prompt);
 
   // Check for specific scenario matches
   const isMixedCraftDocuAI =
@@ -297,15 +309,58 @@ export function generateStructuredBlueprint(
       "Release",
     ];
 
-    roles = [
-      makeRole("role-write", "Screenwriter", ["Screenwriting", "Dialogue", "Character Development"], "Drafts the screenplay, scene descriptions, and dialogue.", "Creative"),
-      makeRole("role-dir", "Film Director", ["Film Directing", "Actor Guidance", "Visual Storytelling"], "Shapes overall creative vision, performance tone, and shot execution.", "Creative"),
-      makeRole("role-cine", "Cinematographer", ["Camera Operation", "Lighting Design", "Color Palette"], "Operates camera, frames scenes, and designs dramatic lighting.", "Creative"),
-      makeRole("role-act", "Lead Actor", ["Screen Acting", "Singing / Vocal Expressiveness"], "Portrays the village girl with emotional depth and vocal believability.", "Creative"),
-      makeRole("role-edit", "Video Editor", ["Premiere Pro", "DaVinci Resolve", "Pacing"], "Assembles scenes, trims narrative rhythm, and applies color grade.", "Creative"),
-      makeRole("role-sound", "Sound Designer", ["Audio Post-Production", "Foley", "Dialogue Clean-up"], "Cleans dialogue, adds atmospheric ambiance, and mixes the final audio.", "Creative"),
-      makeRole("role-music", "Music Producer", ["Film Scoring", "Vocal Composition", "Audio Track"], "Produces the girl's featured singing songs and background score.", "Creative"),
-    ];
+    const isActionComedyThriller =
+      /\b(?:action\s+comedy\s+thriller|action\s+comedy|action\s+thriller|action|thriller|comedy)\b/i.test(prompt);
+    const isRomantic =
+      /\b(?:romantic|musical|romance|village\s+singer)\b/i.test(prompt);
+
+    if (isActionComedyThriller && !isRomantic) {
+      title = "Action Comedy Thriller";
+      goal = "Produce and release a high-impact Action Comedy Thriller feature film with thrilling fight sequences, witty comedic timing, and suspenseful plot twists.";
+      requirements = [
+        "Full screenplay with high-stakes action scenes, comedic dialogue beats, and suspenseful plot structure",
+        "Fight master stunt choreography, safety protocols, and combat rehearsals",
+        "Multi-camera setups for dynamic action set pieces and comedic timing",
+        "Post-production assembly, fight VFX, Foley sound design, and tension scoring",
+      ];
+      roles = [
+        makeRole("role-dir", "Film Director", ["Film Directing", "Actor Guidance", "Visual Storytelling"], "Shapes overall creative vision and pace.", "Creative"),
+        makeRole("role-prod", "Producer", ["Budgeting", "Production Management"], "Oversees production logistics and schedule.", "Business"),
+        makeRole("role-act-lead", "Lead Actor", ["Screen Acting", "Action Performance"], "Portrays the primary lead character / hero.", "Creative"),
+        makeRole("role-actress", "Lead Actress", ["Screen Acting", "Dramatic Performance"], "Portrays the female lead / heroine.", "Creative"),
+        makeRole("role-fight", "Fight Master", ["Stunt Coordination", "Martial Arts", "Action Choreography"], "Designs and supervises safe, thrilling combat and stunts.", "Creative"),
+        makeRole("role-comic", "Comic Actor", ["Comedic Timing", "Dialogue Delivery"], "Provides essential comedic performances and comic relief.", "Creative"),
+        makeRole("role-writer", "Dialogue Writer", ["Screenwriting", "Punch Dialogue"], "Writes sharp dialogue and comedic punches.", "Creative"),
+        makeRole("role-cine", "Cinematographer", ["Action Camera Operation", "Dynamic Lighting"], "Operates dynamic cameras and high-speed action frames.", "Creative"),
+        makeRole("role-music", "Music Director", ["Background Score", "Soundtrack Composition"], "Composes high-energy thriller background score and soundtrack.", "Creative"),
+        makeRole("role-edit", "Video Editor", ["Action Editing", "Pacing", "Premiere Pro"], "Edits fast-paced action sequences and comedic beats.", "Creative"),
+        makeRole("role-sound", "Sound Designer", ["Foley", "Combat Audio Mix", "5.1 Surround"], "Designs punchy sound effects, impact Foley, and final 5.1 mix.", "Creative"),
+      ];
+    } else if (isRomantic) {
+      title = "Romantic Musical Film";
+      roles = [
+        makeRole("role-dir", "Film Director", ["Film Directing", "Actor Guidance", "Visual Storytelling"], "Shapes overall creative vision, performance tone, and shot execution.", "Creative"),
+        makeRole("role-act-lead", "Lead Actor", ["Screen Acting", "Dramatic Performance"], "Portrays the primary male lead with emotional depth.", "Creative"),
+        makeRole("role-actress", "Lead Actress", ["Screen Acting", "Singing / Musical Performance"], "Portrays the female lead / heroine with emotional depth.", "Creative"),
+        makeRole("role-dance", "Dancer", ["Dancing", "Choreography Execution", "Stage Movement"], "Performs choreographed dance numbers and musical sequences.", "Creative"),
+        makeRole("role-singer", "Lead Singer", ["Singing", "Playback Vocals", "Pitch Accuracy"], "Performs lead playback vocals for soundtrack and musical numbers.", "Creative"),
+        makeRole("role-cine", "Cinematographer", ["Camera Operation", "Lighting Design", "Color Palette"], "Operates camera, frames scenes, and designs dramatic lighting.", "Creative"),
+        makeRole("role-edit", "Video Editor", ["Premiere Pro", "DaVinci Resolve", "Pacing"], "Assembles scenes, trims narrative rhythm, and applies color grade.", "Creative"),
+        makeRole("role-sound", "Sound Designer", ["Audio Post-Production", "Foley", "Dialogue Clean-up"], "Cleans dialogue, adds atmospheric ambiance, and mixes the final audio.", "Creative"),
+      ];
+    } else {
+      title = prompt.length > 40 ? "Short Film Production" : prompt;
+      roles = [
+        makeRole("role-dir", "Film Director", ["Film Directing", "Actor Guidance", "Visual Storytelling"], "Shapes overall creative vision, performance tone, and shot execution.", "Creative"),
+        makeRole("role-prod", "Producer", ["Budgeting", "Production Logistics"], "Oversees production planning, crew scheduling, and permits.", "Business"),
+        makeRole("role-write", "Screenwriter", ["Screenwriting", "Dialogue", "Scene Structure"], "Drafts and locks shooting script with tight dramatic pacing.", "Creative"),
+        makeRole("role-act-lead", "Lead Actor", ["Screen Acting", "Dramatic Performance"], "Portrays the primary protagonist character with emotional depth.", "Creative"),
+        makeRole("role-act-supp", "Supporting Actor", ["Screen Acting", "Character Acting"], "Portrays supporting characters and dramatic interactions.", "Creative"),
+        makeRole("role-cine", "Cinematographer", ["Camera Operation", "Lighting Design", "Color Palette"], "Operates camera, frames scenes, and designs dramatic lighting.", "Creative"),
+        makeRole("role-edit", "Video Editor", ["Premiere Pro", "DaVinci Resolve", "Pacing"], "Assembles scenes, trims narrative rhythm, and locks picture.", "Creative"),
+        makeRole("role-sound", "Sound Designer", ["Audio Post-Production", "Foley", "Dialogue Clean-up"], "Cleans dialogue, captures ambient soundscapes, and mixes audio.", "Creative"),
+      ];
+    }
 
     const p1 = "phase-1";
     const p2 = "phase-2";
@@ -322,34 +377,35 @@ export function generateStructuredBlueprint(
         order: 1,
         workstreams: ["Story Development"],
         tasks: [
-          makeTask(p1, "Draft Story Treatment & Beat Outline", "Outline the 3-act structure of the village singer's journey.", "Screenwriter", ["Screenwriting"], "high", "3 days", 1),
-          makeTask(p1, "Write Final Shooting Script", "Complete dialogue, scene headings, and character cues.", "Screenwriter", ["Screenwriting"], "high", "5 days", 2),
+          makeTask(p1, "Draft Story Treatment & Beat Outline", "Outline the 3-act structure of the journey.", "Film Director", ["Visual Storytelling"], "high", "3 days", 1),
+          makeTask(p1, "Write Final Shooting Script", "Complete dialogue, scene headings, and character cues.", "Film Director", ["Visual Storytelling"], "high", "5 days", 2),
         ],
       },
       {
         id: p2,
         name: "Prepare for Production (Pre-Production)",
-        description: "Cast actors, scout village locations, storyboard scenes, and prepare camera gear.",
+        description: "Cast actors, fight master stunt rehearsals, storyboard scenes, and prepare camera gear.",
         purpose: "Lock in all logistical and creative assets prior to shooting.",
         sourceReason: "Pre-production minimizes costly shoot delays on location.",
         order: 2,
-        workstreams: ["Casting", "Shot Planning", "Vocal Playback"],
+        workstreams: ["Casting", "Shot Planning", "Stunts & Rehearsals"],
         tasks: [
-          makeTask(p2, "Audition & Cast Lead Village Singer", "Cast actress with singing ability and emotional range.", "Film Director", ["Film Directing"], "high", "4 days", 1),
-          makeTask(p2, "Storyboard & Shot List Creation", "Design visual style and camera angles with cinematographer.", "Cinematographer", ["Camera Operation"], "high", "3 days", 2),
-          makeTask(p2, "Record Feature Vocal Track for Playback", "Pre-record song to use for on-set lip sync filming.", "Music Producer", ["Film Scoring"], "high", "3 days", 3),
+          makeTask(p2, "Audition & Cast Lead Roles", "Cast lead actor and actress with requisite emotional and physical range.", "Film Director", ["Film Directing"], "high", "4 days", 1),
+          makeTask(p2, "Storyboard & Action Pre-Visualization", "Design visual style and camera angles with cinematographer and fight master.", "Cinematographer", ["Camera Operation"], "high", "3 days", 2),
+          makeTask(p2, "Fight & Choreography Rehearsals", "Conduct safety-verified fight rehearsals and choreography blocking.", "Fight Master", ["Stunt Coordination"], "high", "4 days", 3),
         ],
       },
       {
         id: p3,
         name: "Shoot (Principal Photography)",
-        description: "Execute multi-day production on location, capturing all visual scenes and live audio.",
+        description: "Execute multi-day production on location, capturing all visual scenes, action sequences, songs, and live audio.",
         purpose: "Capture all footage required for the story.",
         sourceReason: "Core production phase.",
         order: 3,
-        workstreams: ["Principal Photography"],
+        workstreams: ["Principal Photography", "Action Set Pieces"],
         tasks: [
-          makeTask(p3, "Principal Photography: Village Scenes", "Film village dialogue, dramatic turning points, and musical moments.", "Film Director", ["Film Directing"], "high", "4 days", 1),
+          makeTask(p3, "Principal Photography: Dialogue & Dramatic Scenes", "Film character dialogue, turning points, and comedic interactions.", "Film Director", ["Film Directing"], "high", "4 days", 1),
+          makeTask(p3, "Action & Climax Shoot", "Film high-intensity action choreography and fight sequences under fight master supervision.", "Fight Master", ["Action Choreography"], "urgent", "3 days", 2),
         ],
       },
       {
@@ -446,31 +502,31 @@ export function generateStructuredBlueprint(
   // 4. EVENT: COLLEGE CULTURAL FESTIVAL
   else if (isCollegeEvent || primaryDomain === "Events") {
     domain = "Events";
-    title = "College Cultural Festival (500 Students)";
-    goal = "Plan, coordinate, promote, and execute a vibrant college cultural festival for 500 attendees with live performances, food stalls, and student competitions.";
+    title = "College Cultural Festival";
+    goal = "Plan, coordinate, promote, and execute a vibrant college cultural festival with live performances, stage lighting, sound, and sponsorships.";
     requirements = [
-      "Event schedule, activity lineup, and stage timings",
-      "Venue booking, safety clearance, and physical space layout",
-      "Stage, audio/sound reinforcement, lighting, and power backup",
-      "Student registration, ticketing/pass system, and helpdesk",
-      "Promotion across campus clubs, social media, and banners",
-      "Live event photography, videography, and security coordination",
+      "Live performances & stage lineup",
+      "Stage lighting & visual fixtures",
+      "Professional sound reinforcement & audio engineering",
+      "Sponsorships & corporate brand partnerships",
+      "Venue booking, safety clearance & event layout",
+      "Student registration, promotion & crowd flow",
     ];
     workflowStages = [
-      "Event Concept & Budgeting",
-      "Venue, Permits & Logistics",
-      "Performer & Competition Lineup",
-      "Campus Promotion & Registration",
-      "Stage Setup & Sound Check",
-      "Live Event Execution & Wrap-up",
+      "Festival Concept & Sponsorship Acquisition",
+      "Venue, Permits & Staging Logistics",
+      "Performer Lineup & Audio/Lighting Sound Check",
+      "Campus Promotion & Pass Registration",
+      "Live Festival Day Execution & Wrap-up",
     ];
 
     roles = [
-      makeRole("role-coord", "Event Coordinator", ["Event Planning", "Team Leadership", "Budgeting"], "Oversees timeline, department heads, and overall festival delivery.", "Business"),
-      makeRole("role-log", "Logistics Manager", ["Venue Management", "Vendor Coordination", "Crowd Control"], "Handles venue permits, seating, food stalls, and safety protocols.", "Business"),
-      makeRole("role-av", "Stage & AV Engineer", ["Live Sound", "PA Systems", "Stage Lighting"], "Sets up microphones, speakers, stage lights, and oversees sound checks.", "Technical"),
-      makeRole("role-promo", "Promotion & PR Lead", ["Social Media", "Poster Design", "Student Outreach"], "Drives festival registrations, passes, and campus buzz.", "Communication"),
-      makeRole("role-photo", "Event Photographer / Videographer", ["Live Event Capture", "Photo Editing", "Aftermovie"], "Captures high-energy moments and edits the official festival aftermovie.", "Creative", false),
+      makeRole("role-perf", "Performers", ["Stage Performance", "Live Music", "Crowd Engagement"], "Live artists, dancers, singers, and stage performers.", "Creative"),
+      makeRole("role-coord", "Event Coordinator", ["Event Planning", "Team Leadership", "Budgeting"], "Oversees overall festival delivery, department heads, and schedule timeline.", "Business"),
+      makeRole("role-light", "Stage/Lighting Technician", ["Stage Lighting", "DMX Systems", "Rigging"], "Designs and operates stage lighting fixtures and illumination effects.", "Technical"),
+      makeRole("role-sound", "Sound Engineer", ["Live Audio", "PA Systems", "Sound Mixing"], "Oversees microphones, monitors, amplifiers, acoustics, and live audio mix.", "Technical"),
+      makeRole("role-spon", "Sponsorship/Business Development", ["Sponsorship Acquisition", "Pitch Decks", "Brand Partnerships"], "Secures corporate sponsorships and campus brand funding.", "Business"),
+      makeRole("role-mgr", "Event Manager", ["Crowd Control", "Vendor Logistics", "Operations"], "Coordinates on-ground logistics, food/merch booths, and crowd safety operations.", "Business"),
     ];
 
     const p1 = "phase-1";
@@ -589,58 +645,9 @@ export function generateStructuredBlueprint(
       },
     ];
   }
-  // 6. DEFAULT / DYNAMIC DOMAIN-ADAPTIVE DECOMPOSITION
+  // 6. DYNAMIC REQUIREMENTS-DERIVED BLUEPRINT GENERATION
   else {
-    domain = primaryDomain || "Custom Project";
-    title = prompt.length > 50 ? prompt.substring(0, 47) + "..." : prompt;
-    goal = `Deliver a structured plan to execute "${prompt}" efficiently.`;
-    requirements = [
-      "Requirements gathering and project scope specification",
-      "Core execution and deliverable development",
-      "Quality review and feedback integration",
-      "Final delivery and launch handoff",
-    ];
-    workflowStages = [
-      "Discovery & Planning",
-      "Development & Production",
-      "Review & Quality Assurance",
-      "Final Delivery & Launch",
-    ];
-
-    roles = [
-      makeRole("role-lead", "Project Lead", ["Project Management", "Coordination"], "Guides project milestones and team alignment.", "Business"),
-      makeRole("role-spec", "Domain Specialist", ["Domain Expertise", "Execution"], "Executes core domain work items.", "Creative"),
-    ];
-
-    const p1 = "phase-1";
-    const p2 = "phase-2";
-
-    phases = [
-      {
-        id: p1,
-        name: "Discovery & Planning",
-        description: "Clarify project objectives, allocate resources, and outline deliverables.",
-        purpose: "Establish clear project boundaries.",
-        sourceReason: "Essential for starting any organized workstream.",
-        order: 1,
-        workstreams: ["Discovery"],
-        tasks: [
-          makeTask(p1, "Scope & Requirement Finalization", "Document goals, timeline, and deliverables.", "Project Lead", ["Project Management"], "high", "2 days", 1),
-        ],
-      },
-      {
-        id: p2,
-        name: "Execution & Delivery",
-        description: "Implement planned deliverables and review final output.",
-        purpose: "Produce core results.",
-        sourceReason: "Achieves user project outcome.",
-        order: 2,
-        workstreams: ["Core Delivery"],
-        tasks: [
-          makeTask(p2, "Execute Primary Project Deliverables", "Complete agreed work packages.", "Domain Specialist", ["Domain Expertise"], "high", "5 days", 1),
-        ],
-      },
-    ];
+    return generateRequirementsDerivedBlueprint(prompt, userType, creatorId, currentUserRole);
   }
 
   // Generate workstreams
@@ -662,6 +669,10 @@ export function generateStructuredBlueprint(
     completed: false,
   }));
 
+  const activeRoles = isDirector
+    ? roles.filter((r) => !r.roleName.toLowerCase().includes("director"))
+    : roles;
+
   const project: OmniForgeProject = {
     id: genId("proj"),
     ownerId: creatorId,
@@ -671,6 +682,7 @@ export function generateStructuredBlueprint(
     goal,
     userType,
     stage: "planning",
+    currentUserRole: isDirector ? "DIRECTOR" : undefined,
     targetAudience: "Target audience / Community",
     expectedFinalOutcome: goal,
     complexity: "Moderate",
@@ -678,16 +690,16 @@ export function generateStructuredBlueprint(
     requirements,
     workflowStages,
     phases,
-    roles,
+    roles: activeRoles,
     recommendations: [],
     parallelWorkstreams: workstreams,
     deliverables,
     coverage: {
-      totalRequired: roles.length,
+      totalRequired: activeRoles.length,
       totalCovered: 0,
       percentage: 0,
       coveredCapabilities: [],
-      missingCapabilities: roles.map((r) => ({
+      missingCapabilities: activeRoles.map((r) => ({
         roleId: r.id,
         roleName: r.roleName,
         category: r.category || "Creative",
@@ -712,6 +724,17 @@ export function modifyBlueprintFromInstruction(
   const lower = instruction.toLowerCase();
   const updated = JSON.parse(JSON.stringify(project)) as OmniForgeProject;
   let replyMessage = "";
+
+  // 0. Architecture build / complete role refinement instruction
+  const isArchitectureBuild =
+    /\b(?:build|generate|create|refine|update|expand|give\s+me|show\s+me)\s+(?:the\s+)?(?:complete\s+|full\s+|comprehensive\s+)?(?:project\s+)?architecture\b/i.test(lower) ||
+    /\b(?:all\s+technical\s+and\s+domain\s+roles|technical\s+and\s+domain\s+roles|all\s+roles\s+required|complete\s+architecture)\b/i.test(lower) ||
+    /\b(?:complete\s+project\s+architecture|full\s+project\s+architecture|build\s+complete\s+architecture)\b/i.test(lower);
+
+  if (isArchitectureBuild) {
+    const res = enrichBlueprintWithArchitectureRefinement(project, instruction);
+    return { updatedProject: res.updatedProject, replyMessage: res.replyMessage };
+  }
 
   // 1. Student short film / 5-minute scope reduction
   if (lower.includes("5-minute") || lower.includes("5 minute") || lower.includes("short film") || lower.includes("student budget") || lower.includes("student short")) {
@@ -757,3 +780,11 @@ export function modifyBlueprintFromInstruction(
   updated.updatedAt = new Date().toISOString();
   return { updatedProject: updated, replyMessage };
 }
+
+export {
+  generateRequirementsDerivedBlueprint,
+  enrichBlueprintWithArchitectureRefinement,
+  extractStructuredRequirements,
+  deriveRolesFromCapabilities,
+  derivePhasesAndTasks,
+};

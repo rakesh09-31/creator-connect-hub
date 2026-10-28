@@ -38,6 +38,7 @@ dist-ssr
 .env.vercel.tmp
 
 android/*.keystore
+android/keystore.properties
 public/downloads/*.idsig
 
 .vercel/

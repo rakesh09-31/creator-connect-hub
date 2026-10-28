@@ -28,16 +28,16 @@ export function CompareCreatorsModal({
     : alternatives;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-up">
-      <div className="bg-surface border border-border/80 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-up">
+      <div className="bg-surface border border-border/80 rounded-2xl w-full max-w-4xl max-h-[92dvh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border/60 flex items-center justify-between bg-surface/90">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border/60 flex items-center justify-between bg-surface/90">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-brand-soft text-brand">
                 Comparison Studio
               </span>
-              <h3 className="text-base font-bold text-foreground">Compare Creators for {roleName}</h3>
+              <h3 className="text-sm sm:text-base font-bold text-foreground">Compare Creators for {roleName}</h3>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Compare matched candidates based on skills, verified evidence, and portfolio work.
@@ -45,14 +45,14 @@ export function CompareCreatorsModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition"
+            className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Candidates Grid */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCandidates.map((cand, idx) => {
               const isCurrent = currentRecommendation && cand.creator.id === currentRecommendation.creator.id;

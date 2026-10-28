@@ -244,9 +244,9 @@ function NotificationsPage() {
   const actionable = (n: Notif) => n.type === "squad_invite" || n.type === "squad_invitation" || n.type === "squad_join_request";
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-6">
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-3xl font-bold">Notifications</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Notifications</h1>
         {unreadCount > 0 && (
           <button
             onClick={markAllRead}
@@ -278,10 +278,10 @@ function NotificationsPage() {
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : visible.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-12 text-center border border-border">
+        <div className="bg-surface rounded-2xl p-8 sm:p-12 text-center border border-border">
           <Bell className="w-12 h-12 mx-auto text-brand mb-3" />
           <h3 className="text-xl font-bold mb-1">You're all caught up</h3>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm sm:text-base">
             Likes, follows, comments, and hire requests will show up here.
           </p>
         </div>
@@ -316,7 +316,7 @@ function NotificationsPage() {
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-foreground truncate">{labelFor(n)}</p>
+                    <p className="text-sm text-foreground break-words line-clamp-2 sm:line-clamp-none">{labelFor(n)}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(n.created_at)}</p>
                     {actionable(n) && !n.read && (
                       <div className="mt-2 flex gap-2">

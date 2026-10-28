@@ -326,9 +326,9 @@ export function CommentsSheet({ postId, onClose, onCountChange }: { postId: stri
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center sm:justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-full h-[70vh] bg-background rounded-t-3xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full sm:max-w-lg h-[75vh] sm:h-[600px] max-h-[90vh] bg-background rounded-t-3xl sm:rounded-2xl border border-border shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="font-semibold">Comments</h3>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-muted"><X className="w-5 h-5" /></button>
@@ -352,7 +352,7 @@ export function CommentsSheet({ postId, onClose, onCountChange }: { postId: stri
             </div>
           ))}
         </div>
-        <form onSubmit={submit} className="border-t border-border p-3 flex items-center gap-2">
+        <form onSubmit={submit} className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}

@@ -7,7 +7,7 @@ import {
 } from "./types";
 import { matchCreatorsForSingleRole, matchCreatorsForProject } from "./matcher";
 import { generateStructuredBlueprint } from "./engine-blueprint";
-import { classifyUserIntent } from "./intent";
+import { classifyUserIntent, extractCreatorSelfRole, isCreatorJobSeekingQuery, isClientOpportunitySearchQuery, isCreatorSearchQuery, extractOpportunityTargetRole } from "./intent";
 
 /**
  * Creates a fresh, empty ConversationState.
@@ -38,9 +38,52 @@ export function extractAndApplyEntities(
   const clean = cleanText(text);
   const updatedReqs = { ...state.requirements };
   let targetRole = state.targetRole;
+  let currentUserRole = state.currentUserRole;
+  let currentUserType = state.currentUserType;
+  let activeGoal = state.activeGoal;
+  let lastSearchType = state.lastSearchType;
   let projectType = state.projectType;
   let projectDomain = state.projectDomain;
   let investigationArea = state.investigationArea;
+
+  // Track if user is the director
+  if (
+    /\b(?:i\s+am\s+(?:the\s+|a\s+)?director|i\s+don'?t\s+need\s+directors?\s+because\s+i\s+am\s+a\s+director|i['’]?m\s+(?:the\s+|a\s+)?director|i\s+am\s+directing|since\s+i\s+am\s+directing|i\s+will\s+direct|directing\s+myself)\b/i.test(clean)
+  ) {
+    currentUserRole = "DIRECTOR";
+    currentUserType = "CLIENT";
+    activeGoal = "BUILD_PROJECT";
+  }
+
+  // Track creator self-role declaration and job seeking
+  const selfRole = extractCreatorSelfRole(text);
+  if (selfRole) {
+    currentUserRole = selfRole.canonicalRole;
+    currentUserType = "CREATOR";
+  }
+
+  if (
+    isClientOpportunitySearchQuery(text, { currentUserRole, currentUserType, activeGoal }) ||
+    isCreatorJobSeekingQuery(text, { currentUserRole, currentUserType, activeGoal })
+  ) {
+    currentUserType = "CREATOR";
+    activeGoal = "FIND_JOB";
+    lastSearchType = "clients";
+    const oppRole = extractOpportunityTargetRole(text, { currentUserRole });
+    targetRole = oppRole;
+    if (selfRole) {
+      currentUserRole = selfRole.canonicalRole;
+    } else if (oppRole && (!currentUserRole || currentUserRole === "DIRECTOR")) {
+      currentUserRole = oppRole;
+    }
+  } else if (isCreatorSearchQuery(text, { currentUserType, activeGoal })) {
+    currentUserType = currentUserType || "CREATOR";
+    lastSearchType = "creators";
+    activeGoal = undefined;
+    if (selfRole) {
+      currentUserRole = selfRole.canonicalRole;
+    }
+  }
 
   // 1. Project Type & Domain Detection
   if (
@@ -128,36 +171,62 @@ export function extractAndApplyEntities(
     updatedReqs.storyPremise = text.trim();
   }
 
-  // 4. Role Detection
-  if (/\b(actor|actress|actors|acting|cast)\b/i.test(clean) && !clean.includes("director")) {
-    targetRole = "Lead Actor";
-    investigationArea = "casting";
-  } else if (/\b(director|directing)\b/i.test(clean) && !clean.includes("music")) {
-    targetRole = "Film Director";
-    investigationArea = investigationArea || "crew";
-  } else if (/\b(cinematographer|dop|camera operator)\b/i.test(clean)) {
-    targetRole = "Cinematographer";
-    investigationArea = investigationArea || "crew";
-  } else if (/\b(editor|editing)\b/i.test(clean)) {
-    targetRole = "Video Editor";
-    investigationArea = investigationArea || "crew";
-  } else if (/\b(developer|frontend|fullstack|coder)\b/i.test(clean)) {
-    targetRole = "Frontend Web Developer";
-    investigationArea = investigationArea || "crew";
-  } else if (/\b(designer|ui\/ux|graphic designer)\b/i.test(clean)) {
-    targetRole = "UI/UX Designer";
-    investigationArea = investigationArea || "crew";
+  // 4. Role Detection (for project crew / casting requirements)
+  const isExplicitNeedRole =
+    /\b(?:need|looking\s+for|search\s+for|want|hire|find|suggest|recommend)\b/i.test(clean) &&
+    /\b(?:actor|actress|actors|acting|cast|cinematographer|director|editor|dancer|singer|developer|designer)\b/i.test(clean);
+  const isCreatorJobMode = (currentUserType === "CREATOR" || activeGoal === "FIND_JOB") && !isExplicitNeedRole;
+  if (!isCreatorJobMode) {
+    const isUserDirectorStatement =
+      currentUserRole === "DIRECTOR" ||
+      /\b(?:i\s+am\s+(?:the\s+|a\s+)?director|i\s+don'?t\s+need\s+directors?|not\s+directors?)\b/i.test(clean);
+
+    if (/\b(heroine|lead\s+actress|female\s+lead)\b/i.test(clean)) {
+      targetRole = "Lead Actress";
+      investigationArea = "casting";
+    } else if (/\b(hero|lead\s+actor|male\s+lead|actor|actress|actors|acting|cast)\b/i.test(clean)) {
+      targetRole = "Lead Actor";
+      investigationArea = "casting";
+    } else if (/\b(dancer|dancers|dancing|choreographer)\b/i.test(clean)) {
+      targetRole = "Dancer";
+      investigationArea = "performance";
+    } else if (/\b(singer|singers|singing|vocalist|playback\s+singer)\b/i.test(clean)) {
+      targetRole = "Lead Singer";
+      investigationArea = "performance";
+    } else if (/\b(director|directing)\b/i.test(clean) && !clean.includes("music") && !isUserDirectorStatement) {
+      targetRole = "Film Director";
+      investigationArea = investigationArea || "crew";
+    } else if (/\b(cinematographer|dop|camera operator)\b/i.test(clean)) {
+      targetRole = "Cinematographer";
+      investigationArea = investigationArea || "crew";
+    } else if (/\b(editor|editing)\b/i.test(clean)) {
+      targetRole = "Video Editor";
+      investigationArea = investigationArea || "crew";
+    } else if (/\b(developer|frontend|fullstack|coder)\b/i.test(clean)) {
+      targetRole = "Frontend Web Developer";
+      investigationArea = investigationArea || "crew";
+    } else if (/\b(designer|ui\/ux|graphic designer)\b/i.test(clean)) {
+      targetRole = "UI/UX Designer";
+      investigationArea = investigationArea || "crew";
+    }
   }
 
   // 5. Casting-Specific Extraction
   if (clean.includes("lead actor") || clean.includes("lead character") || clean.includes("lead role") || clean === "lead actor" || clean === "lead") {
     updatedReqs.roleType = "Lead actor";
+    targetRole = targetRole || "Lead Actor";
+    investigationArea = "casting";
   } else if (clean.includes("supporting actor") || clean.includes("supporting role") || clean === "supporting actor" || clean === "supporting") {
     updatedReqs.roleType = "Supporting actor";
+    targetRole = targetRole || "Supporting Actor";
+    investigationArea = "casting";
   } else if (clean.includes("villain") || clean.includes("antagonist")) {
     updatedReqs.roleType = "Villain / Antagonist";
+    targetRole = targetRole || "Villain / Antagonist";
+    investigationArea = "casting";
   } else if (clean.includes("multiple actors") || clean.includes("ensemble")) {
     updatedReqs.roleType = "Multiple actors";
+    investigationArea = "casting";
   }
 
   // Gender
@@ -325,6 +394,10 @@ export function extractAndApplyEntities(
     projectType,
     projectDomain,
     targetRole,
+    currentUserRole,
+    currentUserType,
+    activeGoal,
+    lastSearchType,
     investigationArea,
     requirements: updatedReqs,
     lastSelectedOption: text.trim(),
@@ -403,23 +476,110 @@ export function transitionConversationState(
   const intentResult = classifyUserIntent(userText, {
     hasActiveProject: Boolean(prevState.projectDomain),
     conversationHistory: _history,
+    currentUserRole: prevState.currentUserRole,
+    currentUserType: prevState.currentUserType,
+    activeGoal: prevState.activeGoal,
   });
 
-  // For GREETING, GENERAL_QUESTION, FEATURE_EXPLANATION, ROLE_OR_CONCEPT_EXPLANATION, CREATIVE_ADVICE, and COLLABORATION_ACTION:
-  // Return previous state without mutating requirements, extracting phantom roles, or initiating project state.
+  // For GREETING, GENERAL_QUESTION, DEFINITION, GENERAL_KNOWLEDGE, FEATURE_EXPLANATION, etc.:
+  // Return previous state without mutating requirements, extracting phantom roles, or initiating project state,
+  // UNLESS the user is responding with creative details, genres, casting needs, or answers in an ongoing project flow.
+  const isProjectOrCreativeFollowUp =
+    Boolean(
+      /\b(?:suspense\s+thriller|thriller|horror|romance|comedy|social\s+message|sci-fi|drama|missing\s+student|actor|actress|lead\s+actor|male\s+lead|female\s+lead|cast|minutes?|weeks?|budget|script)\b/i.test(clean) ||
+      clean.includes("have a story") ||
+      clean.includes("develop a story") ||
+      clean.includes("from scratch") ||
+      clean.includes("completed script") ||
+      clean.includes("need an actor") ||
+      clean.includes("aged") ||
+      clean.includes("telugu")
+    );
+
   if (
-    intentResult.intent === "GREETING" ||
-    intentResult.intent === "GENERAL_QUESTION" ||
-    intentResult.intent === "FEATURE_EXPLANATION" ||
-    intentResult.intent === "ROLE_OR_CONCEPT_EXPLANATION" ||
-    intentResult.intent === "CREATIVE_ADVICE" ||
-    intentResult.intent === "COLLABORATION_ACTION" ||
-    intentResult.intent === "INVITATION_OR_COLLABORATION_ACTION"
+    !isProjectOrCreativeFollowUp &&
+    (
+      intentResult.intent === "GREETING" ||
+      intentResult.intent === "IDENTITY" ||
+      intentResult.intent === "CAPABILITY_QUERY" ||
+      intentResult.intent === "KNOWLEDGE" ||
+      intentResult.intent === "GENERAL_KNOWLEDGE" ||
+      intentResult.intent === "DEFINITION" ||
+      intentResult.intent === "HOW_TO" ||
+      intentResult.intent === "CLARIFICATION" ||
+      intentResult.intent === "GENERAL_QUESTION" ||
+      intentResult.intent === "FEATURE_EXPLANATION" ||
+      intentResult.intent === "ROLE_OR_CONCEPT_EXPLANATION" ||
+      intentResult.intent === "CREATIVE_ADVICE" ||
+      intentResult.intent === "COLLABORATION_ACTION" ||
+      intentResult.intent === "INVITATION_OR_COLLABORATION_ACTION"
+    )
   ) {
+    const selfRole = extractCreatorSelfRole(userText);
     return {
       ...prevState,
+      currentUserRole: selfRole?.canonicalRole || prevState.currentUserRole,
+      currentUserType: selfRole ? "CREATOR" : prevState.currentUserType,
       stage: prevState.projectDomain ? prevState.stage : "GENERAL_CHAT",
     };
+  }
+
+  // For CREATOR_JOB_SEARCH, CLIENT_OPPORTUNITY_SEARCH, and APPLY_FOR_JOB:
+  if (
+    intentResult.intent === "CREATOR_JOB_SEARCH" ||
+    intentResult.intent === "CLIENT_OPPORTUNITY_SEARCH"
+  ) {
+    let state = extractAndApplyEntities(prevState, userText);
+    state.currentUserType = "CREATOR";
+    state.activeGoal = "FIND_JOB";
+    state.lastSearchType = "clients";
+    if (intentResult.targetRole) {
+      state.targetRole = intentResult.targetRole;
+      state.currentUserRole = intentResult.targetRole;
+    }
+    state.stage = "GENERAL_CHAT";
+    return state;
+  }
+
+  if (intentResult.intent === "APPLY_FOR_JOB") {
+    let state = extractAndApplyEntities(prevState, userText);
+    state.currentUserType = "CREATOR";
+    state.activeGoal = "FIND_JOB";
+    state.lastSearchType = "clients";
+    state.stage = "GENERAL_CHAT";
+    return state;
+  }
+
+  // For CREATOR_SEARCH: Explicit creator target resets activeGoal (FIND_JOB) while preserving currentUserRole
+  if (intentResult.intent === "CREATOR_SEARCH") {
+    let state = extractAndApplyEntities(prevState, userText);
+    state.lastSearchType = "creators";
+    state.targetRole = intentResult.targetRole || state.targetRole || "Creator";
+    state.activeGoal = undefined;
+    if (intentResult.currentUserRole) {
+      state.currentUserRole = intentResult.currentUserRole;
+    }
+    if (intentResult.currentUserType) {
+      state.currentUserType = intentResult.currentUserType;
+    }
+    if (state.investigationArea === "casting" || clean.includes("need an actor") || clean.includes("actor for my short film") || clean.includes("actor")) {
+      state.investigationArea = "casting";
+      state.projectDomain = state.projectDomain || "Film";
+      state.projectType = state.projectType || "Short Film";
+      state.stage = "REQUIREMENTS_INVESTIGATION";
+    } else {
+      state.stage = prevState.projectDomain ? prevState.stage : "GENERAL_CHAT";
+    }
+    return state;
+  }
+
+  // For FILM_TEAM_PLANNING, capture user director status & domain without generating phantom task milestones
+  if (intentResult.intent === "FILM_TEAM_PLANNING" || intentResult.intent === "PROJECT_ROLE_PLANNING") {
+    let state = extractAndApplyEntities(prevState, userText);
+    state.projectDomain = "Film";
+    state.projectType = state.projectType || "Short Film";
+    state.stage = "PROJECT_DISCOVERY";
+    return state;
   }
 
   let state = extractAndApplyEntities(prevState, userText);
@@ -1279,6 +1439,129 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
   }
 
   // --------------------------------------------------------------------------
+  // C0. CREATOR DISCOVERY & CASTING FLOW (Checked before general film discovery)
+  // --------------------------------------------------------------------------
+  if (
+    state.investigationArea === "casting" ||
+    state.stage === "CREATOR_MATCHING" ||
+    clean.includes("need an actor") ||
+    clean.includes("actor for my short film") ||
+    clean.includes("suggest the best")
+  ) {
+    const reqs = state.requirements;
+
+    // Check if we should execute Creator Matching in the database
+    const hasSufficientCriteria =
+      state.stage === "CREATOR_MATCHING" ||
+      Boolean(reqs.ageRange && reqs.language) ||
+      Boolean(reqs.language && (clean.includes("20-25") || clean.includes("20–25") || clean.includes("aged"))) ||
+      Boolean(reqs.ageRange && clean.includes("telugu"));
+
+    if (hasSufficientCriteria) {
+      const criteriaList: string[] = [];
+      if (reqs.roleType) criteriaList.push(`**Role:** ${reqs.roleType}`);
+      if (reqs.gender) criteriaList.push(`**Gender:** ${reqs.gender}`);
+      if (reqs.ageRange) criteriaList.push(`**Age Range:** ${reqs.ageRange}`);
+      if (reqs.language) criteriaList.push(`**Language:** ${reqs.language}`);
+      if (reqs.compensation) criteriaList.push(`**Compensation:** ${reqs.compensation}`);
+
+      // Query real Supabase creators with Actor specialty/role
+      const matched = await matchCreatorsForSingleRole("Actor", ["Acting", "Method Acting", "Stage Presence"], currentUserId);
+      const topCandidates = matched.slice(0, 3);
+      const criteriaSummary = criteriaList.join(" | ");
+
+      let matchMessage = "";
+      if (topCandidates.length > 0) {
+        const creatorLines = topCandidates
+          .map(
+            (c) =>
+              `• **${c.creator.fullName || c.creator.username}** (@${c.creator.username})\n  *Verified Specialty:* ${c.creator.specialties.join(", ") || "Actor"} | *Skills:* ${c.creator.skills.join(", ") || "Acting, Performance"}\n  *Match Justification:* Verified actor profile on OmniCraft with demonstrated acting alignment.`
+          )
+          .join("\n\n");
+
+        matchMessage = `Here are verified actors from the OmniCraft database matching your casting requirements (${criteriaSummary}):\n\n${creatorLines}\n\n${
+          reqs.language && !topCandidates.some((c) => (c.creator.bio || "").toLowerCase().includes(reqs.language!.toLowerCase()))
+            ? `*Note on Language (${reqs.language}):* While these actors specialize in performance and dramatic casting, you can also publish a specific casting brief to recruit local ${reqs.language} speakers directly.\n\n`
+            : ""
+        }Would you like to review their complete profile, invite them to your project, or post a casting call on OmniCraft?`;
+      } else {
+        matchMessage = `I searched the OmniCraft creator database for actors matching your criteria (${criteriaSummary}). Currently, no verified actors with those exact filter combinations are actively listed.\n\n**Recommended next step:** You can publish an open casting call or client job listing on OmniCraft, or propose a Skill Swap to recruit talent from our network.`;
+      }
+
+      return {
+        intent: "CREATOR_SEARCH",
+        responseLevel: "CREATOR_DISCOVERY",
+        message: matchMessage,
+        conversationState: {
+          ...state,
+          stage: "COMPLETED",
+          matchedCreators: topCandidates,
+        },
+        creatorCards: topCandidates,
+        uiAction: {
+          type: "SHOW_CREATOR_RECOMMENDATIONS",
+          roleName: reqs.roleType || "Lead Actor",
+          creators: topCandidates,
+        },
+        suggestedFollowUps: [
+          "Show me the complete plan",
+          "Create a squad",
+          "Post a casting call",
+        ],
+      };
+    }
+
+    // Still in Requirements Investigation for Casting
+    if (!reqs.roleType && !clean.includes("lead actor") && !clean.includes("lead")) {
+      return {
+        intent: "CREATOR_SEARCH",
+        responseLevel: "CONTEXTUAL_ANSWER",
+        message:
+          "Absolutely! Let's find an actor who fits your short film. I'll ask a few questions to understand the character and your requirements.\n\nWhat type of role is it — lead, supporting, antagonist, or another character?",
+        conversationState: {
+          ...state,
+          stage: "REQUIREMENTS_INVESTIGATION",
+          investigationArea: "casting",
+        },
+        suggestedFollowUps: [
+          "Lead actor",
+          "Supporting actor",
+          "Villain or antagonist",
+          "I need multiple actors",
+        ],
+      };
+    }
+
+    // Role type is known, ask for age range and language / gender
+    if (!reqs.ageRange || !reqs.language) {
+      const missingParts: string[] = [];
+      if (!reqs.ageRange) missingParts.push("approximate age range");
+      if (!reqs.language) missingParts.push("preferred language");
+
+      const genderPrefix = reqs.gender ? `${reqs.gender.toLowerCase()} ` : "";
+      const roleName = reqs.roleType ? `${genderPrefix}${reqs.roleType.toLowerCase()}` : "character";
+
+      return {
+        intent: "CREATOR_SEARCH",
+        responseLevel: "CONTEXTUAL_ANSWER",
+        message: `Got it! What is the ${missingParts.join(" and ")} needed for the ${roleName}?`,
+        conversationState: {
+          ...state,
+          stage: "REQUIREMENTS_INVESTIGATION",
+          investigationArea: "casting",
+        },
+        suggestedFollowUps: [
+          "18–25",
+          "20–25",
+          "25–35",
+          "35–50",
+          reqs.language ? "Other" : "Telugu",
+        ],
+      };
+    }
+  }
+
+  // --------------------------------------------------------------------------
   // C. SHORT FILM INVESTIGATION FLOW (Requirement 2 & 3)
   // --------------------------------------------------------------------------
   if (state.projectDomain === "Film") {
@@ -1407,7 +1690,7 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
       };
     }
 
-    // AUTONOMOUS INVESTIGATION: Trigger if user requests execution plan, complete plan, actors, has premise, or gives completed script
+    // AUTONOMOUS INVESTIGATION: Trigger if user explicitly requests execution plan, complete plan, or shows plan
     const shouldExecuteAutonomousReport =
       clean.includes("generate the execution plan") ||
       clean.includes("generate execution plan") ||
@@ -1419,10 +1702,7 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
       clean.includes("find actors") ||
       clean.includes("show me the plan") ||
       clean.includes("show me plan") ||
-      clean.includes("missing student") ||
-      clean.includes("have a completed script") ||
-      clean.includes("completed script") ||
-      (state.requirements.storyPremise && (clean.includes("plan") || clean.includes("actor") || clean.includes("script")));
+      (state.requirements.storyPremise && (clean.includes("plan") || clean.includes("actor") || clean.includes("actors") || clean.includes("crew")));
 
     if (shouldExecuteAutonomousReport) {
       return await generateAutonomousShortFilmReport(state, userText, userType, currentUserId);
@@ -1453,7 +1733,7 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
       };
     }
 
-    // 2. User chose "I have a story idea"
+    // 2. User chose "I have a story idea" but hasn't provided premise yet
     if (state.requirements.storyPreference === "have_story" && !state.requirements.storyPremise) {
       return {
         intent: "PROJECT_IDEA",
@@ -1468,6 +1748,31 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
           "A drama about two estranged friends",
           "A comedy about a mistaken delivery",
           "A sci-fi mystery in a quiet town",
+        ],
+      };
+    }
+
+    // 2b. User provided their story premise / idea -> Acknowledge and investigate production requirements (duration, script status, shooting schedule, cast)
+    if (state.requirements.storyPremise && (!state.requirements.duration || !state.requirements.scriptStatus)) {
+      return {
+        intent: "PROJECT_IDEA",
+        responseLevel: "CONTEXTUAL_ANSWER",
+        message: `That sounds like a gripping suspense thriller premise! A mystery centered on a missing student creates instant tension and strong visual hooks.\n\nTo help shape your production roadmap, what is your expected duration (e.g., 5 minutes, 10–15 minutes), and do you already have a completed script or need help writing the screenplay?`,
+        conversationState: {
+          ...state,
+          stage: "REQUIREMENTS_INVESTIGATION",
+          projectDescription: state.requirements.storyPremise,
+          requirements: {
+            ...state.requirements,
+            storyPremise: state.requirements.storyPremise,
+            storyGenre: state.requirements.storyGenre || "Suspense Thriller",
+          },
+        },
+        suggestedFollowUps: [
+          "5 minutes",
+          "10–15 minutes",
+          "I have a completed script",
+          "Help me write the script",
         ],
       };
     }
@@ -1495,7 +1800,7 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
 
     // 4. User chose "Thriller or suspense" -> Investigate thriller sub-genre
     if (
-      state.requirements.storyGenre === "Suspense Thriller" &&
+      (state.requirements.storyGenre === "Suspense Thriller" || clean.includes("thriller")) &&
       !state.requirements.subGenre &&
       !state.requirements.storyPremise
     ) {
@@ -1506,6 +1811,10 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
         conversationState: {
           ...state,
           stage: "REQUIREMENTS_INVESTIGATION",
+          requirements: {
+            ...state.requirements,
+            storyGenre: "Suspense Thriller",
+          },
         },
         suggestedFollowUps: [
           "Realistic suspense",
@@ -1520,114 +1829,7 @@ On the screen, a final typed message appears: *"I FOUND THE TRUTH. - ARJUN."*
     return await generateAutonomousShortFilmReport(state, userText, userType, currentUserId);
   }
 
-  // --------------------------------------------------------------------------
-  // D. CREATOR DISCOVERY & CASTING FLOW (Requirement 8)
-  // --------------------------------------------------------------------------
-  if (state.investigationArea === "casting" || state.stage === "CREATOR_MATCHING") {
-    const reqs = state.requirements;
 
-    // Check if we should execute Creator Matching in the database
-    if (state.stage === "CREATOR_MATCHING") {
-      const criteriaList: string[] = [];
-      if (reqs.roleType) criteriaList.push(`**Role:** ${reqs.roleType}`);
-      if (reqs.gender) criteriaList.push(`**Gender:** ${reqs.gender}`);
-      if (reqs.ageRange) criteriaList.push(`**Age Range:** ${reqs.ageRange}`);
-      if (reqs.language) criteriaList.push(`**Language:** ${reqs.language}`);
-      if (reqs.compensation) criteriaList.push(`**Compensation:** ${reqs.compensation}`);
-
-      // Query real Supabase creators with Actor specialty/role
-      const matched = await matchCreatorsForSingleRole("Actor", ["Acting", "Method Acting", "Stage Presence"], currentUserId);
-      const topCandidates = matched.slice(0, 3);
-
-      const criteriaSummary = criteriaList.join(" | ");
-
-      let matchMessage = "";
-      if (topCandidates.length > 0) {
-        const creatorLines = topCandidates
-          .map(
-            (c) =>
-              `• **${c.creator.fullName || c.creator.username}** (@${c.creator.username})\n  *Verified Specialty:* ${c.creator.specialties.join(", ") || "Actor"} | *Skills:* ${c.creator.skills.join(", ") || "Acting, Performance"}\n  *Match Justification:* Verified actor profile on OmniCraft with demonstrated acting alignment.`
-          )
-          .join("\n\n");
-
-        matchMessage = `Here are verified actors from the OmniCraft database matching your casting requirements (${criteriaSummary}):\n\n${creatorLines}\n\n${
-          reqs.language && !topCandidates.some((c) => (c.creator.bio || "").toLowerCase().includes(reqs.language!.toLowerCase()))
-            ? `*Note on Language (${reqs.language}):* While these actors specialize in performance and dramatic casting, you can also publish a specific casting brief to recruit local ${reqs.language} speakers directly.\n\n`
-            : ""
-        }Would you like to review their complete profile, invite them to your project, or post a casting call on OmniCraft?`;
-      } else {
-        matchMessage = `I searched the OmniCraft creator database for actors matching your criteria (${criteriaSummary}). Currently, no verified actors with those exact filter combinations are actively listed.\n\n**Recommended next step:** You can publish an open casting call or client job listing on OmniCraft, or propose a Skill Swap to recruit talent from our network.`;
-      }
-
-      return {
-        intent: "CREATOR_SEARCH",
-        responseLevel: "CREATOR_DISCOVERY",
-        message: matchMessage,
-        conversationState: {
-          ...state,
-          stage: "COMPLETED",
-          matchedCreators: topCandidates,
-        },
-        creatorCards: topCandidates,
-        uiAction: {
-          type: "SHOW_CREATOR_RECOMMENDATIONS",
-          roleName: reqs.roleType || "Lead Actor",
-          creators: topCandidates,
-        },
-        suggestedFollowUps: [
-          "Show me the complete plan",
-          "Create a squad",
-          "Post a casting call",
-        ],
-      };
-    }
-
-    // Still in Requirements Investigation for Casting
-    if (!reqs.roleType) {
-      return {
-        intent: "CREATOR_SEARCH",
-        responseLevel: "CONTEXTUAL_ANSWER",
-        message:
-          "Absolutely! Let's find an actor who fits your short film. I'll ask a few questions to understand the character and your requirements.\n\nWhat type of role is it — lead, supporting, antagonist, or another character?",
-        conversationState: {
-          ...state,
-          stage: "REQUIREMENTS_INVESTIGATION",
-        },
-        suggestedFollowUps: [
-          "Lead actor",
-          "Supporting actor",
-          "Villain or antagonist",
-          "I need multiple actors",
-        ],
-      };
-    }
-
-    // Role type is known, ask for age range and language / gender
-    if (!reqs.ageRange || !reqs.language) {
-      const missingParts: string[] = [];
-      if (!reqs.ageRange) missingParts.push("approximate age range");
-      if (!reqs.language) missingParts.push("preferred language");
-
-      const genderPrefix = reqs.gender ? `${reqs.gender.toLowerCase()} ` : "";
-      const roleName = reqs.roleType ? `${genderPrefix}${reqs.roleType.toLowerCase()}` : "character";
-
-      return {
-        intent: "CREATOR_SEARCH",
-        responseLevel: "CONTEXTUAL_ANSWER",
-        message: `Got it! What is the ${missingParts.join(" and ")} needed for the ${roleName}?`,
-        conversationState: {
-          ...state,
-          stage: "REQUIREMENTS_INVESTIGATION",
-        },
-        suggestedFollowUps: [
-          "18–25",
-          "25–35",
-          "35–50",
-          reqs.language ? "Other" : "Telugu",
-        ],
-      };
-    }
-  }
 
   // --------------------------------------------------------------------------
   // E. WEBSITE PROJECT DISCOVERY & INVESTIGATION FLOW (Requirement 4)

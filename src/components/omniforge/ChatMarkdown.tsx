@@ -170,7 +170,7 @@ export function ChatMarkdown({ content, className = "" }: ChatMarkdownProps) {
   flushList();
   flushCodeBlock();
 
-  return <div className={`space-y-2 break-words ${className}`}>{elements}</div>;
+  return <div className={`space-y-2 break-words min-w-0 max-w-full overflow-hidden ${className}`}>{elements}</div>;
 }
 
 /**

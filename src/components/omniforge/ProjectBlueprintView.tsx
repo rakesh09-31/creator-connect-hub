@@ -15,6 +15,12 @@ import {
   ListOrdered,
   Workflow,
   Check,
+  Shield,
+  Briefcase,
+  Code,
+  Globe,
+  Sliders,
+  AlertCircle,
 } from "lucide-react";
 import { OmniForgeProject } from "@/lib/omniforge/types";
 
@@ -35,6 +41,8 @@ export function ProjectBlueprintView({
   const requirements = project?.requirements || [];
   const workflowStages = project?.workflowStages || [];
   const parallelWorkstreams = project?.parallelWorkstreams || [];
+  const structuredReqs = project?.structuredRequirements;
+  const capabilities = project?.capabilities || [];
 
   const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>({
     [phases[0]?.id || ""]: true,
@@ -56,6 +64,19 @@ export function ProjectBlueprintView({
         return "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30";
       default:
         return "bg-muted text-muted-foreground border-border";
+    }
+  };
+
+  const getLevelBadge = (level?: string) => {
+    switch (level?.toUpperCase()) {
+      case "REQUIRED":
+        return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
+      case "LIKELY":
+        return "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30";
+      case "OPTIONAL":
+        return "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30";
+      default:
+        return "bg-surface-muted text-muted-foreground border-border";
     }
   };
 
@@ -121,7 +142,7 @@ export function ProjectBlueprintView({
         </div>
 
         {/* Visual Workflow Bar */}
-        {(workflowStages.length > 0) && (
+        {workflowStages.length > 0 && (
           <div className="p-4 rounded-xl bg-surface border border-border/70 shadow-sm space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Workflow className="w-3.5 h-3.5 text-brand" />
@@ -145,25 +166,142 @@ export function ProjectBlueprintView({
           </div>
         )}
 
-        {/* What is Required (Separated from Phases) */}
-        {(requirements.length > 0) && (
+        {/* Structured Requirements Analysis */}
+        {structuredReqs && (
           <div className="p-4 rounded-xl bg-surface border border-border/70 shadow-sm space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <ListOrdered className="w-3.5 h-3.5 text-brand" />
-              What is Required for this Project ({requirements.length})
+              <Sliders className="w-3.5 h-3.5 text-brand" />
+              Structured Requirements Extraction
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {requirements.map((req, idx) => (
-                <div key={idx} className="p-2.5 rounded-lg bg-surface-muted/40 border border-border/50 flex items-center gap-2 text-xs">
-                  <Check className="w-3.5 h-3.5 text-brand shrink-0" />
-                  <span className="text-foreground font-medium">{req}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-lg bg-surface-muted/40 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Problem & Target Users</span>
+                <p className="text-foreground font-medium leading-relaxed">{structuredReqs.problem}</p>
+                <div className="pt-1 text-[11px] text-brand font-medium">
+                  Users: <span className="text-foreground">{structuredReqs.targetUsers}</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-surface-muted/40 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Technical Requirements</span>
+                <ul className="space-y-0.5 text-muted-foreground text-[11px]">
+                  {structuredReqs.technicalRequirements.map((tr, idx) => (
+                    <li key={idx} className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0" />
+                      <span className="text-foreground">{tr}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-3 rounded-lg bg-surface-muted/40 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Domain Requirements</span>
+                <ul className="space-y-0.5 text-muted-foreground text-[11px]">
+                  {structuredReqs.domainRequirements.map((dr, idx) => (
+                    <li key={idx} className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-2 shrink-0" />
+                      <span className="text-foreground">{dr}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-3 rounded-lg bg-surface-muted/40 border border-border/50 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Constraints & Deployment</span>
+                <ul className="space-y-0.5 text-muted-foreground text-[11px]">
+                  {structuredReqs.constraints.map((c, idx) => (
+                    <li key={idx} className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                      <span className="text-foreground">{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Derived Capabilities Breakdown */}
+        {capabilities.length > 0 && (
+          <div className="p-4 rounded-xl bg-surface border border-border/70 shadow-sm space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-brand" />
+              Project Capabilities Matrix ({capabilities.length})
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {capabilities.map((cap) => (
+                <div key={cap.id} className="p-2.5 rounded-lg bg-surface-muted/40 border border-border/50 flex flex-col justify-between gap-1.5">
+                  <div className="flex items-start justify-between gap-1">
+                    <span className="text-xs font-semibold text-foreground">{cap.name}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${getLevelBadge(cap.level)}`}>
+                      {cap.level}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{cap.description}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Expected Deliverables */}
+        {/* Derived Roles Architecture */}
+        <div className="p-4 rounded-xl bg-surface border border-border/70 shadow-sm space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Briefcase className="w-3.5 h-3.5 text-brand" />
+            Derived Role Architecture ({roles.length} Roles)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {roles.map((role) => (
+              <div
+                key={role.id}
+                className="p-3 rounded-xl bg-surface-muted/30 border border-border/60 hover:border-brand/40 transition space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground">{role.roleName}</h4>
+                    <span className="text-[10px] text-muted-foreground">{role.category}</span>
+                  </div>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${getLevelBadge(role.requiredOrOptional || "REQUIRED")}`}>
+                    {role.requiredOrOptional || "REQUIRED"}
+                  </span>
+                </div>
+
+                {role.whyRequired && (
+                  <p className="text-[11px] text-muted-foreground leading-tight italic">
+                    <span className="font-medium text-foreground not-italic">Why Required: </span>
+                    {role.whyRequired}
+                  </p>
+                )}
+
+                {role.responsibilities && role.responsibilities.length > 0 && (
+                  <div className="space-y-0.5 pt-1">
+                    <div className="text-[10px] font-semibold text-muted-foreground">Responsibilities:</div>
+                    <ul className="text-[10px] text-muted-foreground space-y-0.5 pl-3 list-disc">
+                      {role.responsibilities.slice(0, 3).map((resp: string, idx: number) => (
+                        <li key={idx}>{resp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {role.requiredSkills && role.requiredSkills.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap pt-1">
+                    {role.requiredSkills.map((skill, sIdx) => (
+                      <span
+                        key={sIdx}
+                        className="text-[9px] px-2 py-0.5 rounded-md bg-surface border border-border/60 text-muted-foreground font-medium"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Key Deliverables */}
         <div className="p-4 rounded-xl bg-surface border border-border/70 shadow-sm space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-brand" />
@@ -172,7 +310,7 @@ export function ProjectBlueprintView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {deliverables.map((del) => (
               <div key={del.id} className="p-2.5 rounded-lg bg-surface-muted/50 border border-border/50 flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-foreground truncate">{del.title}</h4>
                   <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{del.description}</p>
@@ -182,7 +320,7 @@ export function ProjectBlueprintView({
           </div>
         </div>
 
-        {/* Parallel Workstreams Highlight */}
+        {/* Parallel Workstreams */}
         {parallelWorkstreams.length > 0 && (
           <div className="p-4 rounded-xl bg-gradient-to-r from-brand-soft/80 to-surface border border-brand/20 space-y-2">
             <div className="flex items-center gap-2">
@@ -241,7 +379,6 @@ export function ProjectBlueprintView({
 
                   {isExpanded && (
                     <div className="px-4 pb-4 pt-1 border-t border-border/40 space-y-3">
-                      {/* Phase Purpose & Why */}
                       {phase.purpose && (
                         <div className="p-2.5 rounded-lg bg-surface-muted/50 border border-border/40 text-[11px] text-muted-foreground">
                           <span className="font-semibold text-foreground">Purpose:</span> {phase.purpose}
@@ -302,4 +439,3 @@ export function ProjectBlueprintView({
     </div>
   );
 }
-

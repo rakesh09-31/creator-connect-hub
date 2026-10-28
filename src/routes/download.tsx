@@ -14,14 +14,14 @@ function DownloadPage() {
           <Smartphone className="h-12 w-12 text-white" />
         </div>
         
-        <h1 className="mb-2 text-3xl font-bold">Creator Connect Hub</h1>
-        <p className="mb-8 text-lg text-gray-400">Connect. Create. Grow.</p>
+        <h1 className="mb-2 text-3xl font-bold">OmniCraft</h1>
+        <p className="mb-8 text-lg text-gray-400">Create. Collaborate. Build with AI.</p>
         
         <div className="rounded-2xl border border-gray-800 bg-gray-900/50 p-6 backdrop-blur-xl">
           <div className="mb-6 space-y-2">
-            <h2 className="text-xl font-semibold">Android App</h2>
+            <h2 className="text-xl font-semibold">OmniCraft for Android</h2>
             <p className="text-sm text-gray-400">
-              Download and install Creator Connect on your Android phone to get the full native experience.
+              Download and install OmniCraft on your Android phone to get the full native mobile experience.
             </p>
           </div>
           
@@ -29,9 +29,9 @@ function DownloadPage() {
             className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 py-6 text-lg font-bold hover:from-indigo-500 hover:to-pink-500"
             asChild
           >
-            <a href="/downloads/creator-connect.apk" download>
+            <a href="/downloads/OmniCraft.apk" download="OmniCraft.apk">
               <Download className="mr-2 h-5 w-5" />
-              Download Android App
+              Download OmniCraft APK
             </a>
           </Button>
           

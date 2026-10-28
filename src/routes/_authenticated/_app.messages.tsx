@@ -174,7 +174,7 @@ function MessagesPage() {
   const activeConv = convs.find((c) => c.id === activeId) ?? null;
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-9rem)] px-0 sm:px-4 py-0 sm:py-4">
+    <div className="max-w-6xl mx-auto h-[calc(100dvh-8.5rem)] px-0 sm:px-4 py-0 sm:py-4">
       <div className="h-full bg-surface border border-border rounded-none sm:rounded-2xl overflow-hidden flex">
         {/* List */}
         <aside className={`${activeId ? "hidden md:flex" : "flex"} flex-col w-full md:w-80 md:border-r border-border`}>
@@ -503,14 +503,15 @@ export function ChatThread({ conv, meId, onBack, onRead }: { conv: Conv; meId: s
       </div>
 
       {/* Composer */}
-      <div className="relative p-3 border-t border-border flex items-end gap-2">
+      <div className="relative p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border flex items-end gap-2">
         {emojiOpen && (
-          <div className="absolute bottom-full left-2 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-border">
+          <div className="absolute bottom-full left-0 sm:left-2 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-border max-w-[calc(100vw-2rem)]">
             <EmojiPicker
               onEmojiClick={(e) => { handleEmojiClick(e); setEmojiOpen(false); }}
               theme={Theme.AUTO}
               skinTonesDisabled
               searchDisabled
+              width="min(320px, calc(100vw - 2rem))"
             />
           </div>
         )}
@@ -566,7 +567,7 @@ function SharedVideoCard({ message }: { message: Msg }) {
 
   return (
     <div 
-      className="bg-surface border border-border/50 rounded-xl overflow-hidden w-64 cursor-pointer hover:border-brand/40 transition"
+      className="bg-surface border border-border/50 rounded-xl overflow-hidden w-48 sm:w-64 max-w-full cursor-pointer hover:border-brand/40 transition"
       onClick={() => navigate({ to: "/reels", search: { start: data.id } })}
     >
       <div className="relative aspect-[9/16] bg-black">

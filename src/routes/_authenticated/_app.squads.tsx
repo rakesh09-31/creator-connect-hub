@@ -100,29 +100,29 @@ function SquadsPage() {
   if (/^\/squads\/[^/]+$/.test(location.pathname)) return <Outlet />;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/60 bg-gradient-to-br from-fuchsia-600 via-pink-600 to-orange-500 p-6 text-white shadow-xl sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto max-w-6xl px-3 sm:px-6 lg:px-8 py-6">
+      <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/60 bg-gradient-to-br from-fuchsia-600 via-pink-600 to-orange-500 p-5 sm:p-6 text-white shadow-xl sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-white/90">
             <Sparkles className="h-3.5 w-3.5" /> Squad Studio
           </div>
-          <h1 className="text-3xl font-bold">Squads</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Squads</h1>
           <p className="mt-2 max-w-2xl text-sm text-white/90">
             Build creative collectives, manage members, and keep collaboration moving from one
             shared place.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Link
             to="/omniforge"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/20 border border-white/40 px-4 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:bg-white/30"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-2xl bg-white/20 border border-white/40 px-4 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur transition hover:bg-white/30"
           >
             <Sparkles className="h-4 w-4 animate-pulse-slow" /> Architect with AI
           </Link>
           {profile?.role !== "client" && (
             <button
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-fuchsia-700 shadow-lg transition hover:scale-[1.01]"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-fuchsia-700 shadow-lg transition hover:scale-[1.01]"
             >
               <Plus className="h-4 w-4" /> Create Squad
             </button>

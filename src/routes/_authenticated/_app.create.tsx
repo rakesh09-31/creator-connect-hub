@@ -169,10 +169,10 @@ function CreatePage() {
   const isVideoPreview = file?.type.startsWith("video/");
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold mb-6">Create a Post</h1>
+    <div className="max-w-2xl mx-auto px-3 sm:px-4 py-6">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Create a Post</h1>
 
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-5 sm:mb-6">
         {types.map((t) => {
           const Icon = t.icon;
           const active = type === t.id;
@@ -180,40 +180,40 @@ function CreatePage() {
             <button
               key={t.id}
               onClick={() => { setType(t.id); clearFile(); }}
-              className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition ${
-                active ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 flex flex-col items-center gap-1.5 sm:gap-2 transition ${
+                active ? "border-indigo-600 bg-indigo-500/15 text-indigo-500 shadow-sm" : "border-border bg-surface text-muted-foreground hover:border-border/80 hover:text-foreground"
               }`}
             >
-              <Icon className="w-6 h-6" />
-              <span className="font-semibold text-sm">{t.label}</span>
+              <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="font-semibold text-xs sm:text-sm">{t.label}</span>
             </button>
           );
         })}
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-surface rounded-2xl border border-border shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Media</label>
+          <label className="block text-sm font-semibold text-foreground/80 mb-2">Media</label>
 
           {!file ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                className="p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-indigo-500 hover:bg-indigo-50 flex flex-col items-center gap-2 transition"
+                className="p-4 sm:p-6 rounded-xl border-2 border-dashed border-border hover:border-indigo-500 hover:bg-indigo-500/10 flex flex-col items-center gap-1.5 sm:gap-2 transition text-center"
               >
-                <Upload className="w-7 h-7 text-indigo-600" />
-                <span className="font-semibold text-sm">From files</span>
-                <span className="text-xs text-gray-500">Pick {type === "video" ? "a video" : type === "photo" ? "an image" : "any file"}</span>
+                <Upload className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" />
+                <span className="font-semibold text-sm text-foreground">From files</span>
+                <span className="text-xs text-muted-foreground">Pick {type === "video" ? "a video" : type === "photo" ? "an image" : "any file"}</span>
               </button>
               <button
                 type="button"
                 onClick={() => cameraInput.current?.click()}
-                className="p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-pink-500 hover:bg-pink-50 flex flex-col items-center gap-2 transition"
+                className="p-4 sm:p-6 rounded-xl border-2 border-dashed border-border hover:border-pink-500 hover:bg-pink-500/10 flex flex-col items-center gap-1.5 sm:gap-2 transition text-center"
               >
-                <Camera className="w-7 h-7 text-pink-600" />
-                <span className="font-semibold text-sm">Live capture</span>
-                <span className="text-xs text-gray-500">Use your camera now</span>
+                <Camera className="w-6 h-6 sm:w-7 sm:h-7 text-pink-500" />
+                <span className="font-semibold text-sm text-foreground">Live capture</span>
+                <span className="text-xs text-muted-foreground">Use your camera now</span>
               </button>
             </div>
           ) : (
@@ -247,20 +247,20 @@ function CreatePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Caption</label>
+          <label className="block text-sm font-semibold text-foreground/80 mb-2">Caption</label>
           <textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             rows={4}
             placeholder="Tell the story behind this..."
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 resize-none"
+            className="w-full px-4 py-3 border-2 border-border bg-background rounded-xl focus:outline-none focus:border-indigo-500 text-foreground resize-none placeholder:text-muted-foreground"
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-60 shadow-md"
         >
           <Send className="w-5 h-5" />
           {submitting ? (progress > 0 && progress < 100 ? `Uploading ${progress}%` : "Publishing...") : "Publish"}

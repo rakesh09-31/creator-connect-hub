@@ -1,4 +1,4 @@
-package com.creatorconnecthub.app;
+package com.omnicraft.app;
 
 import com.getcapacitor.BridgeActivity;
 

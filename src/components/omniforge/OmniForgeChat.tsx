@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Sparkles,
   Send,
+  ArrowUp,
   RefreshCw,
   Film,
   Cpu,
@@ -25,33 +26,40 @@ import {
   AlertCircle,
   RotateCcw,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   ShieldCheck,
+  Briefcase,
+  Square,
+  FileText,
+  GitBranch,
+  BookOpen,
+  Compass,
 } from "lucide-react";
 import {
   ChatMessage,
   ClarificationQuestion,
   OmniForgeProject,
   CreatorRecommendation,
+  ClientOpportunity,
+  SquadResult,
 } from "@/lib/omniforge/types";
 import { CreatorAvatar } from "./CreatorAvatar";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { cleanAiResponseText } from "@/lib/api/local-ai";
 import { ArrowLeftRight, Repeat } from "lucide-react";
 
-interface OmniForgeChatProps {
+export interface OmniForgeChatProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
   onRetry?: (prompt: string) => void;
-  onGenerateBlueprint: () => void;
-  onStartOver: () => void;
+  onGenerateBlueprint?: () => void;
+  onStartOver?: () => void;
   isLoading: boolean;
-  userType: "creator" | "client";
-  activeProject: OmniForgeProject | null;
+  userType?: "creator" | "client";
+  activeProject?: OmniForgeProject | null;
   onFindCreatorsForRole?: (roleName: string) => void;
   onSelectCreator?: (creator: CreatorRecommendation) => void;
   onInviteCreator?: (creator: CreatorRecommendation) => void;
+  onHireSquad?: (squad: SquadResult) => void;
   invitations?: Array<{
     id: string;
     invitee_id: string;
@@ -60,39 +68,19 @@ interface OmniForgeChatProps {
   }>;
   onConfirmAction?: (actionType: string, payload?: any) => void;
   onOpenCompareModal?: (roleName: string) => void;
+  onCancel?: () => void;
+  onResumeUploadClick?: () => void;
+  onOpenRoadmapFullView?: (roadmap?: any) => void;
+  onOpenProjectPlanFullView?: (plan?: any) => void;
+  onOpenSkillAnalysisFullView?: () => void;
 }
 
-const STARTER_PROMPTS = [
-  {
-    icon: Film,
-    title: "Short Film Idea",
-    category: "Creative",
-    prompt: "I am a writer. I have a story about a young village girl who wants to become a singer, but I don't know how to make it into a film.",
-  },
-  {
-    icon: Cpu,
-    title: "AI Agriculture App",
-    category: "Technical",
-    prompt: "I want to build an AI-powered crop disease detection application from leaf photos for farmers.",
-  },
-  {
-    icon: Store,
-    title: "Restaurant Promo Video",
-    category: "Client / Commercial",
-    prompt: "I want to create a high-impact promotional video campaign for my new restaurant with food photography.",
-  },
-  {
-    icon: Music,
-    title: "Music Production",
-    category: "Creative",
-    prompt: "I wrote an original acoustic song but need help producing, vocal recording, mixing, and mastering it.",
-  },
-  {
-    icon: PartyPopper,
-    title: "College Cultural Fest",
-    category: "Events",
-    prompt: "I want to organize a college cultural festival with live performances, stage lighting, sound, and sponsorships.",
-  },
+const NEUTRAL_SUGGESTION_CHIPS = [
+  { label: "Learn something new", prompt: "Teach me something new about web engineering and modern architectures" },
+  { label: "Create a project", prompt: "I want to create a new project plan" },
+  { label: "Generate a roadmap", prompt: "I want an HTML and frontend roadmap" },
+  { label: "Find creators", prompt: "Find all video editors" },
+  { label: "Ask anything", prompt: "What can you help me with on OmniForge?" },
 ];
 
 export function OmniForgeChat({
@@ -101,36 +89,75 @@ export function OmniForgeChat({
   onGenerateBlueprint,
   onStartOver,
   isLoading,
-  userType,
+  userType = "creator",
   activeProject,
   onFindCreatorsForRole,
   onSelectCreator,
   onInviteCreator,
+  onHireSquad,
   invitations,
   onConfirmAction,
   onOpenCompareModal,
   onRetry,
+  onCancel,
+  onResumeUploadClick,
+  onOpenRoadmapFullView,
+  onOpenProjectPlanFullView,
+  onOpenSkillAnalysisFullView,
 }: OmniForgeChatProps) {
   const [input, setInput] = useState("");
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isSubmittingLocalRef = useRef(false);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+    if (!isLoading) {
+      isSubmittingLocalRef.current = false;
+    }
   }, [messages, isLoading]);
 
   const handleSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    onSendMessage(input.trim());
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const trimmed = input.trim();
+    if (!trimmed || isLoading || isSubmittingLocalRef.current) return;
+
+    isSubmittingLocalRef.current = true;
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+    onSendMessage(trimmed);
+
+    setTimeout(() => {
+      isSubmittingLocalRef.current = false;
+    }, 600);
   };
 
-  const handlePromptClick = (p: string) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+    }
+  };
+
+  const handleChipClick = (prompt: string) => {
     if (isLoading) return;
-    onSendMessage(p);
+    onSendMessage(prompt);
   };
 
   const handleOptionSelect = (_q: ClarificationQuestion, option: string) => {
@@ -149,754 +176,515 @@ export function OmniForgeChat({
   };
 
   return (
-    <div className="flex flex-col h-full bg-surface/60 backdrop-blur-md rounded-2xl border border-border/70 overflow-hidden shadow-sm">
-      {/* Chat Header */}
-      <div className="px-5 py-4 border-b border-border/60 flex items-center justify-between bg-surface/80">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-brand">
-            <Sparkles className="w-5 h-5 text-white animate-pulse-slow" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-foreground">OmniForge Partner</h2>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-brand-soft text-brand">
-                {userType === "creator" ? "Creator Mode" : "Client Mode"}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {activeProject ? `Project: ${activeProject.title}` : "AI Project Architect & Creator Orchestrator"}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onStartOver}
-          className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg hover:bg-muted transition"
-          title="Start fresh conversation"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Start Over</span>
-        </button>
-      </div>
-
-      {/* Message History */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
-          <div className="py-6 space-y-6">
-            <div className="text-center max-w-md mx-auto space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-brand-soft mx-auto flex items-center justify-center text-brand mb-3">
-                <Zap className="w-6 h-6" />
+    <div className="flex flex-col h-full bg-background relative overflow-hidden">
+      {/* Scrollable Conversation Stream */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {messages.length === 0 ? (
+            /* Clean ChatGPT-Style Welcome Screen */
+            <div className="py-12 sm:py-16 text-center space-y-8 animate-fade-up">
+              {/* Branding Header */}
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-brand mx-auto flex items-center justify-center text-white shadow-brand">
+                  <Sparkles className="w-7 h-7" />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                  OmniForge
+                </h1>
+                <p className="text-sm sm:text-base text-foreground/80 max-w-xl mx-auto leading-relaxed font-normal">
+                  Hi! I'm OmniForge. I can answer questions, teach you new skills, create learning
+                  roadmaps, develop stories and projects, discover creators and clients, and help
+                  execute your work. What would you like to do?
+                </p>
               </div>
-              <h3 className="text-lg font-bold">What are you looking to create?</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Describe any story, product, campaign, or technical concept in simple words. OmniForge will formulate the
-                milestones, required roles, and discover verified creators.
-              </p>
-            </div>
 
-            {/* Starter Prompts */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground px-1 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-brand" />
-                Example starting points:
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {STARTER_PROMPTS.map((item, idx) => {
-                  const Icon = item.icon;
-                  return (
+              {/* Neutral Suggestion Chips */}
+              <div className="space-y-3 max-w-xl mx-auto">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Suggested Starters
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {NEUTRAL_SUGGESTION_CHIPS.map((chip, idx) => (
                     <button
                       key={idx}
-                      onClick={() => handlePromptClick(item.prompt)}
+                      onClick={() => handleChipClick(chip.prompt)}
                       disabled={isLoading}
-                      className={`text-left p-3 rounded-xl bg-surface hover:bg-surface-muted border border-border/60 hover:border-brand/50 transition flex items-start gap-2.5 group ${
-                        isLoading ? "opacity-50 cursor-not-allowed" : ""
+                      className="px-3.5 py-2 rounded-xl bg-surface hover:bg-surface-muted border border-border/80 text-xs font-medium text-foreground hover:border-brand/40 shadow-xs transition disabled:opacity-50"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Message Stream */
+            (() => {
+              const latestAIMsgId = [...messages].reverse().find((m) => m.sender === "ai")?.id;
+
+              return messages.map((msg) => {
+                const isUser = msg.sender === "user";
+                const isLatestAIMessage = !isUser && msg.id === latestAIMsgId;
+                const hasNoText = !isUser && !cleanAiResponseText(msg.text).trim();
+                const isError =
+                  msg.isError || msg.sourceMeta?.status === "provider_error" || hasNoText;
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-3 sm:gap-4 ${
+                      isUser ? "justify-end" : "justify-start"
+                    } animate-fade-up`}
+                  >
+                    {!isUser && (
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shrink-0 mt-0.5 shadow-xs ${
+                          isError ? "bg-rose-600" : "bg-gradient-brand"
+                        }`}
+                      >
+                        {isError ? (
+                          <AlertCircle className="w-4 h-4" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                      </div>
+                    )}
+
+                    <div
+                      className={`max-w-[88%] sm:max-w-[82%] rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm leading-relaxed space-y-3 ${
+                        isUser
+                          ? "bg-primary text-primary-foreground font-normal rounded-tr-xs shadow-xs"
+                          : isError
+                          ? "bg-rose-500/10 border border-rose-500/30 text-foreground rounded-tl-xs shadow-xs"
+                          : "bg-surface border border-border/70 text-foreground rounded-tl-xs shadow-xs"
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-brand-soft group-hover:text-brand transition">
-                        <Icon className="w-4 h-4 text-foreground/80 group-hover:text-brand" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-foreground truncate">{item.title}</span>
-                          <span className="text-[9px] uppercase px-1.5 py-0.2 text-muted-foreground font-medium">
-                            {item.category}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{item.prompt}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        ) : (
-          (() => {
-            const latestAIMsgId = [...messages].reverse().find((m) => m.sender === "ai")?.id;
-            return messages.map((msg) => {
-              const isUser = msg.sender === "user";
-              const isLatestAIMessage = !isUser && msg.id === latestAIMsgId;
-              const hasNoText = !isUser && !cleanAiResponseText(msg.text).trim();
-              const isError = msg.isError || msg.sourceMeta?.status === "provider_error" || hasNoText;
-
-              return (
-                <div key={msg.id} className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"} animate-fade-up`}>
-                  {!isUser && (
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm ${
-                      isError ? "bg-rose-600" : "bg-gradient-brand"
-                    }`}>
-                      {isError ? <AlertCircle className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                    </div>
-                  )}
-                <div
-                  className={`max-w-[88%] rounded-2xl px-4 py-3 text-xs leading-relaxed space-y-3 ${
-                    isUser
-                      ? "bg-primary text-primary-foreground font-medium rounded-tr-sm shadow-sm"
-                      : isError
-                      ? "bg-rose-500/10 border border-rose-500/30 text-foreground rounded-tl-sm shadow-sm"
-                      : "bg-surface border border-border/80 text-foreground rounded-tl-sm shadow-sm"
-                  }`}
-                >
-                  {isUser ? (
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
-                  ) : isError ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 pb-1 border-b border-rose-500/20 text-[10px]">
-                        <span className="flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-full border border-rose-500/30">
-                          <AlertCircle className="w-2.5 h-2.5" />
-                          Local AI Error
-                        </span>
-                      </div>
-                      <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
-                        {msg.errorMessage || (hasNoText ? "The assistant returned an empty response. Please click Retry." : msg.text)}
-                      </p>
-                      <div className="pt-1 flex items-center gap-2">
-                        <button
-                          onClick={() => handleRetry(msg)}
-                          disabled={isLoading}
-                          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow-xs transition disabled:opacity-50"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          Retry Request
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {msg.sourceMeta && (
-                        <div className="flex items-center gap-1.5 pb-1 border-b border-border/40 text-[10px]">
-                          {msg.sourceMeta.provider === "local-ollama" || msg.sourceMeta.isRealLLM ? (
-                            <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                              <Zap className="w-2.5 h-2.5" />
-                              Local AI • {msg.sourceMeta.provider.toUpperCase()} ({msg.sourceMeta.model})
+                      {isUser ? (
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                      ) : isError ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5 pb-1 border-b border-rose-500/20 text-[10px]">
+                            <span className="flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-full border border-rose-500/30">
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              Local AI Error
                             </span>
-                          ) : (
-                            <span
-                              title={msg.sourceMeta.statusMessage || "Generated by deterministic fallback engine"}
-                              className="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20"
+                          </div>
+                          <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                            {msg.errorMessage ||
+                              (hasNoText
+                                ? "The assistant returned an empty response. Please click Retry."
+                                : msg.text)}
+                          </p>
+                          <div className="pt-1 flex items-center gap-2">
+                            <button
+                              onClick={() => handleRetry(msg)}
+                              disabled={isLoading}
+                              className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow-xs transition disabled:opacity-50"
                             >
-                              <Cpu className="w-2.5 h-2.5" />
-                              Fallback Engine • {msg.sourceMeta.status === "no_provider" ? "No API Key Configured" : "Local Engine"}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      <ChatMarkdown content={cleanAiResponseText(msg.text)} />
-
-                      {/* Suggested Roles Cards */}
-                      {msg.suggestedRoles && msg.suggestedRoles.length > 0 && (
-                        <div className="space-y-2 pt-3 border-t border-border/50">
-                          <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-foreground font-semibold">
-                              <Sparkles className="w-3.5 h-3.5 text-brand" />
-                              Suggested Creative Roles
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted font-normal text-muted-foreground">
-                                {msg.suggestedRoles.length}
-                              </span>
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {msg.suggestedRoles.map((sr, idx) => (
-                              <div
-                                key={idx}
-                                className="p-3 rounded-xl bg-surface-muted/70 border border-border/70 flex flex-col justify-between gap-2 hover:border-brand/40 transition"
-                              >
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                                      <Layers className="w-3 h-3 text-brand shrink-0" />
-                                      <span>{sr.role}</span>
-                                    </span>
-                                    <span
-                                      className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${
-                                        sr.priority === "essential"
-                                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25"
-                                          : "bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25"
-                                      }`}
-                                    >
-                                      {sr.priority === "essential" ? "Essential" : "Optional"}
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                    {sr.reason}
-                                  </p>
-                                  {sr.skills && sr.skills.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 pt-1">
-                                      {sr.skills.map((skill, sIdx) => (
-                                        <span
-                                          key={sIdx}
-                                          className="text-[9px] px-1.5 py-0.5 rounded bg-surface border border-border/80 text-foreground font-medium"
-                                        >
-                                          {skill}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="pt-2 border-t border-border/40 flex items-center gap-2">
-                                  <button
-                                    onClick={() => {
-                                      if (onFindCreatorsForRole) {
-                                        onFindCreatorsForRole(sr.role);
-                                      } else {
-                                        onSendMessage(`Find me a ${sr.role}`);
-                                      }
-                                    }}
-                                    className="w-full px-2.5 py-1 rounded-lg bg-surface hover:bg-brand-soft hover:text-brand border border-border text-foreground font-semibold text-[10px] flex items-center justify-center gap-1 transition shadow-2xs"
-                                  >
-                                    <Search className="w-2.5 h-2.5 text-brand" />
-                                    Find {sr.role} Creators
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                              <RotateCcw className="w-3 h-3" />
+                              Retry Request
+                            </button>
                           </div>
                         </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* 1. Contextual Skill Swap Cards */}
-                  {msg.skillSwapCards && msg.skillSwapCards.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-border/50">
-                      <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
-                        <Repeat className="w-3.5 h-3.5 text-brand" />
-                        Matched Skill Swap Collaborators:
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {msg.skillSwapCards.map((listing) => (
-                          <div
-                            key={listing.id}
-                            className="p-3 rounded-xl bg-surface-muted/70 border border-border/70 flex flex-col gap-2 hover:border-brand/40 transition"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-2.5 min-w-0">
-                                <CreatorAvatar
-                                  url={listing.creatorAvatar}
-                                  name={listing.creatorName}
-                                  size="sm"
-                                />
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-xs text-foreground truncate">
-                                      {listing.creatorName}
-                                    </span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-semibold flex items-center gap-1">
-                                      <ArrowLeftRight className="w-2.5 h-2.5" />
-                                      Skill Swap
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] font-medium text-foreground mt-0.5 line-clamp-1">{listing.title}</p>
-                                  {listing.matchReason && (
-                                    <p className="text-[10px] text-muted-foreground line-clamp-1">{listing.matchReason}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => onSendMessage(`Propose skill swap to ${listing.creatorName}`)}
-                                className="px-2.5 py-1 rounded-lg bg-brand text-white text-[11px] font-semibold hover:opacity-90 transition shrink-0"
-                              >
-                                Propose Swap
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
-                              <div>
-                                <span className="font-semibold text-emerald-600 block mb-0.5">Teaches:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {listing.teachSkills.map((s, i) => (
-                                    <span key={i} className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                                      {s}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-brand block mb-0.5">Wants to Learn:</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {listing.learnSkills.map((s, i) => (
-                                    <span key={i} className="px-1.5 py-0.2 rounded bg-brand-soft text-brand border border-brand/20">
-                                      {s}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 1. Contextual Role Card (Only rendered if structured suggestedRoles are not present) */}
-                  {msg.roleCard && (!msg.suggestedRoles || msg.suggestedRoles.length === 0) && (
-                    <div className="p-3 rounded-xl bg-surface-muted border border-border/70 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-brand" />
-                          {msg.roleCard.roleName}
-                        </span>
-                        <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-md bg-brand-soft text-brand">
-                          {msg.roleCard.category}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">{msg.roleCard.purpose}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {msg.roleCard.skills.map((s, idx) => (
-                          <span key={idx} className="text-[10px] px-2 py-0.5 rounded-md bg-surface border border-border">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="pt-2 flex items-center gap-2 border-t border-border/50">
-                        <button
-                          onClick={() => onSendMessage(`Find me a ${msg.roleCard?.roleName}`)}
-                          className="px-2.5 py-1 rounded-lg bg-brand text-white font-medium text-[11px] flex items-center gap-1 hover:opacity-90 transition"
-                        >
-                          <Search className="w-3 h-3" />
-                          Find Creators
-                        </button>
-                        <button
-                          onClick={onGenerateBlueprint}
-                          className="px-2.5 py-1 rounded-lg bg-surface hover:bg-muted border border-border text-foreground font-medium text-[11px] flex items-center gap-1 transition"
-                        >
-                          View in Blueprint
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. Contextual Creator Cards */}
-                  {msg.creatorCards && msg.creatorCards.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-border/50">
-                      <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-brand" />
-                          Matched Verified Creators ({msg.creatorCards.length}):
-                        </span>
-                        <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium">
-                          <ShieldCheck className="w-3 h-3" />
-                          Real Supabase Profiles
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2.5">
-                        {msg.creatorCards.map((cand) => {
-                          const isExpanded = expandedMatchId === cand.id;
-                          return (
-                            <div
-                              key={cand.id}
-                              className="p-3.5 rounded-xl bg-surface-muted/80 border border-border/70 flex flex-col gap-2.5 hover:border-brand/40 transition shadow-sm"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-2.5 min-w-0">
-                                  <CreatorAvatar
-                                    url={cand.creator.avatarUrl}
-                                    name={cand.creator.fullName || cand.creator.username}
-                                    size="sm"
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <a
-                                        href={`/creator/${cand.creator.username}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="font-bold text-xs text-foreground truncate hover:text-brand hover:underline"
-                                      >
-                                        {cand.creator.fullName || cand.creator.username}
-                                      </a>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        @{cand.creator.username}
-                                      </span>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-semibold">
-                                        {cand.matchScore}% Match
-                                      </span>
-                                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-surface border border-border text-muted-foreground uppercase font-medium">
-                                        {cand.roleName}
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                                      {cand.matchReason}
-                                    </p>
-
-                                    {/* Skills */}
-                                    <div className="flex flex-wrap gap-1 mt-2">
-                                      {cand.creator.skills.slice(0, 4).map((s, i) => (
-                                        <span
-                                          key={i}
-                                          className="text-[9px] px-1.5 py-0.5 rounded bg-surface border border-border text-foreground font-medium"
-                                        >
-                                          {s}
-                                        </span>
-                                      ))}
-                                    </div>
-
-                                    {/* Portfolio Link / Evidence */}
-                                    {(cand.creator.portfolioUrl || cand.creator.portfolioSamples?.length > 0) && (
-                                      <div className="flex items-center gap-2 mt-2 pt-1 border-t border-border/40 text-[10px]">
-                                        <span className="text-muted-foreground font-medium">Portfolio:</span>
-                                        {cand.creator.portfolioUrl ? (
-                                          <a
-                                            href={cand.creator.portfolioUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-brand font-semibold hover:underline"
-                                          >
-                                            <ExternalLink className="w-3 h-3" />
-                                            View Portfolio / Reel
-                                          </a>
-                                        ) : cand.creator.portfolioSamples?.[0]?.url ? (
-                                          <a
-                                            href={cand.creator.portfolioSamples[0].url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 text-brand font-semibold hover:underline truncate max-w-[200px]"
-                                          >
-                                            <ExternalLink className="w-3 h-3" />
-                                            {cand.creator.portfolioSamples[0].title}
-                                          </a>
-                                        ) : (
-                                          <span className="text-muted-foreground">
-                                            {cand.creator.portfolioSamples?.[0]?.title || "Verified profile showcase"}
-                                          </span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex flex-col gap-1.5 shrink-0">
-                                  {/* Invitation Status or Invite Action */}
-                                  {(() => {
-                                    const inv = invitations?.find(
-                                      (i) => i.invitee_id === cand.creator.id && i.status !== "cancelled"
-                                    );
-                                    const invStatus = cand.invitationStatus || inv?.status;
-
-                                    if (invStatus === "pending") {
-                                      return (
-                                        <span className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 font-semibold text-[10px] text-center">
-                                          Invite Pending
-                                        </span>
-                                      );
-                                    }
-                                    if (invStatus === "accepted") {
-                                      return (
-                                        <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-semibold text-[10px] text-center flex items-center justify-center gap-1">
-                                          <Check className="w-3 h-3" />
-                                          Member
-                                        </span>
-                                      );
-                                    }
-                                    if (invStatus === "declined" || invStatus === "rejected") {
-                                      return (
-                                        <span className="px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-500 font-semibold text-[10px] text-center">
-                                          Declined
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <button
-                                        onClick={() => {
-                                          if (onInviteCreator) onInviteCreator(cand);
-                                          else onSendMessage(`I want to invite ${cand.creator.fullName || cand.creator.username} as ${cand.roleName}`);
-                                        }}
-                                        className="px-2.5 py-1 rounded-lg bg-surface hover:bg-brand/10 border border-brand/40 text-brand text-[11px] font-semibold transition shadow-xs text-center"
-                                      >
-                                        Invite
-                                      </button>
-                                    );
-                                  })()}
-
-                                  <button
-                                    onClick={() => {
-                                      if (onSelectCreator) onSelectCreator(cand);
-                                      onSendMessage(`Add ${cand.creator.fullName || cand.creator.username} to team`);
-                                    }}
-                                    className="px-2.5 py-1 rounded-lg bg-brand text-white text-[11px] font-semibold hover:opacity-90 transition shadow-xs text-center"
-                                  >
-                                    Select
-                                  </button>
-                                  <button
-                                    onClick={() => setExpandedMatchId(isExpanded ? null : cand.id)}
-                                    className="px-2 py-0.5 rounded-lg bg-surface border border-border text-muted-foreground hover:text-foreground text-[10px] transition flex items-center justify-center gap-1"
-                                  >
-                                    <span>Why Match?</span>
-                                    {isExpanded ? (
-                                      <ChevronUp className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <ChevronDown className="w-2.5 h-2.5" />
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Expandable Explainable Match Breakdown Drawer */}
-                              {isExpanded && (
-                                <div className="p-2.5 rounded-lg bg-surface border border-border/80 text-[10px] space-y-1.5 mt-1 animate-in fade-in duration-150">
-                                  <div className="font-bold text-foreground flex items-center justify-between">
-                                    <span>Explainable Match Breakdown:</span>
-                                    <span className="text-emerald-500 font-semibold">{cand.matchScore}% Confidence</span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                                    <div>
-                                      <span className="font-semibold text-foreground">Role Alignment:</span>{" "}
-                                      {cand.evidenceSources?.roleAlignment ? "Direct Match" : "Adjacent Creative Field"}
-                                    </div>
-                                    <div>
-                                      <span className="font-semibold text-foreground">Specialties:</span>{" "}
-                                      {cand.evidenceSources?.specialtiesMatched?.length > 0
-                                        ? cand.evidenceSources.specialtiesMatched.join(", ")
-                                        : cand.creator.specialties?.slice(0, 2).join(", ") || "General"}
-                                    </div>
-                                    <div className="col-span-2">
-                                      <span className="font-semibold text-foreground">Verified Skills Matched:</span>{" "}
-                                      {cand.evidenceSources?.skillsMatched?.length > 0
-                                        ? cand.evidenceSources.skillsMatched.join(", ")
-                                        : cand.creator.skills?.slice(0, 3).join(", ") || "Creative craft"}
-                                    </div>
-                                    {cand.evidenceSources?.portfolioMatches?.length > 0 && (
-                                      <div className="col-span-2">
-                                        <span className="font-semibold text-foreground">Portfolio Evidence:</span>{" "}
-                                        {cand.evidenceSources.portfolioMatches.join(", ")}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                      ) : (
+                        <>
+                          {/* Fast path / AI Telemetry badge */}
+                          {msg.sourceMeta && (
+                            <div className="flex items-center gap-1.5 pb-1 border-b border-border/40 text-[10px]">
+                              {msg.sourceMeta.executionMode === "FAST" ||
+                              msg.sourceMeta.telemetry?.ollama_ms === 0 ? (
+                                <span
+                                  title={`Intent: ${msg.sourceMeta.telemetry?.intent_detection_ms ?? 0}ms | DB: ${msg.sourceMeta.telemetry?.database_ms ?? 0}ms | Total: ${msg.sourceMeta.telemetry?.total_ms ?? 0}ms`}
+                                  className="flex items-center gap-1 font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20"
+                                >
+                                  <Zap className="w-2.5 h-2.5 text-cyan-500" />
+                                  Fast Path •{" "}
+                                  {msg.sourceMeta.telemetry?.total_ms
+                                    ? `${msg.sourceMeta.telemetry.total_ms}ms`
+                                    : "<100ms"}
+                                </span>
+                              ) : msg.sourceMeta.executionMode === "HYBRID" ? (
+                                <span className="flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+                                  <Layers className="w-2.5 h-2.5 text-purple-500" />
+                                  Hybrid • DB: {msg.sourceMeta.telemetry?.database_ms ?? 0}ms | AI:{" "}
+                                  {msg.sourceMeta.telemetry?.ollama_ms ?? 0}ms
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                  <Sparkles className="w-2.5 h-2.5" />
+                                  Local AI • Qwen3:4b
+                                </span>
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                          )}
 
-                  {/* 2b. Missing Capabilities / Unfilled Roles */}
-                  {msg.missingCapabilities && msg.missingCapabilities.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-amber-500/30">
-                      <div className="text-[11px] font-bold text-amber-500 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          Unfilled Project Roles ({msg.missingCapabilities.length}):
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-normal">
-                          Strict Non-Fabrication Policy
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {msg.missingCapabilities.map((mc, idx) => (
-                          <div
-                            key={idx}
-                            className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs space-y-2"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-foreground text-xs">{mc.roleName}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-semibold">
-                                Missing Capability
-                              </span>
+                          {/* Markdown Text Response */}
+                          {msg.isThinking &&
+                          (msg.text === "Generating story..." || msg.text === "Thinking...") ? (
+                            <div className="flex items-center gap-2 text-xs text-brand font-medium py-1 animate-pulse">
+                              <Sparkles className="w-3.5 h-3.5 animate-spin text-brand" />
+                              <span>{msg.text}</span>
                             </div>
-                            <p className="text-[11px] text-muted-foreground">{mc.reason}</p>
-                            <div className="flex flex-wrap gap-1.5 pt-1">
-                              {mc.suggestedActions.map((act, aIdx) => (
+                          ) : (
+                            <ChatMarkdown content={cleanAiResponseText(msg.text)} />
+                          )}
+
+                          {/* Embedded In-Conversation Roadmap Card */}
+                          {msg.roadmapArtifact && (
+                            <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 space-y-3 pt-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-cyan-700 dark:text-cyan-300 flex items-center gap-1.5">
+                                  <GitBranch className="w-4 h-4 text-cyan-500" />
+                                  {msg.roadmapArtifact.title || "Interactive Learning Roadmap"}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold">
+                                  {msg.roadmapArtifact.overallProgress || 0}% Progress
+                                </span>
+                              </div>
+
+                              <div className="text-xs text-muted-foreground">
+                                Active Milestone:{" "}
+                                <span className="font-semibold text-foreground">
+                                  Level {msg.roadmapArtifact.pointerLevel || 1} •{" "}
+                                  {msg.roadmapArtifact.nodes?.find(
+                                    (n: any) => n.level === msg.roadmapArtifact.pointerLevel
+                                  )?.title || "Fundamentals"}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 pt-1">
+                                {onOpenRoadmapFullView && (
+                                  <button
+                                    onClick={() => onOpenRoadmapFullView(msg.roadmapArtifact)}
+                                    className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-xs"
+                                  >
+                                    <GitBranch className="w-3.5 h-3.5" />
+                                    <span>Open Full Roadmap View</span>
+                                  </button>
+                                )}
                                 <button
-                                  key={aIdx}
-                                  onClick={() => onSendMessage(`I want to ${act.label.toLowerCase()} for ${mc.roleName}`)}
-                                  className="px-2.5 py-1 rounded-lg bg-surface border border-border text-[10px] font-medium text-foreground hover:bg-surface-muted transition shadow-2xs"
+                                  onClick={() => onSendMessage("Give me today's learning tasks")}
+                                  className="px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-muted border border-border text-xs font-semibold text-foreground transition"
                                 >
-                                  {act.label}
+                                  Today's Tasks
                                 </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 3. Project Update Card */}
-                  {msg.updateCard && (
-                    <div className="p-3 rounded-xl bg-brand-soft/20 border border-brand/30 space-y-1">
-                      <div className="flex items-center gap-1.5 text-brand font-bold text-xs">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{msg.updateCard.title}</span>
-                      </div>
-                      <p className="text-[11px] text-foreground">{msg.updateCard.detail}</p>
-                    </div>
-                  )}
-
-                  {/* 4. Confirmation Card */}
-                  {msg.confirmationCard && (
-                    <div className="p-3 rounded-xl bg-surface-muted border border-border space-y-2">
-                      <div className="flex items-center gap-1.5 text-foreground font-bold text-xs">
-                        <Award className="w-3.5 h-3.5 text-brand" />
-                        <span>{msg.confirmationCard.title}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">{msg.confirmationCard.message}</p>
-                      <div className="pt-2 flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            if (onConfirmAction) {
-                              onConfirmAction(msg.confirmationCard!.actionType, msg.confirmationCard!.payload);
-                            }
-                          }}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold text-[11px] flex items-center gap-1 shadow-sm hover:bg-emerald-500 transition"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          Confirm & Launch
-                        </button>
-                        <button
-                          onClick={() => onSendMessage("Not now, keep reviewing")}
-                          className="px-3 py-1.5 rounded-lg bg-surface border border-border text-muted-foreground hover:text-foreground text-[11px] transition"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 5. Creator Comparison Card */}
-                  {msg.comparisonCard && (
-                    <div className="p-3 rounded-xl bg-surface-muted border border-border space-y-2">
-                      <div className="flex items-center gap-1.5 text-foreground font-bold text-xs">
-                        <Scale className="w-3.5 h-3.5 text-brand" />
-                        <span>Candidate Comparison: {msg.comparisonCard.roleName}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{msg.comparisonCard.analysis}</p>
-                    </div>
-                  )}
-
-                  {/* 6. Clarification questions */}
-                  {msg.clarifications && msg.clarifications.length > 0 && (
-                    <div className="mt-3 space-y-3 pt-3 border-t border-border/40">
-                      {msg.clarifications.map((q) => (
-                        <div key={q.id} className="p-2.5 rounded-xl bg-surface-muted/60 border border-border/40 space-y-2">
-                          <div className="flex items-start gap-1.5 text-foreground font-semibold text-xs">
-                            <HelpCircle className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" />
-                            <span>{q.question}</span>
-                          </div>
-                          {isLatestAIMessage && q.options && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {q.options.map((opt: string, i: number) => (
-                                <button
-                                  key={i}
-                                  onClick={() => handleOptionSelect(q, opt)}
-                                  disabled={isLoading}
-                                  className="text-[11px] px-2.5 py-1 rounded-lg bg-surface hover:bg-brand hover:text-white border border-border/60 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {opt}
-                                </button>
-                              ))}
+                              </div>
                             </div>
                           )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
-                  {/* 7. Action prompt */}
-                  {msg.actionPrompt && (
-                    <div className="mt-3 pt-2.5 border-t border-border/40">
-                      <button
-                        onClick={onGenerateBlueprint}
-                        disabled={isLoading}
-                        className="w-full py-2 px-3 rounded-xl bg-gradient-brand text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-brand hover:opacity-95 transition disabled:opacity-50"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        {msg.actionPrompt.label}
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                          {/* Embedded In-Conversation Project Plan Card */}
+                          {msg.projectPlanArtifact && (
+                            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3 pt-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                                  <Layers className="w-4 h-4 text-amber-500" />
+                                  {msg.projectPlanArtifact.title || "Project Implementation Architecture"}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
+                                  {msg.projectPlanArtifact.phases?.length || 0} Phases
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {msg.projectPlanArtifact.overview || "Multi-phase delivery roadmap."}
+                              </p>
+                              {onOpenProjectPlanFullView && (
+                                <button
+                                  onClick={() => onOpenProjectPlanFullView(msg.projectPlanArtifact)}
+                                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-xs"
+                                >
+                                  <Layers className="w-3.5 h-3.5" />
+                                  <span>Open Full Project Plan</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
 
-                  {/* 8. Suggested Follow-Up Action Pills */}
-                  {isLatestAIMessage && msg.suggestedFollowUps && msg.suggestedFollowUps.length > 0 && (
-                    <div className="pt-2 border-t border-border/30 space-y-1.5">
-                      <span className="text-[10px] text-muted-foreground font-semibold">Suggested next questions:</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {msg.suggestedFollowUps.map((promptText, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => onSendMessage(promptText)}
-                            disabled={isLoading}
-                            className="text-[11px] px-2.5 py-1 rounded-full bg-surface hover:bg-brand-soft hover:text-brand border border-border/60 text-foreground transition flex items-center gap-1 shadow-xs hover:border-brand/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Sparkles className="w-3 h-3 text-brand" />
-                            {promptText}
-                          </button>
-                        ))}
-                      </div>
+                          {/* Suggested Creative Roles Cards */}
+                          {msg.suggestedRoles && msg.suggestedRoles.length > 0 && (
+                            <div className="space-y-2 pt-3 border-t border-border/50">
+                              <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-foreground font-semibold">
+                                  <Sparkles className="w-3.5 h-3.5 text-brand" />
+                                  Suggested Roles ({msg.suggestedRoles.length})
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {msg.suggestedRoles.map((sr, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="p-3 rounded-xl bg-surface-muted/70 border border-border/70 flex flex-col justify-between gap-2 hover:border-brand/40 transition"
+                                  >
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="font-semibold text-xs text-foreground">
+                                          {sr.role}
+                                        </span>
+                                        <span
+                                          className={`text-[9px] font-semibold px-1.5 py-0.2 rounded ${
+                                            sr.priority === "essential"
+                                              ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/25"
+                                              : "bg-blue-500/15 text-blue-600 border border-blue-500/25"
+                                          }`}
+                                        >
+                                          {sr.priority === "essential" ? "Essential" : "Optional"}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                        {sr.reason}
+                                      </p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        if (onFindCreatorsForRole) {
+                                          onFindCreatorsForRole(sr.role);
+                                        } else {
+                                          onSendMessage(`Find me a ${sr.role}`);
+                                        }
+                                      }}
+                                      className="w-full px-2 py-1 rounded-lg bg-surface hover:bg-brand-soft hover:text-brand border border-border text-foreground font-semibold text-[10px] flex items-center justify-center gap-1 transition"
+                                    >
+                                      <Search className="w-2.5 h-2.5 text-brand" />
+                                      Find {sr.role} Creators
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Matched Verified Creators Cards */}
+                          {msg.creatorCards && msg.creatorCards.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t border-border/50">
+                              <div className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-foreground">
+                                  <Users className="w-3.5 h-3.5 text-brand" />
+                                  Verified Creators ({msg.creatorCards.length}):
+                                </span>
+                                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-medium">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  Real Database Records
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {msg.creatorCards.map((cand) => (
+                                  <div
+                                    key={cand.id}
+                                    className="p-3.5 rounded-xl bg-surface-muted/80 border border-border/70 flex flex-col gap-2 hover:border-brand/40 transition shadow-2xs"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex items-start gap-2.5 min-w-0">
+                                        <CreatorAvatar
+                                          url={cand.creator.avatarUrl}
+                                          name={cand.creator.fullName || cand.creator.username}
+                                          size="sm"
+                                        />
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <a
+                                              href={`/creator/${cand.creator.username}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="font-bold text-xs text-foreground truncate hover:text-brand hover:underline"
+                                            >
+                                              {cand.creator.fullName || cand.creator.username}
+                                            </a>
+                                            <span className="text-[10px] text-muted-foreground">
+                                              @{cand.creator.username}
+                                            </span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
+                                              {cand.matchScore}% Match
+                                            </span>
+                                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-surface border border-border text-muted-foreground uppercase font-medium">
+                                              {cand.roleName}
+                                            </span>
+                                          </div>
+                                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                                            {cand.matchReason}
+                                          </p>
+
+                                          <div className="flex flex-wrap gap-1 mt-1.5">
+                                            {cand.creator.skills.slice(0, 4).map((s, i) => (
+                                              <span
+                                                key={i}
+                                                className="text-[9px] px-1.5 py-0.5 rounded bg-surface border border-border text-muted-foreground font-medium"
+                                              >
+                                                {s}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {onInviteCreator && (
+                                          <button
+                                            onClick={() => onInviteCreator(cand)}
+                                            className="px-2.5 py-1 rounded-lg bg-brand text-white font-semibold text-[11px] hover:opacity-90 transition"
+                                          >
+                                            Invite
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Skill Swap Cards */}
+                          {msg.skillSwapCards && msg.skillSwapCards.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t border-border/50">
+                              <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                                <Repeat className="w-3.5 h-3.5 text-brand" />
+                                Matched Skill Swap Collaborators:
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                {msg.skillSwapCards.map((listing) => (
+                                  <div
+                                    key={listing.id}
+                                    className="p-3 rounded-xl bg-surface-muted/70 border border-border/70 flex flex-col gap-2"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex items-start gap-2 min-w-0">
+                                        <CreatorAvatar
+                                          url={listing.creatorAvatar}
+                                          name={listing.creatorName}
+                                          size="sm"
+                                        />
+                                        <div className="min-w-0">
+                                          <div className="font-bold text-xs text-foreground truncate">
+                                            {listing.creatorName}
+                                          </div>
+                                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                                            {listing.title}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() =>
+                                          onSendMessage(
+                                            `Propose skill swap to ${listing.creatorName}`
+                                          )
+                                        }
+                                        className="px-2.5 py-1 rounded-lg bg-brand text-white text-[11px] font-semibold hover:opacity-90 transition shrink-0"
+                                      >
+                                        Propose Swap
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Dynamic Follow-Up Chips (Only on latest AI message) */}
+                          {isLatestAIMessage &&
+                            msg.suggestedChips &&
+                            msg.suggestedChips.length > 0 && (
+                              <div className="pt-3 border-t border-border/40 flex flex-wrap gap-1.5">
+                                {msg.suggestedChips.map((chip, cIdx) => (
+                                  <button
+                                    key={cIdx}
+                                    onClick={() => handleChipClick(chip)}
+                                    disabled={isLoading}
+                                    className="px-2.5 py-1 rounded-full bg-surface-muted hover:bg-brand-soft hover:text-brand border border-border/70 text-[11px] font-medium text-foreground transition disabled:opacity-50"
+                                  >
+                                    {chip}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                        </>
+                      )}
                     </div>
+                  </div>
+                );
+              });
+            })()
+          )}
+
+          {/* Loading Indicator */}
+          {isLoading && (
+            <div className="flex gap-3 items-start animate-fade-up">
+              <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center text-white shrink-0 shadow-xs">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="bg-surface border border-border/80 rounded-2xl rounded-tl-xs px-4 py-3 space-y-1 max-w-sm shadow-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-brand">
+                    <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                    <span>Thinking...</span>
+                  </div>
+                  {onCancel && (
+                    <button
+                      type="button"
+                      onClick={onCancel}
+                      className="px-2 py-0.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] flex items-center gap-1 border border-border"
+                      title="Stop generation"
+                    >
+                      <Square className="w-2.5 h-2.5 fill-current" />
+                      <span>Stop</span>
+                    </button>
                   )}
                 </div>
-                {isUser && (
-                  <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-foreground shrink-0 mt-0.5">
-                    <User className="w-4 h-4" />
-                  </div>
-                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Processing response and retrieving contextual knowledge...
+                </p>
               </div>
-            );
-          });
-        })()
-      )}
-
-        {isLoading && (
-          <div className="flex gap-3 items-start animate-fade-up">
-            <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center text-white shrink-0 shadow-sm">
-              <Bot className="w-4 h-4" />
             </div>
-            <div className="bg-surface border border-border/80 rounded-2xl rounded-tl-sm px-4 py-3 space-y-1.5 max-w-xs shadow-sm">
-              <div className="flex items-center gap-2 text-xs font-semibold text-brand">
-                <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                <span>Thinking & generating response...</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Local AI engine (qwen3:4b at 127.0.0.1:8001) is processing your request.
-              </p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleSubmit} className="p-3 border-t border-border/60 bg-surface/90 flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            userType === "creator"
-              ? "Ask a question, find creators, or tell OmniForge what to build..."
-              : "Describe your business requirements or ask about team composition..."
-          }
-          className="flex-1 bg-surface-muted px-4 py-2.5 rounded-xl border border-border text-xs focus:outline-none focus:ring-2 focus:ring-brand/40 text-foreground placeholder:text-muted-foreground"
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          className="px-4 py-2.5 rounded-xl bg-gradient-brand text-white font-semibold text-xs flex items-center gap-1.5 shadow-brand disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-95 transition"
-        >
-          <Send className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Send</span>
-        </button>
-      </form>
+      {/* Pinned Bottom Composer (ChatGPT-Style) */}
+      <div className="sticky bottom-0 w-full bg-gradient-to-t from-background via-background/95 to-transparent pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] px-3 sm:px-6 z-20">
+        <div className="max-w-3xl mx-auto">
+          <form
+            onSubmit={handleSubmit}
+            className="relative rounded-2xl bg-surface border border-border shadow-md focus-within:ring-2 focus-within:ring-brand/40 focus-within:border-brand/60 transition"
+          >
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={handleTextareaInput}
+              onKeyDown={handleKeyDown}
+              placeholder="Message OmniForge... (Enter to send, Shift+Enter for newline)"
+              className="w-full bg-transparent px-4 py-3.5 pr-14 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none max-h-44"
+              disabled={isLoading}
+            />
+
+            <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1">
+              {isLoading && onCancel ? (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="w-8 h-8 rounded-xl bg-destructive text-destructive-foreground flex items-center justify-center shadow-xs hover:opacity-90 transition"
+                  title="Stop generating"
+                  aria-label="Stop generating"
+                >
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isLoading}
+                  className="w-8 h-8 rounded-xl bg-brand text-white flex items-center justify-center shadow-xs disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition"
+                  title="Send message"
+                  aria-label="Send message"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </form>
+
+          <p className="text-[10px] text-center text-muted-foreground mt-2">
+            OmniForge can make mistakes. Verify critical technical recommendations.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

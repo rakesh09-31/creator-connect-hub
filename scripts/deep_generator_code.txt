@@ -1,0 +1,648 @@
+// ============================================================================
+// PART 7: UNIVERSAL DEEP ROADMAP GENERATOR (ANY SUBJECT / DOMAIN)
+// ============================================================================
+
+interface DomainTopicTemplate {
+  title: string;
+  subtopics: string[];
+  explanation: string;
+  keySyntaxOrApis: string[];
+  example: { title: string; description: string; codeOrWalkthrough: string };
+  exercise: { title: string; prompt: string; expectedOutcome: string };
+  troubleshooting: string[];
+}
+
+function buildDeepTopicsForDomainStage(
+  safeSubj: string,
+  domainType: "web" | "backend" | "ai" | "devops" | "mobile" | "film" | "general",
+  stageNum: number
+): DeepTopicItem[] {
+  let templates: DomainTopicTemplate[] = [];
+
+  if (domainType === "web") {
+    if (stageNum === 1) {
+      templates = [
+        {
+          title: "Semantic Document Outline & HTML5 Living Standard Elements",
+          subtopics: [
+            "Document outline & semantic landmarks: <header>, <nav>, <main>, <article>, <section>, <footer>, <aside>",
+            "Heading rank semantics (h1–h6) & accessibility tree exposure",
+            "Accessible landmark roles & ARIA banner, navigation, main, and contentinfo",
+            "Text formatting vs semantic tags: <em>, <strong>, <mark>, <time>, <code>, <kbd>",
+            "Embedded responsive media: <img>, <picture>, <figure>, <figcaption> with srcset and sizes",
+          ],
+          explanation:
+            "Semantic HTML establishes the structural foundation of the web by providing content with explicit meaning rather than generic division tags. When browsers parse semantic elements, they build an Accessibility Tree parallel to the Document Object Model (DOM), enabling assistive technologies to navigate documents predictably while drastically improving search engine indexing and machine readability.",
+          keySyntaxOrApis: [
+            '<header role="banner"><nav aria-label="Primary">',
+            '<main id="main-content"><article aria-labelledby="heading-1">',
+            '<time datetime="2026-10-11">October 11, 2026</time>',
+            '<picture><source srcset="img.webp" type="image/webp"><img src="img.jpg" alt="Diagram" loading="lazy"></picture>',
+          ],
+          example: {
+            title: "Accessible Semantic Article Outline",
+            description: "Demonstrating landmark separation, accessible heading hierarchy, and responsive media tags.",
+            codeOrWalkthrough:
+              '<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"><title>Semantic Document</title></head>\n<body>\n  <header>\n    <nav aria-label="Main navigation"><a href="/">Home</a></nav>\n  </header>\n  <main id="content">\n    <article>\n      <header><h1>Modern Web Architecture</h1><p>Published <time datetime="2026-10-11">Oct 11, 2026</time></p></header>\n      <section aria-labelledby="sec-1"><h2 id="sec-1">Semantic Foundations</h2><p>Semantic tags improve accessibility tree navigation.</p></section>\n    </article>\n  </main>\n  <footer><p>&copy; 2026 OmniCraft</p></footer>\n</body>\n</html>',
+          },
+          exercise: {
+            title: "Semantic Outline Refactoring Lab",
+            prompt: "Refactor a legacy div-soup layout into an accessible semantic outline with zero validator errors.",
+            expectedOutcome: "W3C validator reports 0 errors and accessibility audit confirms 100% landmark coverage.",
+          },
+          troubleshooting: [
+            "Do not skip heading levels (e.g., from <h1> directly to <h3>); maintain sequential hierarchy.",
+            "Never place more than one visible <main> landmark on a page.",
+          ],
+        },
+        {
+          title: "HTML Forms, Input Controls, Accessibility & Constraint Validation",
+          subtopics: [
+            "Form element configuration: action, method, enctype (multipart/form-data), novalidate",
+            "Standard input types: text, email, password, number, tel, date, search, file, url",
+            "Native constraint validation attributes: required, pattern, minlength, maxlength, min, max, step",
+            "Grouped controls using <fieldset> and <legend> for radio groups and checkbox collections",
+            "Accessible error feedback with aria-invalid, aria-describedby, and live regions",
+            "Form submission lifecycle, FormData API handling, and preventing default synchronous reloads",
+          ],
+          explanation:
+            "Forms are the primary interactive interface for collecting user input. Relying on native HTML5 inputs and the Constraint Validation API ensures accessible, keyboard-operable, and mobile-responsive controls with zero initial JavaScript overhead. Pairing inputs with explicit label elements and fieldset groupings guarantees that screen readers announce required states and validation constraints accurately.",
+          keySyntaxOrApis: [
+            "<fieldset><legend>Subscription Options</legend>",
+            '<label for="user-email">Email Address:</label><input type="email" id="user-email" required>',
+            '<input type="file" accept="image/*" multiple>',
+            "const data = new FormData(event.currentTarget);",
+            'element.setCustomValidity("Please enter a valid format");',
+          ],
+          example: {
+            title: "Accessible Registration Form with Constraint Validation",
+            description: "Production-ready form using fieldsets, explicit labels, and native error messages.",
+            codeOrWalkthrough:
+              '<form id="signup-form" novalidate>\n  <fieldset>\n    <legend>Account Credentials</legend>\n    <div>\n      <label for="email">Email Address:</label>\n      <input type="email" id="email" name="email" required aria-describedby="email-hint" />\n      <small id="email-hint">We will send your verification link here.</small>\n    </div>\n    <div>\n      <label for="password">Password (8+ chars):</label>\n      <input type="password" id="password" name="password" minlength="8" required />\n    </div>\n  </fieldset>\n  <button type="submit">Create Account</button>\n</form>',
+          },
+          exercise: {
+            title: "Accessible Multi-Field Form with Native Validation",
+            prompt: "Build an accessible registration form with email, password, radio plan selection in fieldsets, and file attachment.",
+            expectedOutcome: "Form enforces native constraints, surfaces accessible inline errors, and serializes into FormData cleanly.",
+          },
+          troubleshooting: [
+            'Always link <label for="id"> with matching input id to ensure screen readers focus inputs correctly.',
+            "Wrap related radio buttons or checkboxes in <fieldset> with a descriptive <legend>.",
+          ],
+        },
+        {
+          title: "Web Accessibility (WCAG 2.2 AA) & Screen Reader Compatibility",
+          subtopics: [
+            "The four WCAG core principles: Perceivable, Operable, Understandable, Robust (POUR)",
+            "Keyboard navigation, focus indicators (:focus-visible), and logical tabIndex sequencing",
+            "ARIA roles, states, and properties (role='dialog', aria-expanded, aria-controls, aria-hidden)",
+            "Color contrast compliance (minimum 4.5:1 for normal text, 3:1 for large text)",
+            "Screen reader live regions (aria-live='polite' vs 'assertive') for asynchronous dynamic updates",
+          ],
+          explanation:
+            "Accessibility is not an optional enhancement but a core requirement of modern web development. Writing accessible code ensures that individuals with visual, motor, auditory, and cognitive disabilities can navigate, understand, and interact with web experiences seamlessly.",
+          keySyntaxOrApis: [
+            ":focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }",
+            '<button aria-expanded="false" aria-controls="menu-drawer">Menu</button>',
+            '<div role="status" aria-live="polite">Saving changes...</div>',
+            '<span class="sr-only">Visually hidden text for screen readers</span>',
+          ],
+          example: {
+            title: "Accessible Toggle Button with ARIA Live Region",
+            description: "Implementation of an accessible accordion toggle with dynamic live region status.",
+            codeOrWalkthrough:
+              '<button id="toggle-btn" aria-expanded="false" aria-controls="faq-1">\n  What is WCAG 2.2?\n</button>\n<div id="faq-1" hidden>\n  <p>WCAG 2.2 provides updated accessibility success criteria for digital accessibility.</p>\n</div>\n<div role="status" aria-live="polite" id="status-region"></div>',
+          },
+          exercise: {
+            title: "Keyboard & Screen Reader Accessibility Audit",
+            prompt: "Audit an interactive modal or navigation menu using keyboard-only navigation and axe-core.",
+            expectedOutcome: "Zero axe-core critical violations and full keyboard focus trapping inside open modal dialogs.",
+          },
+          troubleshooting: [
+            "Never use outline: none without providing an alternative high-contrast :focus-visible style.",
+            "Avoid overriding native semantic element roles with redundant ARIA (e.g. do not add role='button' to a <button>).",
+          ],
+        },
+      ];
+    } else if (stageNum === 2) {
+      templates = [
+        {
+          title: "CSS Box Model, Sizing Models & Display Formatting Contexts",
+          subtopics: [
+            "Box model geometry: content-box vs border-box sizing calculations",
+            "Margin collapsing mechanics, negative margins, and padding constraints",
+            "Display formatting contexts: block, inline, inline-block, none, and contents",
+            "Overflow handling: visible, hidden, scroll, auto, and clip paths",
+            "Intrinsic sizing with min-content, max-content, and fit-content",
+          ],
+          explanation:
+            "The CSS Box Model is the fundamental geometric layout engine of the browser. Every element on the page generates a rectangular box consisting of content, padding, border, and margin areas. Switching to box-sizing: border-box ensures intuitive layout math by including padding and borders within declared width and height values.",
+          keySyntaxOrApis: [
+            "*, *::before, *::after { box-sizing: border-box; }",
+            "width: fit-content; max-width: 100%;",
+            "overflow-x: hidden; overflow-y: auto;",
+            "margin-block: auto; margin-inline: 1rem;",
+          ],
+          example: {
+            title: "Modern CSS Reset & Intrinsic Sizing Container",
+            description: "Demonstrating universal border-box reset, margin collapsing avoidance, and fit-content sizing.",
+            codeOrWalkthrough:
+              "*, *::before, *::after {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}\n.container {\n  width: min(100% - 2rem, 72rem);\n  margin-inline: auto;\n  padding-block: 2rem;\n}",
+          },
+          exercise: {
+            title: "Box Model Layout & Sizing Lab",
+            prompt: "Construct a responsive card component that maintains strict internal padding, border radiuses, and zero horizontal scroll overflow.",
+            expectedOutcome: "Pixel-accurate rendering matching design specifications across all screen widths with zero clipping.",
+          },
+          troubleshooting: [
+            "Vertical margins collapse between adjacent block elements; use gap or padding-block to prevent unexpected jumps.",
+            "Inline elements ignore top and bottom margins; change display to inline-block or block when vertical spacing is required.",
+          ],
+        },
+        {
+          title: "CSS Selectors, Specificity Calculations, Cascade Layers & Inheritance",
+          subtopics: [
+            "Specificity hierarchy calculation: (inline, ID, class/attribute/pseudo-class, element/pseudo-element)",
+            "Modern relational pseudo-classes: :is(), :where(), :has(), and :not()",
+            "Cascade layers with @layer for architecture isolation and reset containment",
+            "CSS Custom Properties (Variables): declaration, scope inheritance, fallbacks, and theme switching",
+            "Property inheritance rules and resetting with inherit, initial, unset, and revert",
+          ],
+          explanation:
+            "Mastering CSS specificity and the cascade allows developers to author scalable, predictable style architectures without resorting to destructive !important overrides. With modern CSS features like @layer and the relational :has() selector, style rules can express sophisticated parent-child interactions directly in stylesheets.",
+          keySyntaxOrApis: [
+            "@layer reset, base, components, utilities;",
+            ":root { --brand-color: #06b6d4; --font-sans: system-ui, sans-serif; }",
+            ".card:has(input:checked) { border-color: var(--brand-color); }",
+            ":where(.btn, .link) { color: inherit; }",
+          ],
+          example: {
+            title: "Cascade Layers & Relational Selector Theme Architecture",
+            description: "Using @layer and :has() to build self-contained, specificity-controlled components.",
+            codeOrWalkthrough:
+              "@layer base, components;\n@layer base {\n  body { color: #1e293b; font-family: system-ui; }\n}\n@layer components {\n  .option-card {\n    border: 1px solid #cbd5e1;\n    padding: 1rem;\n    transition: border-color 0.2s;\n  }\n  .option-card:has(input:checked) {\n    border-color: #06b6d4;\n    background-color: #f0fdfa;\n  }\n}",
+          },
+          exercise: {
+            title: "Specificity Refactoring & Cascade Architecture Lab",
+            prompt: "Refactor a tangled stylesheet with 15 !important tags into a structured 4-layer @layer architecture.",
+            expectedOutcome: "Zero !important overrides, clean inheritance, and instant theme toggling via CSS custom properties.",
+          },
+          troubleshooting: [
+            "The :where() pseudo-class always has 0-0-0 specificity, making it ideal for low-priority default styles.",
+            "Properties declared in unlayered CSS always override layered CSS regardless of layer order.",
+          ],
+        },
+        {
+          title: "Modern Layouts with Flexbox & CSS Grid Systems",
+          subtopics: [
+            "Flexbox main axis vs cross axis alignment (justify-content, align-items, align-content, flex-wrap)",
+            "Flex item sizing mechanics: flex-grow, flex-shrink, flex-basis shorthand",
+            "CSS Grid track definitions: fr units, repeat(), minmax(), and auto-fit vs auto-fill",
+            "Grid template areas and explicit line-based placement (grid-column, grid-row)",
+            "Responsive fluid grids without media queries using repeat(auto-fit, minmax(280px, 1fr))",
+          ],
+          explanation:
+            "CSS Grid and Flexbox are complementary layout paradigms. Flexbox excels at one-dimensional alignment along a single axis (such as toolbars, navigation bars, and pill buttons), whereas CSS Grid provides true two-dimensional control over rows and columns simultaneously. Combining them eliminates legacy float hacks and rigid fixed-pixel grids.",
+          keySyntaxOrApis: [
+            "display: flex; justify-content: space-between; align-items: center; gap: 1rem;",
+            "display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;",
+            'grid-template-areas: "header header" "sidebar main" "footer footer";',
+            "flex: 1 1 auto; align-self: stretch;",
+          ],
+          example: {
+            title: "Responsive Dashboard Layout using Combined Grid & Flexbox",
+            description: "Creating a production dashboard shell with responsive sidebar grid and flexible toolbar.",
+            codeOrWalkthrough:
+              '.dashboard-grid {\n  display: grid;\n  grid-template-columns: 260px 1fr;\n  min-height: 100vh;\n}\n.toolbar {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  padding: 1rem;\n  border-bottom: 1px solid #e2e8f0;\n}\n@media (max-width: 768px) {\n  .dashboard-grid { grid-template-columns: 1fr; }\n}',
+          },
+          exercise: {
+            title: "Responsive Multi-Card Catalog Layout",
+            prompt: "Build an auto-fitting product card grid that wraps smoothly between 1 and 4 columns without using media queries.",
+            expectedOutcome: "Grid adapts smoothly across 320px, 768px, and 1440px viewports with consistent gap spacing and card heights.",
+          },
+          troubleshooting: [
+            "If Grid items stretch beyond container width, ensure min-width: 0 is set on flex/grid children.",
+            "Use auto-fill when you want empty columns to persist; use auto-fit to collapse empty tracks and stretch existing items.",
+          ],
+        },
+      ];
+    } else {
+      templates = [
+        {
+          title: `Advanced ${safeSubj} Architecture & Systems Execution`,
+          subtopics: [
+            `Core engineering patterns and modular abstractions in ${safeSubj}`,
+            `State management, transactional safety, and data flow synchronization`,
+            `Integration with backend services, persistence engines, and external APIs`,
+            `Automated testing, security scanning, and performance profiling`,
+            `Production deployment workflows, monitoring instrumentation, and maintenance`,
+          ],
+          explanation:
+            `Advanced execution in ${safeSubj} requires moving beyond basic syntax to understand architectural boundaries, concurrency models, error domains, and operational durability. Clean interface segregation and automated test coverage ensure systems scale predictably under high transaction volumes.`,
+          keySyntaxOrApis: [
+            `interface ${safeSubj.replace(/[^a-zA-Z]/g, "")}Service { execute(): Promise<Result>; }`,
+            `benchmark.run({ iterations: 10000 });`,
+            `telemetry.recordSpan("${safeSubj.toLowerCase()}_operation");`,
+          ],
+          example: {
+            title: `${safeSubj} Modular Architecture Pipeline`,
+            description: `Demonstrating interface segregation, defensive error handling, and structured telemetry.`,
+            codeOrWalkthrough:
+              `export class ${safeSubj.replace(/[^a-zA-Z]/g, "")}Pipeline {\n  async process(input: unknown) {\n    if (!input) throw new Error("Invalid payload");\n    return { status: "processed", timestamp: new Date().toISOString() };\n  }\n}`,
+          },
+          exercise: {
+            title: `${safeSubj} Stage ${stageNum} Production Lab`,
+            prompt: `Implement a modular service applying the core architectural patterns of Stage ${stageNum}.`,
+            expectedOutcome: `Validated working implementation passing automated unit tests with zero unhandled exceptions.`,
+          },
+          troubleshooting: [
+            `Ensure all asynchronous operations have explicit timeouts and cancellation tokens.`,
+            `Monitor memory allocations under sustained load to detect resource leaks early.`,
+          ],
+        },
+      ];
+    }
+  } else if (domainType === "backend") {
+    templates = [
+      {
+        title: `Stage ${stageNum} ${safeSubj} Runtime, Memory & API Systems`,
+        subtopics: [
+          `Runtime execution model, memory layout, and stack/heap allocation`,
+          `Type safety, struct definitions, interfaces, and generic abstractions`,
+          `High-throughput REST, gRPC, and asynchronous network protocols`,
+          `Database persistence, connection pooling, and ACID transaction boundaries`,
+          `Benchmarking, CPU/memory profiling, and low-latency optimization`,
+        ],
+        explanation:
+          `Building resilient backend systems with ${safeSubj} requires an understanding of socket lifecycles, memory safety, thread pools, and non-blocking I/O. Proper connection pooling and transactional boundaries prevent cascading service failures under peak load.`,
+        keySyntaxOrApis: [
+          `async function handleRequest(ctx: Context): Promise<Response>`,
+          `pool.acquireConnection().then(conn => conn.query())`,
+          `metrics.counter("${safeSubj.toLowerCase()}_requests_total").inc()`,
+        ],
+        example: {
+          title: `${safeSubj} Resilient API Service Handler`,
+          description: `Production handler with timeout protection, schema validation, and database transaction.`,
+          codeOrWalkthrough:
+            'async function processOrder(orderId: string) {\n  const client = await pool.connect();\n  try {\n    await client.query("BEGIN");\n    const res = await client.query("SELECT * FROM orders WHERE id = $1", [orderId]);\n    await client.query("COMMIT");\n    return res.rows[0];\n  } catch (err) {\n    await client.query("ROLLBACK");\n    throw err;\n  } finally {\n    client.release();\n  }\n}',
+        },
+        exercise: {
+          title: `Concurrent Data Service Implementation`,
+          prompt: `Implement a high-throughput endpoint handling concurrent reads and writes with transaction guarantees.`,
+          expectedOutcome: `Service processes 1,000 concurrent requests without race conditions or connection leaks.`,
+        },
+        troubleshooting: [
+          `Always release acquired database connections in a finally block to prevent connection starvation.`,
+          `Set explicit connection timeouts and circuit breakers on external service calls.`,
+        ],
+      },
+    ];
+  } else if (domainType === "ai") {
+    templates = [
+      {
+        title: `Stage ${stageNum} ${safeSubj} Mathematics, Models & Pipeline Architecture`,
+        subtopics: [
+          `Numerical computing, matrix calculus, and tensor operations`,
+          `Feature engineering, normalization, and statistical validation`,
+          `Model architectures, gradient backpropagation, and loss optimization`,
+          `Evaluation metrics: Precision, Recall, F1, ROC-AUC, and perplexity`,
+          `Model serialization, inference latency optimization, and production serving`,
+        ],
+        explanation:
+          `Applied machine learning and AI in ${safeSubj} require disciplined mathematical foundations combined with efficient vectorized pipelines. Preventing data leakage during preprocessing and monitoring prediction drift in production ensure models maintain real-world efficacy.`,
+        keySyntaxOrApis: [
+          `import numpy as np; import torch; import torch.nn as nn`,
+          `optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)`,
+          `loss = criterion(predictions, targets); loss.backward()`,
+        ],
+        example: {
+          title: `Vectorized Pipeline & Inference Script`,
+          description: `Demonstrating batch tensor transformations and GPU-accelerated inference.`,
+          codeOrWalkthrough:
+            `import torch\nclass Model(torch.nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.linear = torch.nn.Linear(128, 2)\n    def forward(self, x):\n        return self.linear(x)\nmodel = Model()\nx = torch.randn(32, 128)\noutput = model(x)`,
+        },
+        exercise: {
+          title: `Model Training & Validation Benchmarking`,
+          prompt: `Train and evaluate a model pipeline with stratified k-fold cross-validation and logged evaluation metrics.`,
+          expectedOutcome: `Model achieves target accuracy/F1 threshold with zero data leakage across train and test splits.`,
+        },
+        troubleshooting: [
+          `Never fit feature scalers on the entire dataset; fit only on training splits to prevent data leakage.`,
+          `Check for exploding or vanishing gradients by logging gradient norms during training epochs.`,
+        ],
+      },
+    ];
+  } else {
+    templates = [
+      {
+        title: `Core Principles & Technical Foundations of ${safeSubj} (Stage ${stageNum})`,
+        subtopics: [
+          `Mental models, fundamental vocabulary, and architectural paradigms in ${safeSubj}`,
+          `Toolchain configuration, development workspace setup, and diagnostic tooling`,
+          `Standard operations, data flow mechanics, and idiomatic conventions`,
+          `Error handling boundaries, defensive validation, and edge case resilience`,
+          `Applied real-world projects, documentation standards, and portfolio evidence`,
+        ],
+        explanation:
+          `Achieving mastery in ${safeSubj} at Stage ${stageNum} requires developing robust mental models of the underlying discipline. Understanding how foundational building blocks interact allows practitioners to construct scalable, maintainable solutions while avoiding common industry anti-patterns.`,
+        keySyntaxOrApis: [
+          `toolchain.initialize("${safeSubj.toLowerCase()}");`,
+          `pipeline.execute({ stage: ${stageNum}, strictMode: true });`,
+          `validateOutcome(result);`,
+        ],
+        example: {
+          title: `${safeSubj} Stage ${stageNum} Practical Demonstration`,
+          description: `Step-by-step implementation walkthrough for Stage ${stageNum} deliverables.`,
+          codeOrWalkthrough:
+            `// ${safeSubj} Stage ${stageNum} Walkthrough\nfunction runStage${stageNum}() {\n  console.log("Executing verified Stage ${stageNum} pipeline for ${safeSubj}");\n  return { success: true, level: ${stageNum} };\n}`,
+        },
+        exercise: {
+          title: `${safeSubj} Stage ${stageNum} Hands-On Lab`,
+          prompt: `Complete the applied practical challenge demonstrating Stage ${stageNum} competencies in ${safeSubj}.`,
+          expectedOutcome: `Verified implementation artifact passing all functional requirements with 0 errors.`,
+        },
+        troubleshooting: [
+          `Ensure toolchain versions match official release requirements before executing builds.`,
+          `Check input parameters and assertions when unexpected behavior or warnings arise.`,
+        ],
+      },
+    ];
+  }
+
+  return templates.map((tmpl, idx) => ({
+    id: `top_${stageNum}_${idx + 1}`,
+    title: tmpl.title,
+    completed: false,
+    subtopics: tmpl.subtopics,
+    explanation: tmpl.explanation,
+    keySyntaxOrApis: tmpl.keySyntaxOrApis,
+    example: tmpl.example,
+    exercise: tmpl.exercise,
+    troubleshooting: tmpl.troubleshooting,
+  }));
+}
+
+export function buildUniversalDynamicRoadmap(
+  subject: string,
+  domain: string = "Professional Discipline",
+  conversationId?: string,
+  userId?: string
+): UniversalRoadmap {
+  const cleaned = cleanAndExtractGoalSubject(subject);
+  const safeSubj =
+    !cleaned.isAmbiguous && cleaned.subject && cleaned.subject.length > 1
+      ? cleaned.subject
+      : subject && !/^(?:i\s+need|i\s+want|as\s+a)/i.test(subject.trim())
+      ? subject.trim()
+      : "Software Engineering";
+  const roadmapId = `rm_${safeSubj.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const now = new Date().toISOString();
+
+  const lowerSubj = safeSubj.toLowerCase();
+  const lowerDomain = (domain || "").toLowerCase();
+
+  const isWebFrontend =
+    /\b(?:frontend|front[\s\-]?end|html|css|javascript|typescript|react|vue|angular|svelte|next|web\s*dev|tailwind)\b/i.test(lowerSubj) ||
+    /\b(?:web)\b/i.test(lowerDomain);
+
+  const isSystemsBackend =
+    (/\b(?:backend|rust|go|golang|c\+\+|c#|\.net|microservice|database|postgres|sql|server|java|spring)\b/i.test(lowerSubj) ||
+     /\b(?:backend|systems)\b/i.test(lowerDomain)) &&
+    !isWebFrontend;
+
+  const isAIOrData =
+    /\b(?:ai|artificial\s*intelligence|machine\s*learning|deep\s*learning|data\s*science|pytorch|tensorflow|nlp|llm|computer\s*vision|data\s*engineering)\b/i.test(lowerSubj) ||
+    /\b(?:data|ai)\b/i.test(lowerDomain);
+
+  const isDevOpsOrCloud =
+    /\b(?:devops|docker|kubernetes|k8s|cloud|aws|azure|gcp|terraform|linux|ci[\s/-]?cd|security|cybersecurity|pentest)\b/i.test(lowerSubj) ||
+    /\b(?:cloud|infrastructure|security)\b/i.test(lowerDomain);
+
+  const isMobile =
+    /\b(?:mobile|ios|android|swift|kotlin|react\s*native|flutter)\b/i.test(lowerSubj) ||
+    /\b(?:mobile)\b/i.test(lowerDomain);
+
+  const isFilmmaking =
+    /\b(?:film|cinema|movie|screenplay|directing|acting|cinematography|sound\s*design|video\s*editing)\b/i.test(lowerSubj) ||
+    /\b(?:film)\b/i.test(lowerDomain);
+
+  const domainType = isWebFrontend
+    ? "web"
+    : isSystemsBackend
+    ? "backend"
+    : isAIOrData
+    ? "ai"
+    : isDevOpsOrCloud
+    ? "devops"
+    : isMobile
+    ? "mobile"
+    : isFilmmaking
+    ? "film"
+    : "general";
+
+  const stageTitles = isWebFrontend
+    ? [
+        "Semantic HTML5, Living Standards & Web Accessibility (WCAG 2.2 AA)",
+        "Modern CSS Architecture, Box Model, Flexbox & CSS Grid Systems",
+        "Modern JavaScript DOM, Event Propagation, Promises & Asynchronous APIs",
+        "Component Architecture, Reactive State & Modern Frameworks",
+        "Web Performance Optimization, Core Web Vitals & Security Hardening",
+        "Full-Scale Production Web Capstone & Edge Cloud Deployment",
+      ]
+    : isSystemsBackend
+    ? [
+        `${safeSubj} Toolchain Setup, Memory Layout & Foundational Syntax`,
+        `Core ${safeSubj} Data Structures, Error Handling & Control Flow`,
+        `Modular Architecture, REST/gRPC APIs & Database Persistence`,
+        `High-Performance Concurrency, Memory Profiling & Optimization`,
+        `Automated Testing, Security Hardening & CI/CD Pipelines`,
+        `Production ${safeSubj} Microservice Capstone & Cloud Deployment`,
+      ]
+    : isAIOrData
+    ? [
+        `${safeSubj} Toolchain Setup, Vectorized Math & Data Foundations`,
+        `Exploratory Data Analysis, Feature Engineering & Statistics`,
+        `Supervised & Unsupervised Machine Learning Algorithms`,
+        `Deep Learning Foundations, PyTorch Tensors & Neural Architectures`,
+        `Transformers, Large Language Models & Vector Search (RAG)`,
+        `Production MLOps, Model Serving & Deployment Capstone`,
+      ]
+    : [
+        `${safeSubj} Foundations, Toolchain Setup & Core Mental Models`,
+        `Core ${safeSubj} Mechanics, Idiomatic Workflows & Standard Operations`,
+        `Intermediate ${safeSubj} Architecture, Modular Design & Integration`,
+        `Advanced ${safeSubj} Systems, Deep-Dive Techniques & Optimization`,
+        `${safeSubj} Reliability, Quality Standards & Automated Verification`,
+        `Production ${safeSubj} Capstone, Public Portfolio Release & Enterprise Evaluation`,
+      ];
+
+  const stages: ProgressiveProjectStage[] = stageTitles.map((title, idx) => ({
+    stage: idx + 1,
+    skillFocus: title,
+    projectTitle: `${title.split(",")[0].split("&")[0].trim()} Project`,
+    deliverables: `Verified Stage ${idx + 1} project deliverables, automated test suite, and case study`,
+    complexity: idx === 0 ? "Beginner" : idx <= 2 ? "Intermediate" : idx <= 4 ? "Advanced" : "Production",
+    status: idx === 0 ? "ACTIVE" : "UPCOMING",
+  }));
+
+  const nodes: RoadmapNode[] = stageTitles.map((title, idx) => {
+    const level = idx + 1;
+    const topics = buildDeepTopicsForDomainStage(safeSubj, domainType, level);
+    const topicChecklist = topics.map((t) => ({ id: t.id, title: t.title, completed: false }));
+
+    return {
+      id: `dyn_node_${level}`,
+      level,
+      title,
+      skill: title.split(":")[0].trim(),
+      category: idx === 0 ? "Foundations" : idx <= 2 ? "Core Mechanics" : idx <= 4 ? "Advanced Systems" : "Capstone",
+      concept: `Mastering in-depth principles, practical execution, and industry standards for ${title}.`,
+      state: idx === 0 ? "IN_PROGRESS" : "LOCKED",
+      whyLearnThis: `Stage ${level} delivers essential competencies in ${safeSubj} required to build robust, scalable real-world solutions.`,
+      prerequisites: level === 1 ? ["Commitment to deliberate practice"] : [`Stage ${level - 1} Completion`],
+      task: {
+        title: `Execute Stage ${level} Deliverables`,
+        description: `Implement the hands-on requirements, write automated tests, and complete the stage project for ${title}.`,
+        deliverables: [
+          `Verified Stage ${level} code or project artifact`,
+          `Passing automated tests or validation checklist`,
+          `Technical case study documentation`,
+        ],
+      },
+      miniProject: {
+        title: `${title.split("&")[0].split(",")[0].trim()} Milestone Lab`,
+        description: `Practical application project demonstrating real-world mastery of Stage ${level} competencies.`,
+        techStack: [safeSubj, "Automated Testing", "Git"],
+        difficulty: level <= 2 ? "Beginner" : level <= 4 ? "Intermediate" : "Advanced",
+        requirements: [
+          `Satisfy all functional requirements with zero errors`,
+          `Implement proper error handling and edge case validation`,
+          `Document setup and architectural decisions clearly`,
+        ],
+      },
+      learningObjectives: [
+        `Understand core principles and mental models of ${title}`,
+        `Write clean, idiomatic, and maintainable implementations`,
+        `Identify and resolve common failure modes and anti-patterns`,
+        `Deliver verifiable portfolio evidence demonstrating mastery`,
+      ],
+      topics,
+      topicChecklist,
+      practicalExercises: [
+        {
+          id: `ex_${level}_1`,
+          title: `Hands-On Implementation Challenge`,
+          prompt: `Implement a modular component or service applying the core topics of Stage ${level}.`,
+          instructions: [
+            `Review the stage topics, subtopics, and syntax demonstrations.`,
+            `Implement the core algorithms or architecture in your workspace.`,
+            `Test against boundary values and invalid inputs.`,
+          ],
+          expectedOutcome: `Working verified solution satisfying all requirements with 0 runtime errors.`,
+          starterCode: `// Stage ${level}: ${title}\nfunction runChallenge() {\n  // Implement solution\n  return true;\n}`,
+        },
+        {
+          id: `ex_${level}_2`,
+          title: `Debugging & Refactoring Lab`,
+          prompt: `Analyze an intentionally buggy implementation, identify anti-patterns, and refactor it into an idiomatic solution.`,
+          instructions: [
+            `Inspect failure modes and review common mistakes listed in this stage.`,
+            `Refactor the implementation to use defensive guard clauses and proper typing.`,
+          ],
+          expectedOutcome: `Refactored solution passes 100% of validation assertions.`,
+        },
+      ],
+      commonMistakesAndTroubleshooting: [
+        {
+          mistake: `Skipping defensive input validation and edge cases in Stage ${level}`,
+          consequence: "Unexpected runtime exceptions, corrupted state, or security vulnerabilities.",
+          solutionOrFix: "Add strict input bounds checking, schema validation, and guard clauses upfront.",
+        },
+        {
+          mistake: `Ignoring automated testing until final integration`,
+          consequence: "Regressions multiply and debugging becomes exponentially slower.",
+          solutionOrFix: "Write automated assertions alongside implementation for rapid feedback.",
+        },
+        {
+          mistake: `Violating single-responsibility principles in component/service design`,
+          consequence: "Tight coupling makes refactoring and testing extremely difficult.",
+          solutionOrFix: "Decompose monoliths into focused, modular functions with clear contracts.",
+        },
+      ],
+      knowledgeCheck: [
+        {
+          question: `What are the primary architectural principles and tradeoffs introduced in Stage ${level}?`,
+          answerOrExplanation: `Stage ${level} establishes modularity, type safety, and clean separation of concerns, balancing implementation velocity with long-term maintainability.`,
+          solutionRubric: "Demonstrates clear grasp of architectural tradeoffs, edge cases, and design rationale.",
+        },
+        {
+          question: `How do you systematically troubleshoot unexpected failures when executing Stage ${level} tasks?`,
+          answerOrExplanation: "Inspect diagnostic logs, isolate components in test harnesses, verify environment configurations, and validate inputs against expected schemas.",
+          solutionRubric: "Articulates a structured scientific debugging methodology rather than trial and error.",
+        },
+        {
+          question: `What criteria distinguish production-ready work from an MVP prototype in Stage ${level}?`,
+          answerOrExplanation: "Production readiness requires automated test coverage, defensive error handling, accessibility compliance, performance profiling, and comprehensive documentation.",
+          solutionRubric: "Mentions observability, testing, error recovery, and security considerations.",
+        },
+      ],
+      completionCriteria: [
+        `All Stage ${level} topic checklists verified and thoroughly understood`,
+        `Milestone project implemented and passing all functional test cases`,
+        `Code adheres to ecosystem best practices with 0 unhandled warnings`,
+        `Self-assessment knowledge check answered accurately`,
+      ],
+      assessment: {
+        criterion: `Clean execution of Stage ${level} deliverables with zero runtime errors and verified test coverage.`,
+        passingScore: 85,
+      },
+      estimatedStudyHours: 20 + level * 2,
+      estimatedStudyTime: `${Math.round(1.5 + level * 0.3)} weeks`,
+      freeResources: [
+        {
+          title: `Official ${safeSubj} Documentation & Reference Manual`,
+          url: `https://developer.mozilla.org/en-US/`,
+          platform: "Official Documentation",
+          type: "docs",
+          isFree: true,
+        },
+        {
+          title: `${safeSubj} Best Practices & Architecture Guide`,
+          url: `https://github.com/`,
+          platform: "Open Source Guide",
+          type: "tutorial",
+          isFree: true,
+        },
+      ],
+    };
+  });
+
+  return {
+    id: roadmapId,
+    ownerId: userId || "current_user",
+    conversationId,
+    title: `${safeSubj} Mastery Roadmap`,
+    domain: domain || "Professional Discipline",
+    subject: safeSubj,
+    summary: `Comprehensive ${stageTitles.length}-stage progressive curriculum for ${safeSubj} covering foundational principles to production capstone deployment.`,
+    roadmapType: "LEARNING",
+    userObjective: `Master ${safeSubj} from basic syntax to advanced production-grade capstone deployment.`,
+    experienceLevel: "All Levels",
+    estimatedDuration: `${stageTitles.length} Stages · ~160 Study Hours · 12–16 Weeks at 2h/day`,
+    version: 1,
+    status: "ACTIVE",
+    createdAt: now,
+    updatedAt: now,
+    goal: `${safeSubj} Mastery Roadmap`,
+    targetRole: `${safeSubj} Specialist`,
+    trackKey: `${safeSubj.toLowerCase().replace(/[^a-z0-9]/g, "_")}_mastery`,
+    dailyStudyHours: 2.0,
+    totalStudyHours: 160,
+    overallProgress: 0,
+    currentNodeId: "dyn_node_1",
+    pointerLevel: 1,
+    nodes,
+    stages,
+    lastUpdated: now,
+  };
+}

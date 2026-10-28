@@ -70,7 +70,7 @@ export function TeamRecommendationsView({
               Team Orchestration
             </span>
             <span className="text-[10px] uppercase font-semibold tracking-wider px-2 py-0.5 rounded-full bg-surface-muted text-muted-foreground border border-border/60">
-              {coverage.totalCovered} of {coverage.totalRequired} Roles Discovered
+              {coverage.totalCovered} of {coverage.totalRequired} External Positions Filled
             </span>
           </div>
           <h2 className="text-xl font-bold text-foreground tracking-tight">Recommended Project Team</h2>
@@ -108,6 +108,30 @@ export function TeamRecommendationsView({
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Director Covered By User Card (Only for Film projects where user is Director) */}
+        {project.currentUserRole === "DIRECTOR" &&
+          (project.domain === "Film" ||
+            project.canonicalDomain === "FILM" ||
+            (project.title && project.title.toLowerCase().includes("film"))) && (
+          <div className="p-3.5 rounded-xl bg-surface border border-emerald-500/30 flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-500 font-bold text-xs">
+                ✓
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-foreground">Director: You</h4>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/25">
+                    COVERED BY USER
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Steering dramatic vision, staging, and creative execution — not counted as an external hiring position.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Capability Coverage Card */}
         <div className="p-5 rounded-2xl bg-surface border border-border/70 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -147,15 +171,48 @@ export function TeamRecommendationsView({
                 </span>
               </span>
             ))}
-            {missingCaps.map((item, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-medium"
-              >
-                <AlertTriangle className="w-3 h-3" />
-                <span>{item.roleName} (Missing)</span>
-              </span>
-            ))}
+            {coverage.roleCoverages && coverage.roleCoverages.length > 0 ? (
+              coverage.roleCoverages
+                .filter((rc) => rc.status === "OPEN_WITH_CANDIDATES" || rc.status === "NO_CANDIDATES")
+                .map((item, idx) => {
+                  const isOpen = item.status === "OPEN_WITH_CANDIDATES";
+                  return (
+                    <span
+                      key={idx}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border ${
+                        isOpen
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                          : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                      }`}
+                    >
+                      <span className="text-xs">{isOpen ? "🟡" : "🔴"}</span>
+                      <span>
+                        {item.roleName} — {isOpen ? `Open (${item.candidateCount} candidate${item.candidateCount > 1 ? "s" : ""})` : "No Candidates Found"}
+                      </span>
+                    </span>
+                  );
+                })
+            ) : (
+              missingCaps.map((item, idx) => {
+                const count = item.candidateCount ?? 0;
+                const isOpen = count > 0;
+                return (
+                  <span
+                    key={idx}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border ${
+                      isOpen
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                        : "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    <span className="text-xs">{isOpen ? "🟡" : "🔴"}</span>
+                    <span>
+                      {item.roleName} — {isOpen ? `Open (${count} Available)` : "No Candidates Found"}
+                    </span>
+                  </span>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -281,11 +338,11 @@ export function TeamRecommendationsView({
                           </span>
                         );
                       }
-                      if (invStatus === "accepted") {
+                      if (invStatus === "accepted" || rec.status === "accepted") {
                         return (
-                          <span className="text-xs px-3 py-1.5 rounded-xl font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5">
+                          <span className="text-xs px-3 py-1.5 rounded-xl font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                             <Check className="w-3.5 h-3.5" />
-                            <span>Member</span>
+                            <span>ACCEPTED</span>
                           </span>
                         );
                       }
@@ -320,37 +377,53 @@ export function TeamRecommendationsView({
           </div>
         </div>
 
-        {/* Missing Capabilities Section (Strict Non-Fabrication) */}
+        {/* Missing Capabilities / Open Positions Section */}
         {missingCaps.length > 0 && (
           <div className="space-y-3 pt-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Missing Capabilities Detected ({missingCaps.length})
+                OPEN POSITIONS ({missingCaps.length})
               </h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              OmniCraft does not fabricate fake creators. We detected required roles that currently have no suitable match in
-              the network:
+              Required production roles ready to be cast or filled through creator search:
             </p>
 
             <div className="grid grid-cols-1 gap-3">
-              {missingCaps.map((item) => (
-                <div
-                  key={item.roleId}
-                  className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-foreground">Role: {item.roleName}</h4>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold">
-                          Unfilled Slot
-                        </span>
+              {missingCaps.map((item) => {
+                const roleCov = coverage.roleCoverages?.find(
+                  (rc) => rc.roleId === item.roleId || rc.roleName === item.roleName
+                );
+                const isOpenWithCandidates = roleCov?.status === "OPEN_WITH_CANDIDATES" || (roleCov?.candidateCount && roleCov.candidateCount > 0);
+                const candidateCount = roleCov?.candidateCount ?? 0;
+
+                return (
+                  <div
+                    key={item.roleId}
+                    className={`p-4 rounded-xl space-y-3 ${
+                      isOpenWithCandidates
+                        ? "bg-amber-500/5 border border-amber-500/20"
+                        : "bg-rose-500/5 border border-rose-500/20"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-foreground">Role: {item.roleName}</h4>
+                          {isOpenWithCandidates ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold">
+                              🟡 Open Position ({candidateCount} Available)
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold">
+                              🔴 No Verified Creators Found
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{item.reason}</p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{item.reason}</p>
                     </div>
-                  </div>
 
                   <div className="flex flex-wrap gap-2 pt-1">
                     {item.suggestedActions.map((act, i) => (
@@ -365,7 +438,8 @@ export function TeamRecommendationsView({
                     ))}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
         )}

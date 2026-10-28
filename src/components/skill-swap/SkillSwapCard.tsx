@@ -119,9 +119,9 @@ export default function SkillSwapCard({
   ) : null;
 
   return (
-    <div className="bg-surface rounded-2xl p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
+    <div className="bg-surface rounded-2xl p-4 sm:p-5 border border-border hover:border-brand/40 hover:shadow-md transition">
       {/* Top row: Creator Identity + Badges */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
         <div className="flex items-start gap-3.5 flex-1 min-w-0">
           <Link
             to="/user/$username"
@@ -161,7 +161,7 @@ export default function SkillSwapCard({
         </div>
         
         {/* Match and Verification Badges */}
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+        <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 flex-shrink-0">
           {listing.match_type && (
             <span
               className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm ${
@@ -320,7 +320,7 @@ export default function SkillSwapCard({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end sm:justify-start">
           {/* View Details & Projects */}
           <button
             onClick={() => setShowDetailsModal(true)}

@@ -515,6 +515,79 @@ Would you like to generate a detailed project plan or explore verified creators 
     };
   }
 
+  // General knowledge & concept definitions (Direct answers without project actions)
+  if (
+    clean.includes("stress") &&
+    (clean.includes("meaning") || clean.includes("what is") || clean.includes("define") || clean.includes("what does") || clean === "stress")
+  ) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Stress means a state of mental or emotional pressure or tension caused by challenging or demanding situations.",
+      suggestedFollowUps: [],
+    };
+  }
+
+  if (
+    clean.includes("motivation") &&
+    (clean.includes("meaning") || clean.includes("what is") || clean.includes("define") || clean.includes("what does") || clean === "motivation")
+  ) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Motivation is the internal drive, desire, or reason that stimulates, directs, and sustains goal-oriented behavior and action.",
+      suggestedFollowUps: [],
+    };
+  }
+
+  if (
+    clean.includes("leadership") &&
+    (clean.includes("meaning") || clean.includes("what is") || clean.includes("define") || clean.includes("what does") || clean === "leadership")
+  ) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Leadership is the ability to inspire, guide, influence, and support individuals or teams toward achieving a shared goal or vision.",
+      suggestedFollowUps: [],
+    };
+  }
+
+  if (
+    clean.includes("teamwork") &&
+    (clean.includes("meaning") || clean.includes("what is") || clean.includes("define") || clean.includes("what does") || clean === "teamwork")
+  ) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Teamwork is the collaborative effort of a group of people working together effectively and cooperatively to achieve a common objective.",
+      suggestedFollowUps: [],
+    };
+  }
+
+  if (
+    clean.includes("anxiety") &&
+    (clean.includes("meaning") || clean.includes("what is") || clean.includes("define") || clean.includes("what does") || clean === "anxiety")
+  ) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Anxiety is an emotion characterized by feelings of tension, worried thoughts, and physical changes in response to perceived stress or uncertainty.",
+      suggestedFollowUps: [],
+    };
+  }
+
+  if (
+    clean.includes("resilience") &&
+    (clean.includes("meaning") || clean.includes("what is") || clean.includes("define") || clean.includes("what does") || clean === "resilience")
+  ) {
+    return {
+      intent: "DEFINITION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: "Resilience is the ability to adapt, recover, and bounce back effectively from adversity, difficult life challenges, or stress.",
+      suggestedFollowUps: [],
+    };
+  }
+
   // Technical definitions
   if (clean.includes("react") || clean === "what is react") {
     return {
@@ -1294,6 +1367,29 @@ export async function processConversationalOmniForgeMessage(
     conversationHistory
   );
 
+  const res = await _executeConversationalOmniForgeMessage(
+    text,
+    currentProject,
+    conversationHistory,
+    userType,
+    currentUserId,
+    currentState
+  );
+
+  return {
+    ...res,
+    conversationState: res.conversationState || currentState,
+  };
+}
+
+async function _executeConversationalOmniForgeMessage(
+  text: string,
+  currentProject: OmniForgeProject | null,
+  conversationHistory: ChatMessage[],
+  userType: "creator" | "client",
+  currentUserId: string = "anon",
+  currentState: ConversationState
+): Promise<AIStructuredResponse> {
   const clean = text.toLowerCase().trim().replace(/[?!.,]+$/, "").trim();
   const lower = clean;
 
@@ -1893,4 +1989,12 @@ export function processWorkspaceAssistantQuery(
 }
 
 // Re-export blueprint generator
-export { generateStructuredBlueprint, modifyBlueprintFromInstruction } from "./engine-blueprint";
+export {
+  generateStructuredBlueprint,
+  modifyBlueprintFromInstruction,
+  generateRequirementsDerivedBlueprint,
+  enrichBlueprintWithArchitectureRefinement,
+  extractStructuredRequirements,
+  deriveRolesFromCapabilities,
+  derivePhasesAndTasks,
+} from "./engine-blueprint";

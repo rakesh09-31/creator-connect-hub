@@ -69,7 +69,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" },
       { title: "Omnicraft — Where Creativity Meets Opportunity" },
       { name: "description", content: "Omnicraft connects clients with creators. Build your portfolio, find creative talent, collaborate on projects." },
       { name: "theme-color", content: "#09090b" },

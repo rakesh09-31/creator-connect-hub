@@ -213,10 +213,11 @@ export function classifyMessageSemanticIntent(
   }
 
   // --------------------------------------------------------------------------
-  // 5. DEFINITIONS (Including "What is Skill Swap?", "What is a director?", etc.)
+  // 5. DEFINITIONS (Including "What is stress?", "What does stress mean?", "What is a director?", etc.)
   // --------------------------------------------------------------------------
   const isPureDefinition =
-    /^(what is|what's|define|what does a|what does an|explain what is)\b/i.test(cleanLower) ||
+    /^(what is|what's|what are|define|definition of|meaning of|what does a|what does an|what does|explain what is)\b/i.test(cleanLower) ||
+    /\b(meaning|definition)\b/i.test(cleanLower) ||
     cleanLower.includes("speed of light") ||
     cleanLower.includes("difference between");
 
@@ -252,7 +253,8 @@ export function classifyMessageSemanticIntent(
   }
 
   if (isPureDefinition && !referencesCurrentProject) {
-    const role = extractRoleFromQuery(cleanLower, currentProject, conversationHistory);
+    const mentionsRole = /\b(director|cinematographer|dop|camera|editor|sound|audio|writer|script|actor|actress|performer|singer|designer|developer|producer|photographer|organizer|coordinator)\b/i.test(cleanLower);
+    const role = mentionsRole ? extractRoleFromQuery(cleanLower, currentProject, conversationHistory) : undefined;
     return {
       intent: "DEFINITION",
       targetRole: role,

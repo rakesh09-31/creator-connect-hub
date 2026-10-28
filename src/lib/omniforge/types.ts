@@ -103,7 +103,7 @@ export interface ProjectPhase {
 export interface ProjectRole {
   id: string;
   roleName: string;
-  category?: "Creative" | "Technical" | "Business" | "Communication" | "Custom";
+  category?: "Creative" | "Technical" | "Business" | "Communication" | "Custom" | "Performance" | "Production" | string;
   description: string;
   requiredCapabilities?: string[]; // High-level abilities (e.g. Visual Storytelling, Actor Direction)
   requiredSkills: string[]; // Concrete tools / skills (e.g. Premiere Pro, Color Grading)
@@ -111,6 +111,13 @@ export interface ProjectRole {
   isFilled?: boolean;
   isEssential?: boolean;
   assignedCreatorId?: string | null;
+  assignedCreatorName?: string | null;
+  department?: string;
+  coverageStatus?: RoleCoverageStatus;
+  candidateCount?: number;
+  requiredOrOptional?: "REQUIRED" | "LIKELY" | "OPTIONAL" | string;
+  whyRequired?: string;
+  responsibilities?: string[];
 }
 
 export interface ParallelWorkstream {
@@ -126,7 +133,9 @@ export interface RealCreatorProfile {
   id: string;
   username: string;
   fullName: string | null;
+  full_name?: string | null;
   avatarUrl: string | null;
+  avatar_url?: string | null;
   role: string | null;
   bio?: string | null;
   portfolioUrl?: string | null;
@@ -167,12 +176,31 @@ export interface CreatorRecommendation {
   invitationStatus?: "pending" | "accepted" | "declined" | "rejected" | "cancelled";
 }
 
+export type RoleCoverageStatus =
+  | "COVERED_BY_USER"
+  | "ASSIGNED"
+  | "OPEN_WITH_CANDIDATES"
+  | "NO_CANDIDATES"
+  | "OPTIONAL";
+
+export interface ProjectRoleCoverage {
+  roleId: string;
+  roleName: string;
+  department: string;
+  requirement: "REQUIRED" | "LIKELY" | "OPTIONAL";
+  status: RoleCoverageStatus;
+  assignedCreatorId?: string;
+  assignedCreatorName?: string;
+  candidateCount: number;
+}
+
 export interface MissingCapability {
   roleId: string;
   roleName: string;
   category: string;
   requiredSkills: string[];
   reason: string;
+  candidateCount?: number;
   suggestedActions: Array<{
     type: "create_job" | "open_request" | "skill_swap" | "manual_add";
     label: string;
@@ -186,7 +214,56 @@ export interface CapabilityCoverage {
   percentage: number;
   coveredCapabilities: Array<{ name: string; coveredBy: string }>;
   missingCapabilities: MissingCapability[];
+  roleCoverages?: ProjectRoleCoverage[];
 }
+
+export type CapabilityLevel = "REQUIRED" | "LIKELY" | "OPTIONAL";
+export type CapabilityType = "technical" | "domain" | "operational" | "field";
+
+export interface DerivedCapability {
+  id: string;
+  name: string;
+  description: string;
+  type: CapabilityType;
+  level: CapabilityLevel;
+  whyRequired?: string;
+}
+
+export interface DerivedRole {
+  roleName: string;
+  capability: string;
+  responsibilities: string[];
+  whyRequired: string;
+  requiredOrOptional: CapabilityLevel;
+  relatedTasks: string[];
+  category: "Creative" | "Technical" | "Business" | "Communication" | "Custom";
+  requiredSkills: string[];
+}
+
+export interface StructuredRequirements {
+  projectGoal: string;
+  domain: ProjectDomain;
+  targetUsers: string;
+  problem: string;
+  coreFeatures: string[];
+  technicalRequirements: string[];
+  domainRequirements: string[];
+  deploymentRequirements: string[];
+  operationalRequirements: string[];
+  constraints: string[];
+  expectedDeliverables: string[];
+}
+
+export type CanonicalDomain =
+  | "FILM"
+  | "MUSIC_BAND"
+  | "EVENT"
+  | "STARTUP"
+  | "SOFTWARE"
+  | "EDUCATION"
+  | "SPORTS"
+  | "CONTENT_CREATION"
+  | "OTHER";
 
 export interface OmniForgeProject {
   id: string;
@@ -194,6 +271,11 @@ export interface OmniForgeProject {
   title: string;
   description: string;
   domain: ProjectDomain;
+  canonicalDomain?: CanonicalDomain;
+  projectType?: string;
+  type?: string;
+  genre?: string;
+  teamSize?: number;
   secondaryDomains?: ProjectDomain[];
   userType: "creator" | "client";
   stage: ProjectStage;
@@ -203,18 +285,25 @@ export interface OmniForgeProject {
   complexity: "Simple" | "Moderate" | "Complex" | "Enterprise";
   estimatedTotalDuration: string;
   requirements?: string[];
+  structuredRequirements?: StructuredRequirements;
+  capabilities?: DerivedCapability[];
+  derivedRoles?: DerivedRole[];
   workflowStages?: string[];
   deliverables: ProjectDeliverable[];
   phases: ProjectPhase[];
   roles: ProjectRole[];
+  tasks?: ProjectTask[];
   parallelWorkstreams: ParallelWorkstream[];
   recommendations: CreatorRecommendation[];
   alternativeCandidates?: Record<string, CreatorRecommendation[]>; // roleId -> alternatives
   coverage: CapabilityCoverage;
+  roleCoverages?: ProjectRoleCoverage[];
   squadId?: string | null;
   conversationId?: string | null;
   budget?: string;
   storyPremise?: string;
+  currentUserRole?: string;
+  roleRequirements?: Record<string, { level: any; reason?: string }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -228,19 +317,36 @@ export interface ClarificationQuestion {
 }
 
 export type OmniForgeIntent =
+  | "GREETING"
   | "GENERAL_CONVERSATION"
   | "GENERAL_QUESTION"
+  | "GENERAL_KNOWLEDGE"
+  | "IDENTITY"
+  | "CAPABILITY_QUERY"
   | "DEFINITION"
   | "EXPLANATION"
   | "HOW_TO"
   | "SIMPLE_QUESTION"
+  | "CREATIVE_GENERATION"
+  | "STORY_GENERATION"
+  | "STORY_MODIFICATION"
+  | "SCREENPLAY_GENERATION"
+  | "CREATIVE_ANALYSIS"
+  | "CRITIQUE"
+  | "FEEDBACK"
   | "GENERAL_PROJECT_QUESTION"
   | "PROJECT_IDEA"
+  | "PROJECT_CREATE"
   | "PROJECT_CREATION"
   | "PROJECT_PLANNING"
+  | "PROJECT_VIEW"
   | "PROJECT_MODIFICATION"
+  | "PROJECT_MODIFY"
+  | "PROJECT_ARCHITECTURE"
+  | "PROJECT_SCHEDULE"
   | "PROJECT_STATUS"
   | "PROJECT_EXECUTION"
+  | "PROJECT_ANALYSIS"
   | "PROJECT_PROBLEM"
   | "PROJECT_BLOCKER"
   | "REQUIREMENT_QUESTION"
@@ -249,22 +355,66 @@ export type OmniForgeIntent =
   | "ROLE_QUESTION"
   | "SKILL_QUESTION"
   | "CREATOR_SEARCH"
+  | "CREATOR_SEARCH_ALL"
+  | "CREATOR_RECOMMEND"
+  | "CREATOR_PROFILE"
+  | "CREATOR_JOB_SEARCH"
+  | "CLIENT_SEARCH"
+  | "CLIENT_OPPORTUNITY_SEARCH"
+  | "CLIENT_PROFILE"
+  | "JOB_SEARCH"
+  | "JOB_DETAILS"
+  | "JOB_APPLICATION"
+  | "APPLY_FOR_JOB"
   | "CREATOR_DISCOVERY"
   | "CREATOR_QUESTION"
   | "CREATOR_COMPARISON"
+  | "CREATOR_COMPARE"
   | "CREATOR_REPLACEMENT"
   | "TEAM_FORMATION"
+  | "TEAM_GAP_ANALYSIS"
   | "TEAM_REQUEST"
+  | "SQUAD_SEARCH"
+  | "SQUAD_CREATE"
+  | "SQUAD_VIEW"
   | "SQUAD_REQUEST"
+  | "INVITE_CREATOR"
+  | "HIRE_CREATOR"
+  | "HIRE_SQUAD"
+  | "SKILL_ANALYSIS"
+  | "SKILL_GAP"
+  | "SKILL_SWAP"
   | "SKILL_SWAP_REQUEST"
   | "SKILL_SWAP_QUESTION"
   | "SKILL_SWAP_SEARCH"
   | "TIMELINE_QUESTION"
   | "DEPENDENCY_QUESTION"
-  | "BUDGET_QUESTION"
-  | "RESOURCE_QUESTION"
+  | "TECHNICAL_QUESTION"
+  | "EDUCATIONAL_QUESTION"
+  | "EXAM_PREPARATION"
+  | "LAB_QUESTION"
+  | "VIVA_QUESTION"
+  | "PROGRAMMING_QUESTION"
+  | "MATH_QUESTION"
+  | "ROADMAP_CAPABILITY_INQUIRY"
+  | "CREATE_NEW_ROADMAP"
+  | "VIEW_SAVED_ROADMAP"
+  | "VIEW_CURRENT_ROADMAP"
+  | "SAVE_ROADMAP"
+  | "EXPAND_ROADMAP_STAGE"
+  | "COMPARE_ROADMAPS"
+  | "EXPLAIN_TOPIC"
+  | "MODIFY_ROADMAP"
+  | "ROADMAP_MODIFY"
+  | "CONTINUE_ROADMAP"
+  | "LIST_SAVED_ROADMAPS"
+  | "DELETE_ROADMAP"
+  | "ROADMAP_REQUEST"
+  | "ROADMAP_CREATE"
   | "CLARIFICATION"
+  | "FOLLOW_UP"
   | "UNKNOWN";
+
 
 export type ConversationStage =
   | "GENERAL_CHAT"
@@ -275,13 +425,65 @@ export type ConversationStage =
   | "PROJECT_BLUEPRINT"
   | "COMPLETED";
 
+export interface ClientOpportunity {
+  id: string;
+  clientId?: string;
+  title: string;
+  description: string;
+  category: string | null;
+  budget: string | null;
+  duration: string | null;
+  deadline: string | null;
+  skillsRequired: string[];
+  clientName: string;
+  clientUsername?: string;
+  clientAvatar?: string | null;
+  createdAt: string;
+}
+
+export interface SquadResult {
+  id: string;
+  name: string;
+  description: string | null;
+  specialty: string | null;
+  avatarUrl: string | null;
+  ownerId: string;
+  ownerUsername?: string;
+  ownerFullName?: string | null;
+  memberCount: number;
+}
+
+export interface SearchPaginationState {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasMore: boolean;
+}
+
 export interface ConversationState {
   stage: ConversationStage;
   userOriginalRequest?: string;
   projectType?: string;
   projectDomain?: ProjectDomain;
+  activeDomain?: CanonicalDomain;
+  activeProjectId?: string;
+  activeProjectType?: string;
+  projectName?: string;
   projectDescription?: string;
   targetRole?: string;
+  currentUserRole?: string;
+  currentUserType?: "CREATOR" | "CLIENT";
+  activeGoal?: "FIND_JOB" | "HIRE_TALENT" | "BUILD_PROJECT";
+  selectedJobId?: string | null;
+  selectedJob?: ClientOpportunity | null;
+  appliedJobIds?: string[];
+  activeStory?: string;
+  lastSearchType?: "creators" | "clients" | "client_opportunities" | "squads" | null;
+  lastSearchQuery?: Record<string, any>;
+  lastSearchResults?: any[];
+  searchPagination?: SearchPaginationState;
+  selectedSquad?: SquadResult | null;
+  selectedCreator?: CreatorRecommendation | null;
   requirements: {
     roleType?: string;
     gender?: string;
@@ -302,7 +504,7 @@ export interface ConversationState {
     [key: string]: any;
   };
   previouslyAskedQuestions: string[];
-  investigationArea?: "casting" | "story" | "production" | "crew" | "website_purpose" | "features" | "general";
+  investigationArea?: "casting" | "story" | "production" | "crew" | "website_purpose" | "features" | "general" | "performance";
   matchedCreators?: CreatorRecommendation[];
   lastSelectedOption?: string;
 }
@@ -400,6 +602,18 @@ export interface SuggestedRole {
   priority: "essential" | "optional";
 }
 
+export interface LatencyTelemetry {
+  intent: string;
+  execution_mode: "FAST" | "AI" | "HYBRID";
+  intent_detection_ms: number;
+  context_build_ms: number;
+  database_ms: number;
+  ollama_ms: number;
+  response_normalization_ms: number;
+  total_ms: number;
+  first_token_ms?: number;
+}
+
 export interface ChatMessage {
   id: string;
   sender: "user" | "ai" | "system";
@@ -417,6 +631,9 @@ export interface ChatMessage {
     fallbackUsed?: boolean;
     status?: string;
     statusMessage?: string;
+    telemetry?: LatencyTelemetry;
+    executionMode?: "FAST" | "AI" | "HYBRID" | "TOOL" | "RAG";
+    responseOwner?: "FAST_PATH" | "SUPABASE" | "RAG_OLLAMA" | "LLM_GENERATION" | "HYBRID";
   };
   clarifications?: ClarificationQuestion[];
   blueprintPreview?: Partial<OmniForgeProject>;
@@ -433,6 +650,10 @@ export interface ChatMessage {
     skills: string[];
   };
   creatorCards?: CreatorRecommendation[];
+  clientCards?: ClientOpportunity[];
+  squadCards?: SquadResult[];
+  suggestedChips?: string[];
+  searchPagination?: SearchPaginationState;
   missingCapabilities?: MissingCapability[];
   matchingStatus?: "idle" | "loading" | "matched" | "empty" | "error";
   matchingError?: string;
@@ -459,5 +680,48 @@ export interface ChatMessage {
   isError?: boolean;
   errorMessage?: string;
   failedPrompt?: string;
+  roadmapArtifact?: any;
+  projectPlanArtifact?: any;
+  skillReportArtifact?: {
+    skillDna: Record<string, any>;
+    skillGaps: any[];
+    careerGoal: string;
+  };
 }
+
+export interface OmniForgeConversation {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+  state?: ConversationState;
+  activeProjectId?: string | null;
+  activeRoadmapId?: string | null;
+  activeArtifact?: {
+    type: "roadmap" | "project_plan" | "blueprint" | "skill_assessment";
+    data: any;
+  } | null;
+}
+
+export interface SavedRoadmapItem {
+  id: string;
+  userId: string;
+  conversationId?: string;
+  title: string;
+  subject?: string;
+  domain?: string;
+  summary?: string;
+  targetSkillOrOutcome: string;
+  progressPercent: number;
+  totalStages: number;
+  completedStages: number;
+  activeMilestoneTitle: string;
+  roadmapData: any;
+  roadmapType?: "LEARNING" | "EXECUTION";
+  createdAt: string;
+  updatedAt: string;
+}
+
 

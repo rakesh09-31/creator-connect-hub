@@ -246,23 +246,23 @@ function SquadDetailPage() {
   if (!squad) return <div className="text-center py-16 text-muted-foreground">Squad not found</div>;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6">
       <button onClick={() => navigate({ to: "/squads" })} className="flex items-center gap-1 text-sm text-muted-foreground mb-4 hover:text-foreground">
         <ArrowLeft className="w-4 h-4" /> All squads
       </button>
 
       {/* Header */}
-      <div className="rounded-3xl p-8 text-white shadow-lg bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 mb-6">
-        <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-4xl font-black border-2 border-white/30 shadow-inner">
+      <div className="rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-white shadow-lg bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 mb-6">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-5">
+          <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-4xl font-black border-2 border-white/30 shadow-inner shrink-0">
             {squad.name.slice(0, 1).toUpperCase()}
           </div>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">{squad.name}</h1>
+          <div className="flex-1 w-full">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{squad.name}</h1>
             {squad.specialty && <p className="mt-1 text-white/90 text-sm font-medium">{squad.specialty}</p>}
-            {squad.description && <p className="mt-3 text-sm text-white/95 max-w-2xl leading-relaxed">{squad.description}</p>}
+            {squad.description && <p className="mt-3 text-sm text-white/95 max-w-2xl leading-relaxed text-left">{squad.description}</p>}
             
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap justify-center sm:justify-start gap-2">
               {!isMember && myInvite && (
                 <>
                   <button onClick={() => respondInvite("accepted")} className="px-5 py-2 bg-white text-purple-700 rounded-xl text-sm font-bold flex items-center gap-1.5 transition hover:bg-white/90 shadow-sm"><Check className="w-4 h-4" /> Accept invite</button>
