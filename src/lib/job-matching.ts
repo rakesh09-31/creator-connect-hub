@@ -146,6 +146,13 @@ export function normalize(str: string): string {
 export const CANONICAL_ROLE_CAPABILITY_MAP: Record<string, string[]> = {
   actor: [
     "acting",
+    "actors",
+    "actor",
+    "actors for characters",
+    "voice acting",
+    "voiceover",
+    "modelling",
+    "performance",
     "screen performance",
     "theatre acting",
     "method acting",
@@ -153,25 +160,28 @@ export const CANONICAL_ROLE_CAPABILITY_MAP: Record<string, string[]> = {
     "film acting",
     "character portrayal",
     "dramatic acting",
-    "actor",
+    "dialogue delivery",
   ],
   dancer: [
     "dance",
+    "dancer",
     "choreography",
     "stage performance",
     "contemporary dance",
     "hip hop",
     "ballet",
-    "dancer",
   ],
   singer: [
     "singing",
+    "singer",
     "vocal performance",
     "vocalist",
     "vocals",
     "playback singing",
     "voice modulation",
-    "singer",
+    "music composition",
+    "mixing",
+    "mastering",
   ],
   photographer: [
     "photography",
@@ -179,32 +189,63 @@ export const CANONICAL_ROLE_CAPABILITY_MAP: Record<string, string[]> = {
     "photo capture",
     "portrait photography",
     "commercial photography",
+    "event photography",
+    "portraits",
+    "product photography",
     "photographer",
   ],
   "video editor": [
     "video editing",
+    "video editor",
+    "reels editing",
+    "youtube editing",
+    "shorts editing",
     "timeline editing",
     "cut editing",
     "video assembly",
     "post production",
-    "video editor",
+    "post-production",
   ],
   editor: [
     "video editing",
+    "video editor",
     "editing",
     "timeline editing",
     "post production",
+    "post-production",
+    "reels editing",
+    "youtube editing",
     "editor",
   ],
   writer: [
     "writing",
-    "copywriting",
-    "screenwriting",
-    "scriptwriting",
-    "creative writing",
-    "content writing",
-    "storytelling",
     "writer",
+    "content writer",
+    "content writing",
+    "blog writing",
+    "scripts",
+    "scriptwriting",
+    "copywriting",
+    "copywriter",
+    "screenwriting",
+    "creative writing",
+    "storytelling",
+    "content creation",
+  ],
+  "content writer": [
+    "content writing",
+    "content writer",
+    "writing",
+    "writer",
+    "blog writing",
+    "scripts",
+    "scriptwriting",
+    "copywriting",
+    "copywriter",
+    "screenwriting",
+    "creative writing",
+    "storytelling",
+    "content creation",
   ],
   director: [
     "directing",
@@ -223,46 +264,101 @@ export const CANONICAL_ROLE_CAPABILITY_MAP: Record<string, string[]> = {
   ],
   designer: [
     "design",
-    "graphic design",
-    "visual design",
-    "ui ux",
-    "brand identity",
-    "branding design",
     "designer",
+    "graphic design",
+    "graphic designer",
+    "visual design",
+    "logos",
+    "logo design",
+    "branding",
+    "brand identity",
+    "posters",
+    "thumbnails",
+    "ui ux",
+    "ui design",
+    "illustration",
+  ],
+  "graphic designer": [
+    "graphic design",
+    "graphic designer",
+    "design",
+    "designer",
+    "visual design",
+    "logos",
+    "logo design",
+    "branding",
+    "brand identity",
+    "posters",
+    "thumbnails",
+    "ui ux",
+    "illustration",
   ],
   cinematographer: [
     "cinematography",
+    "cinematographer",
     "camera operator",
     "director of photography",
     "dop",
     "lighting cinematography",
-    "cinematographer",
+    "camera work",
   ],
   "voice artist": [
     "voice acting",
     "voiceover",
     "voice actor",
+    "voice artist",
     "narration",
     "dubbing",
     "audiobook narration",
-    "voice artist",
   ],
   "voice actor": [
     "voice acting",
     "voiceover",
     "voice artist",
+    "voice actor",
     "narration",
     "dubbing",
     "audiobook narration",
-    "voice actor",
   ],
   "content creator": [
     "content creation",
+    "content creator",
     "vlogging",
     "reels creation",
     "video production",
     "influencer content",
-    "content creator",
+  ],
+  "web developer": [
+    "web development",
+    "web developer",
+    "developer",
+    "website development",
+    "frontend",
+    "backend",
+    "full stack",
+    "web applications",
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "software engineer",
+    "programming",
+  ],
+  developer: [
+    "web development",
+    "web developer",
+    "developer",
+    "website development",
+    "frontend",
+    "backend",
+    "full stack",
+    "web applications",
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "software engineer",
+    "programming",
   ],
 };
 
@@ -281,7 +377,7 @@ export const RELATED_CAPABILITY_MAP: Record<string, string[]> = {
 
 // Built-in semantic relationship cluster map for synonyms and software tools
 const SEMANTIC_CLUSTERS: Record<string, string[]> = {
-  video_editing: ["video editor", "video editing", "timeline editing", "video assembly", "cut editing"],
+  video_editing: ["video editor", "video editing", "timeline editing", "video assembly", "cut editing", "reels editing", "youtube editing", "shorts editing", "post production", "post-production"],
   premiere: ["premiere pro", "adobe premiere pro", "premiere", "adobe premiere"],
   after_effects: ["after effects", "adobe after effects"],
   davinci: ["davinci resolve", "davinci", "resolve"],
@@ -296,16 +392,16 @@ const SEMANTIC_CLUSTERS: Record<string, string[]> = {
   lightroom: ["lightroom", "adobe lightroom"],
   illustrator: ["illustrator", "adobe illustrator"],
   figma: ["figma", "figma design"],
-  acting: ["actor", "acting", "screen performance", "theatre acting", "method acting", "film acting"],
+  acting: ["actor", "actors", "acting", "screen performance", "theatre acting", "method acting", "film acting", "actors for characters", "performance", "modelling"],
   voice_acting: ["voice actor", "voice acting", "voiceover", "voice artist", "narration", "dubbing"],
-  photography: ["photographer", "photography", "photoshoot"],
+  photography: ["photographer", "photography", "photoshoot", "photo capture", "event photography", "portrait photography", "portraits", "product photography"],
   photo_editing: ["photo editor", "photo editing", "retouching", "portrait retouching"],
-  graphic_design: ["graphic designer", "graphic design", "visual designer"],
-  uiux: ["ui ux designer", "ui designer", "ux designer", "product designer"],
-  web_dev: ["web developer", "frontend developer", "full stack developer", "software engineer"],
-  dance: ["dancer", "dance", "choreographer", "choreography"],
-  singing: ["singer", "singing", "vocalist", "vocals"],
-  writing: ["writer", "writing", "copywriting", "copywriter", "screenwriting", "scriptwriter"],
+  graphic_design: ["graphic designer", "graphic design", "visual designer", "logos", "logo design", "branding", "brand identity", "posters", "thumbnails", "illustration"],
+  uiux: ["ui ux designer", "ui designer", "ux designer", "product designer", "ui ux"],
+  web_dev: ["web developer", "developer", "web development", "website development", "frontend developer", "frontend", "backend developer", "backend", "full stack developer", "full stack", "software engineer", "web applications"],
+  dance: ["dancer", "dance", "choreographer", "choreography", "stage performance"],
+  singing: ["singer", "singing", "vocalist", "vocals", "music composer", "music composition"],
+  writing: ["content writer", "content writing", "writer", "writing", "blog writing", "scripts", "scriptwriting", "copywriting", "copywriter", "screenwriting", "content creation"],
 };
 
 /**
@@ -630,6 +726,83 @@ export function calculateJobMatchScore(
       ? job.rolesRequired
       : [job.title, job.category || ""].filter(Boolean);
 
+  // 1. Guard against empty creator profile (No skills, no roles, no specialties)
+  const creatorHasCapabilities =
+    (creator.roles && creator.roles.length > 0) ||
+    (creator.skills && creator.skills.length > 0) ||
+    (creator.specialties && creator.specialties.length > 0) ||
+    (creator.learningSkills && creator.learningSkills.length > 0);
+
+  if (!creatorHasCapabilities) {
+    return {
+      jobId: job.id,
+      matchScore: 0,
+      tier: "other",
+      tierLabel: "0% Match",
+      allRequiredSkills,
+      exactMatchedSkills: [],
+      semanticMatchedSkills: [],
+      learningMatchedSkills: [],
+      yourMatchingSkills: [],
+      matchedSkills: [],
+      missingSkills: allRequiredSkills,
+      allRequiredSpecialties,
+      matchedSpecialties: [],
+      missingSpecialties: allRequiredSpecialties,
+      matchedRoles: [],
+      missingRoles: jobRoles,
+      isRoleMatch: false,
+      isExperienceMatch: false,
+      experienceLabel: "No profile skills available",
+      searchMatchScore: 0,
+      requiredSkillMatchRatio: 0,
+      skillDetails: [],
+      evidenceDetails: [],
+      matchedRequirements: [],
+      relatedRequirements: [],
+      missingRequirements: [],
+    };
+  }
+
+  // 2. Guard against job with NO identifiable requirements
+  const jobHasIdentifiableRequirements =
+    allRequiredSkills.length > 0 ||
+    allRequiredSpecialties.length > 0 ||
+    (job.rolesRequired && job.rolesRequired.length > 0) ||
+    (job.category && job.category.trim().length > 0) ||
+    (extractSkillsFromText(`${job.title} ${job.description}`).length > 0);
+
+  if (!jobHasIdentifiableRequirements) {
+    return {
+      jobId: job.id,
+      matchScore: 0,
+      tier: "other",
+      tierLabel: "0% Match",
+      allRequiredSkills,
+      exactMatchedSkills: [],
+      semanticMatchedSkills: [],
+      learningMatchedSkills: [],
+      yourMatchingSkills: [],
+      matchedSkills: [],
+      missingSkills: allRequiredSkills,
+      allRequiredSpecialties,
+      matchedSpecialties: [],
+      missingSpecialties: allRequiredSpecialties,
+      matchedRoles: [],
+      missingRoles: jobRoles,
+      isRoleMatch: false,
+      isExperienceMatch: false,
+      experienceLabel: "No requirements specified",
+      searchMatchScore: 0,
+      requiredSkillMatchRatio: 0,
+      skillDetails: [],
+      evidenceDetails: [],
+      matchedRequirements: [],
+      relatedRequirements: [],
+      missingRequirements: [],
+    };
+  }
+
   const evidenceDetails: RequirementEvidence[] = [];
   const matchedRequirements: RequirementEvidence[] = [];
   const relatedRequirements: RequirementEvidence[] = [];
@@ -678,15 +851,15 @@ export function calculateJobMatchScore(
         }
       }
     }
-    roleEvidenceSum = bestStrength > 0 ? bestStrength : 0.2; // neutral base if no role was specified
+    roleEvidenceSum = isRoleMatch ? bestStrength : 0.0;
   }
 
   const roleWeightRatio =
     job.rolesRequired && job.rolesRequired.length > 0
       ? roleEvidenceSum / job.rolesRequired.length
-      : isRoleMatch ? 1.0 : 0.2;
+      : isRoleMatch ? 1.0 : 0.0;
 
-  const rolePoints = Math.min(25.0, Math.max(0, roleWeightRatio * 25.0));
+  const rolePoints = isRoleMatch ? Math.min(25.0, Math.max(0, roleWeightRatio * 25.0)) : 0.0;
 
   // =========================================================================
   // 2. EVALUATE SKILLS (Max 40 points)
@@ -744,10 +917,12 @@ export function calculateJobMatchScore(
   }
 
   const requiredSkillMatchRatio =
-    totalRequiredSkills > 0 ? skillEvidenceSum / totalRequiredSkills : 0.5;
+    totalRequiredSkills > 0 ? skillEvidenceSum / totalRequiredSkills : 0;
 
   const skillPoints =
-    totalRequiredSkills > 0 ? requiredSkillMatchRatio * 40.0 : 20.0;
+    totalRequiredSkills > 0
+      ? (exactMatchedSkills.length + semanticMatchedSkills.length > 0 ? requiredSkillMatchRatio * 40.0 : 0.0)
+      : (isRoleMatch ? 20.0 : 0.0);
 
   // =========================================================================
   // 3. EVALUATE SPECIALTIES (Max 20 points)
@@ -786,7 +961,7 @@ export function calculateJobMatchScore(
         matchedSpecialties.push(cSpec);
       }
     });
-    specialtyEvidenceSum = Math.min(1.0, 0.5 + specBonus * 0.25);
+    specialtyEvidenceSum = specBonus > 0 ? Math.min(1.0, specBonus * 0.5) : 0;
   }
 
   const specialtyRatio =
@@ -851,8 +1026,19 @@ export function calculateJobMatchScore(
   const allRolesSatisfied =
     !job.rolesRequired || job.rolesRequired.length === 0 || matchedRoles.length === job.rolesRequired.length;
 
+  // STRICT RELEVANCE GATE:
+  // If no skills, no specialties, and no roles match, the score is strictly 0%
+  const hasStrictMatch =
+    exactMatchedSkills.length > 0 ||
+    semanticMatchedSkills.length > 0 ||
+    matchedSpecialties.length > 0 ||
+    isRoleMatch;
+
+  if (!hasStrictMatch) {
+    totalScore = 0;
+  }
   // STRICT 100% Condition: Every requirement category is completely satisfied
-  if (
+  else if (
     allSkillsDirectlySatisfied &&
     allSpecialtiesSatisfied &&
     allRolesSatisfied &&
@@ -860,18 +1046,9 @@ export function calculateJobMatchScore(
     (totalRequiredSkills > 0 || totalRequiredSpecialties > 0 || isRoleMatch)
   ) {
     totalScore = 100;
-  }
-  // STRICT 0% Condition: No skills matched, no specialties matched, and no roles matched across entire profile
-  else if (
-    exactMatchedSkills.length === 0 &&
-    semanticMatchedSkills.length === 0 &&
-    matchedSpecialties.length === 0 &&
-    !isRoleMatch
-  ) {
-    totalScore = 0;
   } else {
     const raw = rolePoints + skillPoints + specialtyPoints + expPoints + searchMatchScore;
-    totalScore = Math.min(99, Math.max(0, Math.round(raw)));
+    totalScore = Math.min(99, Math.max(10, Math.round(raw)));
   }
 
   // Tier Classification

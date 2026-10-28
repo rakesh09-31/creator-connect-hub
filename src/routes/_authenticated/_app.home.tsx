@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 import { filterValidMediaItems } from "@/lib/storage";
+import { getRecommendedBriefsForCreator, type RecommendedBrief } from "@/lib/recommendations";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/_app/home")({
@@ -572,45 +573,36 @@ function StoryItem({ label, username, avatarUrl, you, linkTo, hasStory, previewS
 // --- Recommendation Components ---
 
 function RecommendedJobs({ userId }: { userId: string }) {
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<RecommendedBrief[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     const fetchRecs = async () => {
       setLoading(true);
-      const { data: recs, error } = await (supabase.rpc as any)('get_recommended_jobs_for_creator', { p_creator_id: userId, p_limit: 10 });
-      if (!active) return;
-      if (recs && recs.length > 0) {
-        const jobIds = recs.map((r: any) => r.job_id);
-        const { data: jobDetails } = await supabase.from("jobs").select("*").in("id", jobIds);
+      try {
+        const recs = await getRecommendedBriefsForCreator(userId, 10);
         if (!active) return;
-        if (jobDetails) {
-          // Map calculated score, strictly filter out irrelevant / low matches (<50%), and sort descending
-          const meaningfulJobs = jobDetails
-            .map(j => {
-              const rec = recs.find((r: any) => r.job_id === j.id);
-              const score = Math.round(Number(rec?.matching_score ?? rec?.match_score ?? 0));
-              return { ...j, match_score: score };
-            })
-            .filter(j => j.match_score >= 50)
-            .sort((a, b) => b.match_score - a.match_score);
-
-          setJobs(meaningfulJobs);
-        }
-      } else {
-        setJobs([]);
+        setJobs(recs);
+      } catch (err) {
+        console.error("Error fetching recommended briefs:", err);
+        if (active) setJobs([]);
+      } finally {
+        if (active) setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchRecs();
 
-    const channel = supabase.channel(`recs-jobs-${userId}`)
+    const channel = supabase
+      .channel(`recs-jobs-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_roles", filter: `creator_id=eq.${userId}` }, fetchRecs)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_skills", filter: `creator_id=eq.${userId}` }, fetchRecs)
       .on("postgres_changes", { event: "*", schema: "public", table: "creator_specialties", filter: `user_id=eq.${userId}` }, fetchRecs)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, fetchRecs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, fetchRecs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_roles" }, fetchRecs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_skills" }, fetchRecs)
       .subscribe();
 
     return () => {
@@ -620,27 +612,82 @@ function RecommendedJobs({ userId }: { userId: string }) {
   }, [userId]);
 
   if (loading) return null;
-  if (jobs.length === 0) return null;
 
   return (
-    <section className="mt-4 mb-2">
-      <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-1">
-        ✨ Recommended Briefs for You
-      </h2>
-      <div className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
-        {jobs.map(job => (
-          <Link key={job.id} to="/jobs" className="min-w-[240px] p-3 rounded-xl border border-border bg-surface hover:border-brand/40 transition shrink-0 block">
-            <div className="flex justify-between items-start mb-1">
-              <h3 className="font-semibold text-sm truncate pr-2">{job.title}</h3>
-              <span className="text-[10px] font-bold text-brand bg-brand-soft px-1.5 py-0.5 rounded">{job.match_score}% Match</span>
-            </div>
-            <p className="text-xs text-muted-foreground truncate">{job.company_name || 'Anonymous'}</p>
-            <div className="mt-3 flex gap-2">
-              {job.budget && <span className="text-xs font-medium px-2 py-1 bg-muted rounded-md">{job.budget}</span>}
-            </div>
+    <section className="mt-4 mb-3">
+      <div className="flex items-center justify-between mb-2.5">
+        <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+          <span>✨</span>
+          <span>Recommended Briefs for You</span>
+        </h2>
+        {jobs.length > 0 && (
+          <Link to="/jobs" className="text-xs text-brand hover:underline font-medium">
+            Explore all &rarr;
           </Link>
-        ))}
+        )}
       </div>
+
+      {jobs.length === 0 ? (
+        <div className="p-4 rounded-xl border border-dashed border-border bg-surface/50 text-center">
+          <p className="text-xs text-muted-foreground">
+            No matching briefs yet. We’ll show relevant opportunities when clients post projects for your skills.
+          </p>
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden">
+          {jobs.map((job) => (
+            <Link
+              key={job.id}
+              to="/jobs"
+              className="min-w-[250px] max-w-[280px] p-3 rounded-xl border border-border bg-surface hover:border-brand/40 transition shrink-0 block group shadow-xs hover:shadow-sm"
+            >
+              <div className="flex justify-between items-start mb-1 gap-2">
+                <h3 className="font-semibold text-sm truncate text-foreground group-hover:text-brand transition">
+                  {job.title}
+                </h3>
+                <span className="text-[10px] font-bold text-brand bg-brand-soft px-1.5 py-0.5 rounded shrink-0">
+                  {job.match_score}% Match
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground truncate mb-2">
+                {job.company_name || "Anonymous"}
+              </p>
+
+              {/* Matching Skills */}
+              {job.matched_skills && job.matched_skills.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2.5">
+                  {job.matched_skills.slice(0, 3).map((skill: string) => (
+                    <span
+                      key={skill}
+                      className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted/80 text-foreground/80 capitalize"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {job.matched_skills.length > 3 && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
+                      +{job.matched_skills.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-auto flex items-center justify-between pt-1 border-t border-border/40">
+                {job.budget ? (
+                  <span className="text-xs font-medium px-2 py-0.5 bg-muted rounded-md text-foreground/90">
+                    {job.budget}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">Open budget</span>
+                )}
+                <span className="text-[11px] font-medium text-brand group-hover:translate-x-0.5 transition-transform flex items-center">
+                  Apply &rarr;
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

@@ -7,9 +7,29 @@
  * configured inference server.
  */
 
-export const LOCAL_AI_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_LOCAL_AI_URL) ||
-  "http://127.0.0.1:8001";
+/**
+ * Configurable OmniForge Production & Local AI Base URL.
+ * Automatically resolves to current window origin on production web,
+ * public HTTPS production endpoint on Android Capacitor,
+ * or explicit VITE_LOCAL_AI_URL override.
+ */
+export function getLocalAIBaseUrl(): string {
+  if (typeof import.meta !== "undefined" && import.meta.env?.VITE_LOCAL_AI_URL) {
+    const custom = (import.meta.env.VITE_LOCAL_AI_URL as string).trim();
+    if (custom) return custom.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    if (origin && !origin.includes("localhost") && !origin.includes("127.0.0.1")) {
+      return origin;
+    }
+  }
+
+  return "https://creator-connect-hub-eight.vercel.app";
+}
+
+export const LOCAL_AI_BASE_URL = getLocalAIBaseUrl();
 
 import { UserIntent, ProjectActionType, MatchingActionType, SuggestedRole } from "@/lib/omniforge/types";
 
@@ -72,42 +92,51 @@ export interface LocalAIHealthResponse {
  * Checks the status and availability of the local FastAPI backend and Ollama model.
  */
 export async function checkLocalAIHealth(
-  timeoutMs: number = 4000
+  timeoutMs: number = 6000
 ): Promise<LocalAIHealthResponse> {
+  const baseUrl = getLocalAIBaseUrl();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${LOCAL_AI_BASE_URL}/health`, {
+    let res = await fetch(`${baseUrl}/api/health`, {
       method: "GET",
       signal: controller.signal,
-    });
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch(`${baseUrl}/health`, {
+        method: "GET",
+        signal: controller.signal,
+      }).catch(() => null);
+    }
+
     clearTimeout(timer);
 
-    if (res.ok) {
+    if (res && res.ok) {
       let data: any;
       try {
         data = await res.json();
       } catch (jsonErr: any) {
         return {
           status: "error",
-          error: `Failed to parse JSON response from ${LOCAL_AI_BASE_URL}/health: ${jsonErr.message}`,
+          error: `Failed to parse JSON response from ${baseUrl}/api/health: ${jsonErr.message}`,
         };
       }
       return {
-        status: "running",
-        provider: data.provider || "local-ollama",
-        model: data.model || "qwen3:4b",
-        ollama_connected: data.ollama_connected ?? true,
-        model_available: data.model_available ?? true,
+        status: data.status === "running" ? "running" : "error",
+        provider: data.provider || "groq",
+        model: data.model || "qwen/qwen3.8-27b",
+        ollama_connected: Boolean(data.ollama_connected),
+        model_available: Boolean(data.model_available || data.has_key),
       };
     } else {
       // Fallback check on root /
-      const rootRes = await fetch(`${LOCAL_AI_BASE_URL}/`, {
+      const rootRes = await fetch(`${baseUrl}/`, {
         method: "GET",
         signal: controller.signal,
-      });
-      if (rootRes.ok) {
+      }).catch(() => null);
+      if (rootRes && rootRes.ok) {
         let rootData: any;
         try {
           rootData = await rootRes.json();
@@ -116,15 +145,15 @@ export async function checkLocalAIHealth(
         }
         return {
           status: "running",
-          provider: rootData.provider || "local-ollama",
-          model: rootData.model || "qwen3:4b",
-          ollama_connected: true,
+          provider: rootData.provider || "groq",
+          model: rootData.model || "qwen/qwen3.8-27b",
+          ollama_connected: false,
           model_available: true,
         };
       }
       return {
         status: "error",
-        error: `HTTP ${res.status}: Server returned an error`,
+        error: res ? `HTTP ${res.status}: Server returned an error` : "OmniForge AI server did not respond.",
       };
     }
   } catch (err: any) {
@@ -134,8 +163,8 @@ export async function checkLocalAIHealth(
       status: "offline",
       error:
         err.name === "AbortError"
-          ? `Connection to ${LOCAL_AI_BASE_URL} timed out after ${timeoutMs}ms.`
-          : `Local AI server unreachable at ${LOCAL_AI_BASE_URL} (${detail}).`,
+          ? `Connection to ${baseUrl} timed out after ${timeoutMs}ms.`
+          : `AI server unreachable at ${baseUrl} (${detail}).`,
     };
   }
 }
@@ -392,9 +421,12 @@ export async function sendLocalAIChatMessage(
       payload.rag_context = effectiveRagContext;
     }
 
+    const baseUrl = getLocalAIBaseUrl();
+    const chatUrl = `${baseUrl}/api/chat`;
+
     if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
       console.log("[LocalAI Diagnostics] Pre-fetch init:", {
-        url: `${LOCAL_AI_BASE_URL}/chat`,
+        url: chatUrl,
         stage: "init",
         stream: isStreaming,
         messageLength: trimmed.length,
@@ -405,7 +437,7 @@ export async function sendLocalAIChatMessage(
       });
     }
 
-    const res = await fetch(`${LOCAL_AI_BASE_URL}/chat`, {
+    const res = await fetch(chatUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -417,7 +449,7 @@ export async function sendLocalAIChatMessage(
 
     if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
       console.log("[LocalAI Diagnostics] Post-fetch response received:", {
-        url: `${LOCAL_AI_BASE_URL}/chat`,
+        url: chatUrl,
         stage: "response",
         status: res.status,
         statusText: res.statusText,
@@ -553,7 +585,7 @@ export async function sendLocalAIChatMessage(
       if (!cleanedAnswer) {
         console.warn("[LocalAI] Streaming produced no text. Attempting non-streaming fallback...");
         try {
-          const fbRes = await fetch(`${LOCAL_AI_BASE_URL}/chat`, {
+          const fbRes = await fetch(chatUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -670,7 +702,7 @@ export async function sendLocalAIChatMessage(
 
     if (typeof import.meta !== "undefined" && import.meta.env?.DEV) {
       console.error("[LocalAI Diagnostics] Chat request failed:", {
-        url: `${LOCAL_AI_BASE_URL}/chat`,
+        url: chatUrl,
         errorName: err?.name,
         errorMessage: err?.message,
       });
@@ -682,24 +714,24 @@ export async function sendLocalAIChatMessage(
       }
       if (isAbortedByIdle) {
         throw new Error(
-          `Local AI connection was idle for ${Math.round(TIMEOUT_CREATIVE_IDLE / 1000)}s without receiving any data. Please verify that Ollama is running and click Retry.`
+          `AI service connection was idle for ${Math.round(TIMEOUT_CREATIVE_IDLE / 1000)}s without receiving any data. Please verify your connection and click Retry.`
         );
       }
       if (streamReceivedAnyData) {
         throw new Error(
-          "Story generation was interrupted. Retry from the last completed point."
+          "Generation was interrupted. Retry from the last completed point."
         );
       }
       const timeoutSec = Math.round(safeTimeout / 1000);
       throw new Error(
-        `Request timed out after ${timeoutSec}s. The local AI took too long to generate a response. Click Retry to try again.`
+        `Request timed out after ${timeoutSec}s. The AI provider took too long to generate a response. Click Retry to try again.`
       );
     }
 
     // Specific network failure
     if (err instanceof TypeError && err.message && err.message.includes("Failed to fetch")) {
       throw new Error(
-        `Network error: Failed to fetch from ${LOCAL_AI_BASE_URL}/chat. Check that the FastAPI server is running at ${LOCAL_AI_BASE_URL} and Private Network Access / CORS is allowed.`
+        `Network error: Failed to connect to OmniForge AI at ${chatUrl}. Please verify network connectivity and backend health.`
       );
     }
 
@@ -716,13 +748,14 @@ export async function testLocalAIConnection(): Promise<{
   chatOptionsPreflight: any;
   chatPost: any;
 }> {
-  console.log("=== [LocalAI Diagnostic Test Starting] ===");
+  const baseUrl = getLocalAIBaseUrl();
+  console.log("=== [LocalAI Diagnostic Test Starting against " + baseUrl + "] ===");
   const results: any = {};
 
   // 1. Health check
   try {
-    console.log("[Test 1/3] Testing GET /health ...");
-    const hRes = await fetch(`${LOCAL_AI_BASE_URL}/health`);
+    console.log("[Test 1/3] Testing GET /api/health ...");
+    const hRes = await fetch(`${baseUrl}/api/health`);
     results.health = {
       status: hRes.status,
       ok: hRes.ok,
@@ -736,8 +769,8 @@ export async function testLocalAIConnection(): Promise<{
 
   // 2. OPTIONS preflight check
   try {
-    console.log("[Test 2/3] Testing OPTIONS /chat preflight ...");
-    const oRes = await fetch(`${LOCAL_AI_BASE_URL}/chat`, {
+    console.log("[Test 2/3] Testing OPTIONS /api/chat preflight ...");
+    const oRes = await fetch(`${baseUrl}/api/chat`, {
       method: "OPTIONS",
       headers: {
         "Access-Control-Request-Method": "POST",
@@ -749,7 +782,6 @@ export async function testLocalAIConnection(): Promise<{
       ok: oRes.ok,
       allowOrigin: oRes.headers.get("access-control-allow-origin"),
       allowMethods: oRes.headers.get("access-control-allow-methods"),
-      allowPNA: oRes.headers.get("access-control-allow-private-network"),
     };
     console.log("[Test 2/3 Passed] Preflight result:", results.chatOptionsPreflight);
   } catch (err: any) {

@@ -345,49 +345,78 @@ export async function orchestrateOmniForgeConversation(
         };
       } else {
         llmFailureReason = sanitizeErrorMessage(llmResult.error || "PROVIDER_UNSUCCESSFUL");
-        console.warn(`[Orchestrator] Provider ${activeProvider.provider} returned error: ${llmFailureReason}. Engaging local semantic fallback.`);
+        console.warn(`[Orchestrator] Provider ${activeProvider.provider} returned error: ${llmFailureReason}.`);
+        return {
+          structuredResponse: {
+            intent: "GENERAL_CONVERSATION",
+            responseLevel: "SIMPLE_ANSWER",
+            message: `⚠️ **AI Service Temporarily Unavailable**: The live AI inference service encountered an issue (${llmFailureReason}). Please retry your request in a moment.`,
+            conversationState: params.conversationState || undefined,
+            suggestedFollowUps: [
+              "Retry request",
+              "Check system status",
+            ],
+          },
+          meta: {
+            provider: activeProvider.provider,
+            model: activeProvider.model,
+            isRealLLM: false,
+            latencyMs: Date.now() - startTime,
+            fallbackUsed: false,
+            error: llmFailureReason,
+            status: "provider_error",
+            statusMessage: `Live inference error: ${llmFailureReason}`,
+          },
+        };
       }
     } catch (llmErr: any) {
       llmFailureReason = sanitizeErrorMessage(llmErr.message || "PROVIDER_EXCEPTION");
-      console.warn("[Orchestrator] Real LLM request failed, falling back to local semantic engine:", llmFailureReason);
+      console.warn("[Orchestrator] Real LLM request threw exception:", llmFailureReason);
+      return {
+        structuredResponse: {
+          intent: "GENERAL_CONVERSATION",
+          responseLevel: "SIMPLE_ANSWER",
+          message: `⚠️ **AI Service Temporarily Unavailable**: An unexpected error occurred while communicating with the AI provider (${llmFailureReason}).`,
+          conversationState: params.conversationState || undefined,
+          suggestedFollowUps: [
+            "Retry request",
+            "Check system status",
+          ],
+        },
+        meta: {
+          provider: activeProvider.provider,
+          model: activeProvider.model,
+          isRealLLM: false,
+          latencyMs: Date.now() - startTime,
+          fallbackUsed: false,
+          error: llmFailureReason,
+          status: "provider_error",
+          statusMessage: `Live inference exception: ${llmFailureReason}`,
+        },
+      };
     }
   }
 
-  // Fallback: Robust local semantic orchestrator (used when no API key configured or upon provider error)
-  const fallbackResponse = await processConversationalOmniForgeMessage(
-    params.text,
-    params.activeProject,
-    params.conversationHistory,
-    params.userType,
-    params.userId,
-    params.conversationState
-  );
-
-  const status: OmniForgeProviderStatus =
-    activeProvider.provider === "none"
-      ? "no_provider"
-      : llmFailureReason
-      ? "provider_error"
-      : "fallback_active";
-
-  const statusMessage =
-    activeProvider.provider === "none"
-      ? "No external LLM provider configured. Deterministic semantic orchestrator active."
-      : llmFailureReason
-      ? `External provider ${activeProvider.provider} error: ${llmFailureReason}. Deterministic fallback active.`
-      : "Deterministic semantic fallback active.";
-
+  // When no live LLM key is configured in the environment
   return {
-    structuredResponse: fallbackResponse,
+    structuredResponse: {
+      intent: "GENERAL_CONVERSATION",
+      responseLevel: "SIMPLE_ANSWER",
+      message: `⚠️ **AI Provider Not Configured**: No live LLM provider API key (e.g. GROQ_API_KEY) was configured in the server environment. Please set up your credentials to enable live OmniForge AI.`,
+      conversationState: params.conversationState || undefined,
+      suggestedFollowUps: [
+        "Check system status",
+      ],
+    },
     meta: {
-      provider: activeProvider.provider !== "none" ? activeProvider.provider : "local-semantic",
-      model: activeProvider.provider !== "none" ? activeProvider.model : "hybrid-orchestrator",
+      provider: "none",
+      model: "none",
       isRealLLM: false,
       latencyMs: Date.now() - startTime,
-      fallbackUsed: true,
-      error: llmFailureReason || (activeProvider.provider === "none" ? "NO_EXTERNAL_KEY_CONFIGURED" : undefined),
-      status,
-      statusMessage,
+      fallbackUsed: false,
+      error: "NO_EXTERNAL_KEY_CONFIGURED",
+      status: "no_provider",
+      statusMessage: "No external LLM provider configured in server environment.",
     },
   };
 }

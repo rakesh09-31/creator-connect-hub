@@ -1211,29 +1211,30 @@ function OmniForgePage() {
       setActiveProject(null);
     }
 
-    // Inspect local AI health on mount (FastAPI running at http://127.0.0.1:8001)
+    // Inspect OmniForge AI health on mount
     checkLocalAIHealth()
       .then((health) => {
         if (health.status === "running") {
+          const providerLabel = health.provider === "groq" ? "Groq Cloud" : (health.provider || "Production AI");
           setIntelligenceInfo({
-            provider: health.provider || "local-ollama",
-            model: health.model || "qwen3:4b",
+            provider: health.provider || "groq",
+            model: health.model || "qwen/qwen3.8-27b",
             isRealLLM: true,
             status: "live_verified",
-            statusMessage: `Local AI Active • Ollama (${health.model || "qwen3:4b"}) at 127.0.0.1:8001`,
+            statusMessage: `OmniForge AI Active • ${providerLabel} (${health.model || "qwen/qwen3.8-27b"})`,
           });
         } else {
           setIntelligenceInfo({
-            provider: "local-ollama",
-            model: "qwen3:4b",
+            provider: health.provider || "groq",
+            model: health.model || "qwen/qwen3.8-27b",
             isRealLLM: false,
             status: "provider_error",
-            statusMessage: health.error || "Local AI engine at http://127.0.0.1:8001 is offline.",
+            statusMessage: health.error || "OmniForge AI engine is offline or credentials missing.",
           });
         }
       })
       .catch((err) => {
-        console.warn("[OmniForge] Could not check local AI health:", err);
+        console.warn("[OmniForge] Could not check AI health:", err);
       });
   }, []);
 
@@ -4369,19 +4370,19 @@ function OmniForgePage() {
         status: "live_verified",
         statusMessage: isFastAction
           ? `Fast Path Active • Instant (< ${totalMs}ms)`
-          : `Local AI Active • ${localAiProvider.toUpperCase()} (${localAiModel})`,
+          : `OmniForge AI Active • ${localAiProvider.toUpperCase()} (${localAiModel})`,
       });
     } catch (err: any) {
       if (currentAbortController.signal.aborted || err?.message === "Generation was cancelled.") {
         console.log("[OmniForge] Generation cancelled by user.");
         return;
       }
-      console.error("Local AI Chat error:", err);
+      console.error("OmniForge AI Chat error:", err);
       let errorMessage =
-        err?.message || "Failed to communicate with local AI engine at http://127.0.0.1:8001.";
+        err?.message || "Failed to communicate with OmniForge AI service.";
 
       if (err?.isInterrupted || errorMessage.toLowerCase().includes("interrupted")) {
-        errorMessage = "Story generation was interrupted. Retry from the last completed point.";
+        errorMessage = "Generation was interrupted. Retry from the last completed point.";
       }
 
       const errorMsg: ChatMessage = {

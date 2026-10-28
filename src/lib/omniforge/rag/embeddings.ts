@@ -8,7 +8,7 @@
 export const OLLAMA_BASE_URL =
   (typeof import.meta !== "undefined" && (import.meta.env?.VITE_OLLAMA_BASE_URL || import.meta.env?.OLLAMA_BASE_URL)) ||
   (typeof process !== "undefined" && process.env?.OLLAMA_BASE_URL) ||
-  "http://localhost:11434";
+  (typeof window !== "undefined" && window.location.protocol === "https:" ? "" : "http://localhost:11434");
 
 export const OLLAMA_EMBED_MODEL = "nomic-embed-text";
 export const EXPECTED_EMBEDDING_DIMENSION = 768;
@@ -35,6 +35,10 @@ export async function generateEmbedding(text: string, timeoutMs: number = 20000)
   const cleaned = cleanTextForEmbedding(text);
   if (!cleaned) {
     throw new Error("[RAG Embeddings] Cannot generate embedding for empty text.");
+  }
+
+  if (!OLLAMA_BASE_URL) {
+    return new Array(EXPECTED_EMBEDDING_DIMENSION).fill(0);
   }
 
   const controller = new AbortController();

@@ -302,6 +302,188 @@ async function callOpenAICompatible(
 }
 
 /**
+ * OpenAI, Groq, and OpenRouter streaming chat completion.
+ */
+async function callOpenAICompatibleStream(
+  active: { provider: any; model: string; apiKey?: string; baseUrl?: string },
+  params: {
+    messages: LLMMessage[];
+    temperature?: number;
+    maxTokens?: number;
+    onDelta: (delta: string, accumulated: string) => void;
+    signal?: AbortSignal;
+  },
+  startTime: number,
+  timeoutMs: number
+): Promise<LLMExecutionResult> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (params.signal) {
+    if (params.signal.aborted) {
+      controller.abort();
+    } else {
+      params.signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
+  try {
+    const payload: any = {
+      model: active.model,
+      messages: params.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      temperature: params.temperature ?? 0.4,
+      max_tokens: params.maxTokens ?? 2048,
+      stream: true,
+    };
+
+    const res = await fetch(`${active.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${active.apiKey}`,
+        ...(active.provider === "openrouter" ? { "HTTP-Referer": "https://omnicraft.dev", "X-Title": "OmniForge" } : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      let sanitized = "";
+      try {
+        const json = JSON.parse(errText);
+        sanitized = json?.error?.message || errText;
+      } catch {
+        sanitized = errText;
+      }
+      sanitized = sanitizeErrorMessage(sanitized);
+      return {
+        success: false,
+        text: "",
+        provider: active.provider,
+        model: active.model,
+        latencyMs: Date.now() - startTime,
+        error: `HTTP ${res.status}: ${sanitized.slice(0, 300)}`,
+      };
+    }
+
+    if (!res.body) {
+      return {
+        success: false,
+        text: "",
+        provider: active.provider,
+        model: active.model,
+        latencyMs: Date.now() - startTime,
+        error: "NO_STREAM_BODY",
+      };
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    let accumulated = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const dataStr = trimmed.slice(5).trim();
+          if (!dataStr || dataStr === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(dataStr);
+            const delta = parsed.choices?.[0]?.delta?.content || "";
+            if (delta) {
+              accumulated += delta;
+              params.onDelta(delta, accumulated);
+            }
+          } catch {
+            // Ignore partial SSE chunk parse error
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return {
+      success: true,
+      text: accumulated,
+      provider: active.provider,
+      model: active.model,
+      latencyMs: Date.now() - startTime,
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Executes a streaming chat completion request to the active LLM provider.
+ */
+export async function executeLLMStreamingChatCompletion(params: {
+  messages: LLMMessage[];
+  temperature?: number;
+  maxTokens?: number;
+  timeoutMs?: number;
+  onDelta: (delta: string, accumulated: string) => void;
+  signal?: AbortSignal;
+}): Promise<LLMExecutionResult> {
+  const config = getServerConfig();
+  const active = getActiveLLMProvider(config);
+  const startTime = Date.now();
+  const timeoutMs = params.timeoutMs || 45000;
+
+  if (active.provider === "none" || !active.apiKey) {
+    return {
+      success: false,
+      text: "",
+      provider: "none",
+      model: "none",
+      latencyMs: Date.now() - startTime,
+      error: "NO_LLM_KEY_CONFIGURED",
+    };
+  }
+
+  try {
+    if (active.provider === "openai" || active.provider === "groq" || active.provider === "openrouter") {
+      return await callOpenAICompatibleStream(active, params, startTime, timeoutMs);
+    }
+
+    // For gemini/anthropic, execute completion and deliver as a single delta
+    const result = await executeLLMChatCompletion(params);
+    if (result.success && result.text) {
+      params.onDelta(result.text, result.text);
+    }
+    return result;
+  } catch (err: any) {
+    const sanitized = sanitizeErrorMessage(err.message || String(err));
+    console.error(`[LLM Provider ${active.provider} Stream] Error:`, sanitized);
+    return {
+      success: false,
+      text: "",
+      provider: active.provider,
+      model: active.model,
+      latencyMs: Date.now() - startTime,
+      error: err.name === "AbortError" ? "TIMEOUT" : sanitized,
+    };
+  }
+}
+
+/**
  * Google Gemini API adapter.
  */
 async function callGeminiAPI(
