@@ -6,9 +6,8 @@
  */
 
 export const OLLAMA_BASE_URL =
-  (typeof import.meta !== "undefined" && (import.meta.env?.VITE_OLLAMA_BASE_URL || import.meta.env?.OLLAMA_BASE_URL)) ||
-  (typeof process !== "undefined" && process.env?.OLLAMA_BASE_URL) ||
-  (typeof window !== "undefined" && window.location.protocol === "https:" ? "" : "http://localhost:11434");
+  (typeof process !== "undefined" && (process.env?.OLLAMA_BASE_URL || process.env?.OLLAMA_HOST)) ||
+  "";
 
 export const OLLAMA_EMBED_MODEL = "nomic-embed-text";
 export const EXPECTED_EMBEDDING_DIMENSION = 768;

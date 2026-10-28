@@ -49,7 +49,11 @@ export function getServerConfig() {
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY,
     supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
     
-    // External LLM Provider Configurations (Server-Only, never bundled to client)
+    // Primary OmniForge Inference Provider: Ollama (Server-Only, never bundled to client)
+    ollamaBaseUrl: (process.env.OLLAMA_BASE_URL || process.env.OLLAMA_HOST || "").trim().replace(/\/+$/, ""),
+    ollamaModel: (process.env.OLLAMA_MODEL || "qwen3:4b").trim(),
+
+    // Optional Secondary Cloud LLM Provider Configurations (Server-Only)
     openaiApiKey: process.env.OPENAI_API_KEY,
     openaiBaseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
     openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
@@ -69,4 +73,3 @@ export function getServerConfig() {
 }
 
 export type ServerConfig = ReturnType<typeof getServerConfig>;
-

@@ -6,9 +6,10 @@
  * - POST/OPTIONS /chat & /api/chat
  *
  * Features:
- * - Live Groq cloud LLM provider integration (qwen/qwen3.8-27b)
- * - Server-side secret protection (never exposes API keys)
- * - Progressive SSE streaming compatible with browser fetch and Android WebView
+ * - Primary inference provider: Ollama (model: qwen3:4b) via /api/chat
+ * - Progressive NDJSON-to-SSE streaming compatible with browser fetch and Android WebView
+ * - Live health checks accurately verifying Ollama reachability and loaded models
+ * - Server-side inference encapsulation (never exposes private inference endpoints or keys to client)
  * - Autonomous project blueprint and Supabase creator matching execution
  * - Production CORS handling and request validation
  * - In-memory rate limiting and timeout management
@@ -17,6 +18,7 @@
 import { getServerConfig } from "../../config.server";
 import {
   getActiveLLMProvider,
+  checkOllamaHealth,
   executeLLMChatCompletion,
   executeLLMStreamingChatCompletion,
   inspectLLMProviderConfiguration,
@@ -166,24 +168,50 @@ export async function handleAIRoute(request: Request): Promise<Response | null> 
       });
     }
 
+    const config = getServerConfig();
+    const active = getActiveLLMProvider(config);
     const providerInfo = inspectLLMProviderConfiguration();
-    const isReady = providerInfo.hasKey;
+
+    let isReady = false;
+    let ollamaConnected = false;
+    let modelAvailable = false;
+    let status: "running" | "degraded" | "offline" = "offline";
+    let statusMessage = providerInfo.statusMessage;
+
+    if (active.provider === "ollama") {
+      if (active.baseUrl) {
+        // Inspect reachability and model availability on the configured Ollama host
+        const ollamaCheck = await checkOllamaHealth(active.baseUrl, active.model, 3500);
+        ollamaConnected = ollamaCheck.connected;
+        modelAvailable = ollamaCheck.modelAvailable;
+        status = ollamaCheck.status;
+        statusMessage = ollamaCheck.statusMessage;
+        isReady = ollamaCheck.connected && ollamaCheck.modelAvailable;
+      } else {
+        status = "offline";
+        statusMessage = "OLLAMA_BASE_URL is not configured in server environment. Set OLLAMA_BASE_URL (and optionally OLLAMA_MODEL).";
+      }
+    } else {
+      isReady = Boolean(active.apiKey);
+      status = isReady ? "running" : "offline";
+      modelAvailable = isReady;
+    }
 
     const healthData = {
-      status: isReady ? "running" : "degraded",
+      status,
       application: "OmniForge AI Production Engine",
-      provider: providerInfo.provider,
-      model: providerInfo.model,
-      has_key: providerInfo.hasKey,
-      ollama_connected: false,
-      model_available: providerInfo.hasKey,
-      status_message: providerInfo.statusMessage,
+      provider: active.provider,
+      model: active.model,
+      has_key: active.provider === "ollama" ? Boolean(active.baseUrl) : Boolean(active.apiKey),
+      ollama_connected: ollamaConnected,
+      model_available: modelAvailable,
+      status_message: statusMessage,
       version: "2.0.0",
       timestamp: new Date().toISOString(),
     };
 
     return new Response(JSON.stringify(healthData), {
-      status: 200,
+      status: status === "running" ? 200 : (status === "degraded" ? 200 : 503),
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -229,9 +257,18 @@ export async function handleAIRoute(request: Request): Promise<Response | null> 
     const activeProvider = getActiveLLMProvider(config);
     const isStream = Boolean(body?.stream);
 
-    // Fail immediately if no provider credentials configured (Requirement 7: Never silently return mock responses)
-    if (activeProvider.provider === "none" || !activeProvider.apiKey) {
-      const errMsg = "No live LLM API key configured in server environment (e.g. GROQ_API_KEY).";
+    const isConfigured =
+      activeProvider.provider === "ollama"
+        ? Boolean(activeProvider.baseUrl)
+        : activeProvider.provider !== "none" && Boolean(activeProvider.apiKey);
+
+    // Fail immediately if no provider credentials or baseUrl configured (Requirement 8: Never silently return mock responses)
+    if (!isConfigured) {
+      const errMsg =
+        activeProvider.provider === "ollama"
+          ? "OLLAMA_BASE_URL is not configured in server environment. Please set OLLAMA_BASE_URL (and optionally OLLAMA_MODEL)."
+          : `No live LLM API key configured in server environment for provider '${activeProvider.provider}'.`;
+
       if (isStream) {
         return new Response(
           `data: ${JSON.stringify({ error: errMsg })}\n\n`,
@@ -249,8 +286,8 @@ export async function handleAIRoute(request: Request): Promise<Response | null> 
         JSON.stringify({
           success: false,
           error: errMsg,
-          provider: "none",
-          model: "none",
+          provider: activeProvider.provider,
+          model: activeProvider.model,
         }),
         {
           status: 503,
@@ -411,7 +448,7 @@ export async function handleAIRoute(request: Request): Promise<Response | null> 
               messages: conversationMessages,
               temperature: 0.4,
               maxTokens: 2048,
-              timeoutMs: 40000,
+              timeoutMs: 60000,
               signal: request.signal,
               onDelta: (delta, acc) => {
                 accumulatedText = acc;
@@ -479,7 +516,7 @@ export async function handleAIRoute(request: Request): Promise<Response | null> 
         messages: conversationMessages,
         temperature: 0.4,
         maxTokens: 2048,
-        timeoutMs: 40000,
+        timeoutMs: 60000,
       });
 
       if (!completionResult.success) {

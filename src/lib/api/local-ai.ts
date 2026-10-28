@@ -1,10 +1,10 @@
 /**
- * Local AI Backend Client
- * Connects directly to the local FastAPI inference engine running at http://127.0.0.1:8001.
+ * OmniForge AI Backend Client
+ * Connects to OmniForge AI server routes (/api/chat and /api/health).
+ * Server routes delegate inference server-side to Ollama (default model: qwen3:4b).
  *
- * NOTE: This backend runs locally on the user's computer via Ollama (qwen3:4b).
- * It will not work for external users or production deployments without a separately
- * configured inference server.
+ * NOTE: Private inference endpoints (such as Ollama base URL) remain strictly
+ * on the server and are never bundled or exposed to client browsers.
  */
 
 /**
@@ -21,8 +21,12 @@ export function getLocalAIBaseUrl(): string {
 
   if (typeof window !== "undefined" && window.location) {
     const origin = window.location.origin;
-    if (origin && !origin.includes("localhost") && !origin.includes("127.0.0.1")) {
-      return origin;
+    // For Capacitor native mobile app where origin is capacitor:// or localhost without app port, route to production host
+    if (origin.startsWith("capacitor:") || (origin.includes("localhost") && window.location.port !== "8081")) {
+      return "https://creator-connect-hub-eight.vercel.app";
+    }
+    if (origin) {
+      return origin.replace(/\/+$/, "");
     }
   }
 
@@ -125,10 +129,11 @@ export async function checkLocalAIHealth(
       }
       return {
         status: data.status === "running" ? "running" : "error",
-        provider: data.provider || "groq",
-        model: data.model || "qwen/qwen3.8-27b",
+        provider: data.provider || "ollama",
+        model: data.model || "qwen3:4b",
         ollama_connected: Boolean(data.ollama_connected),
-        model_available: Boolean(data.model_available || data.has_key),
+        model_available: Boolean(data.model_available),
+        error: data.error || (data.status !== "running" ? data.status_message : undefined),
       };
     } else {
       // Fallback check on root /
@@ -145,9 +150,9 @@ export async function checkLocalAIHealth(
         }
         return {
           status: "running",
-          provider: rootData.provider || "groq",
-          model: rootData.model || "qwen/qwen3.8-27b",
-          ollama_connected: false,
+          provider: rootData.provider || "ollama",
+          model: rootData.model || "qwen3:4b",
+          ollama_connected: Boolean(rootData.ollama_connected),
           model_available: true,
         };
       }

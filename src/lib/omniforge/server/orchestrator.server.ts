@@ -148,8 +148,13 @@ export async function orchestrateOmniForgeConversation(
 
   let llmFailureReason: string | undefined = undefined;
 
-  // If a real LLM provider is configured with an API key, invoke the LLM pipeline
-  if (activeProvider.provider !== "none" && activeProvider.apiKey) {
+  // If a real LLM provider is configured (e.g. Ollama with baseUrl or cloud provider with apiKey), invoke the LLM pipeline
+  const isConfigured =
+    activeProvider.provider === "ollama"
+      ? Boolean(activeProvider.baseUrl)
+      : activeProvider.provider !== "none" && Boolean(activeProvider.apiKey);
+
+  if (isConfigured) {
     try {
       const llmMessages: LLMMessage[] = [
         { role: "system", content: SYSTEM_PROMPT },
@@ -276,7 +281,7 @@ export async function orchestrateOmniForgeConversation(
               tokensUsed: (llmResult.tokensUsed || 0) + (secondPass.tokensUsed || 0),
               toolCallsExecuted,
               status: "live_verified",
-              statusMessage: `Live cloud LLM inference verified via ${activeProvider.provider} (${activeProvider.model})`,
+              statusMessage: `Live inference verified via ${activeProvider.provider} (${activeProvider.model})`,
             },
           };
         }
@@ -319,7 +324,7 @@ export async function orchestrateOmniForgeConversation(
               latencyMs: Date.now() - startTime,
               tokensUsed: llmResult.tokensUsed,
               status: "live_verified",
-              statusMessage: `Live cloud LLM inference verified with autonomous creator matching via ${activeProvider.provider} (${activeProvider.model})`,
+              statusMessage: `Live inference verified with autonomous creator matching via ${activeProvider.provider} (${activeProvider.model})`,
             },
           };
         }
@@ -340,7 +345,7 @@ export async function orchestrateOmniForgeConversation(
             latencyMs: Date.now() - startTime,
             tokensUsed: llmResult.tokensUsed,
             status: "live_verified",
-            statusMessage: `Live cloud LLM inference verified via ${activeProvider.provider} (${activeProvider.model})`,
+            statusMessage: `Live inference verified via ${activeProvider.provider} (${activeProvider.model})`,
           },
         };
       } else {
@@ -402,7 +407,9 @@ export async function orchestrateOmniForgeConversation(
     structuredResponse: {
       intent: "GENERAL_CONVERSATION",
       responseLevel: "SIMPLE_ANSWER",
-      message: `⚠️ **AI Provider Not Configured**: No live LLM provider API key (e.g. GROQ_API_KEY) was configured in the server environment. Please set up your credentials to enable live OmniForge AI.`,
+      message: activeProvider.provider === "ollama"
+        ? `⚠️ **AI Provider Not Configured**: OLLAMA_BASE_URL is not configured in the server environment. Please set OLLAMA_BASE_URL (and optionally OLLAMA_MODEL) to enable live OmniForge AI.`
+        : `⚠️ **AI Provider Not Configured**: No live LLM provider credentials configured in the server environment. Please set up your credentials to enable live OmniForge AI.`,
       conversationState: params.conversationState || undefined,
       suggestedFollowUps: [
         "Check system status",

@@ -1215,21 +1215,21 @@ function OmniForgePage() {
     checkLocalAIHealth()
       .then((health) => {
         if (health.status === "running") {
-          const providerLabel = health.provider === "groq" ? "Groq Cloud" : (health.provider || "Production AI");
+          const providerLabel = health.provider === "ollama" ? "Ollama AI" : (health.provider === "groq" ? "Groq Cloud" : (health.provider || "Production AI"));
           setIntelligenceInfo({
-            provider: health.provider || "groq",
-            model: health.model || "qwen/qwen3.8-27b",
+            provider: health.provider || "ollama",
+            model: health.model || "qwen3:4b",
             isRealLLM: true,
             status: "live_verified",
-            statusMessage: `OmniForge AI Active • ${providerLabel} (${health.model || "qwen/qwen3.8-27b"})`,
+            statusMessage: `OmniForge AI Active • ${providerLabel} (${health.model || "qwen3:4b"})`,
           });
         } else {
           setIntelligenceInfo({
-            provider: health.provider || "groq",
-            model: health.model || "qwen/qwen3.8-27b",
+            provider: health.provider || "ollama",
+            model: health.model || "qwen3:4b",
             isRealLLM: false,
             status: "provider_error",
-            statusMessage: health.error || "OmniForge AI engine is offline or credentials missing.",
+            statusMessage: health.error || "Ollama AI engine is offline or unreachable.",
           });
         }
       })
